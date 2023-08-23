@@ -33,6 +33,23 @@ EXPOSE 22 8123
 # Replace sh by bash so that the terminal window in Docker Desktop starts with bash
 RUN ln -sf /bin/bash /bin/sh
 
+# ------------------------------------------------------------------------------
+# base_with_source
+# This is the base image for the dev_image and prod_image targets
+# ------------------------------------------------------------------------------
+
+FROM base as base_with_source
+
+# Initialise pnpm
+ENV SHELL bash
+ENV PNPM_HOME /pnpm
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm setup 
+
+# Add the source code
+COPY . /app
+WORKDIR /app
+
 
 # ------------------------------------------------------------------------------
 # dev_image
@@ -40,58 +57,34 @@ RUN ln -sf /bin/bash /bin/sh
 # This target can also be used for automated builds on Docker Hub
 # ------------------------------------------------------------------------------
 
-FROM base as dev_image
+FROM base_with_source as dev_image
 
-# Initialise pnpm
-ENV SHELL bash
-ENV PNPM_HOME /pnpm
-ENV PATH="$PNPM_HOME:$PATH"
-RUN pnpm setup 
+# Install dev dependencies
+ENV NODE_ENV development
+RUN pnpm install
 
-# Add the source code
-ADD ./app /app
-WORKDIR /app
+# Build the code
+RUN npm run build
 
 # Run the node project on the start of the container
 CMD npm run dev
 
 # ------------------------------------------------------------------------------
-# build_image
+# prod_image
+# Use this target to build a prod image from the source code
+# This target can also be used for automated builds on Docker Hub
 # ------------------------------------------------------------------------------
 
-FROM base as build_image
+FROM base_with_source as prod_image
 
-# Initialise pnpm
-ENV SHELL bash
-ENV PNPM_HOME /pnpm
-ENV PATH="$PNPM_HOME:$PATH"
-RUN pnpm setup 
+# Install prod dependencies
+ENV NODE_ENV production
+RUN pnpm install
 
-# Add the source code
-ADD ./app /app
-WORKDIR /app
-
-# Run the node project on the start of the container
+# Build the code
 RUN npm run build
 
-# ------------------------------------------------------------------------------
-# prod_image
-# TODO - Copy build output
-# ------------------------------------------------------------------------------
-
-FROM base as prod_image
-
-# Initialise pnpm
-ENV SHELL bash
-ENV PNPM_HOME /pnpm
-ENV PATH="$PNPM_HOME:$PATH"
-RUN pnpm setup 
-
-# COPY 
-# TODO Copy the build output from build_image
-WORKDIR /app
-
 # Run the node project on the start of the container
-RUN npm run prod
+CMD npm run prod
 
 
