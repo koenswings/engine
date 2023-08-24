@@ -4,7 +4,9 @@ services:
     entrypoint:
     - sleep
     - infinity
-    build: .
+    build: 
+      context: .
+      target: base
     init: true
     volumes:
     - type: bind
