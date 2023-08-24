@@ -2,7 +2,9 @@
 # base
 # Use this target in compose-dev.yaml to run the repo using Docker Dev Environments
 # - Docker will automatically add the full repo content 
-# - After starting the dev environment, you still need to do an pnpm install
+# - After starting the dev environment, you still need to do 
+#     pnpm init (the first time)
+#     pnpm add <package> 
 # ------------------------------------------------------------------------------
 
 FROM ubuntu as base
@@ -20,7 +22,6 @@ RUN apt-get install -y openssh-server openssh-client && service ssh start
 RUN curl -sSL https://get.docker.com/ | sh
 
 # Install npm, pnpm and node
-ENV SHELL bash
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
 
 # Add any global npm packages  
@@ -28,7 +29,7 @@ RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
 RUN pnpm add -g ts-node  
 
 # Expose ports
-EXPOSE 22 8123
+EXPOSE 22
 
 # Replace sh by bash so that the terminal window in Docker Desktop starts with bash
 RUN ln -sf /bin/bash /bin/sh
@@ -36,6 +37,7 @@ RUN ln -sf /bin/bash /bin/sh
 # ------------------------------------------------------------------------------
 # base_with_source
 # This is the base image for the dev_image and prod_image targets
+# Do not use this image as a target
 # ------------------------------------------------------------------------------
 
 FROM base as base_with_source
@@ -55,6 +57,7 @@ WORKDIR /app
 # dev_image
 # Use this target to build a dev image from the source code
 # This target can also be used for automated builds on Docker Hub
+# Note: Only to be used after a package.json has been created in the dev environment 
 # ------------------------------------------------------------------------------
 
 FROM base_with_source as dev_image
@@ -73,6 +76,7 @@ CMD npm run dev
 # prod_image
 # Use this target to build a prod image from the source code
 # This target can also be used for automated builds on Docker Hub
+# Note: Only to be used after a package.json has been created in the dev environment 
 # ------------------------------------------------------------------------------
 
 FROM base_with_source as prod_image
