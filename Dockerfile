@@ -20,6 +20,12 @@ RUN curl -sSL https://get.docker.com/ | sh
 # Install npm, pnpm and node
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
 
+# Initialise pnpm
+ENV SHELL bash
+ENV PNPM_HOME /pnpm
+ENV PATH="$PNPM_HOME:$PATH"
+RUN pnpm setup 
+
 # Add any global npm packages  
 # - Install ts-node globally so the engine scripts can run globally
 RUN pnpm add -g ts-node  
@@ -37,12 +43,6 @@ RUN ln -sf /bin/bash /bin/sh
 # ------------------------------------------------------------------------------
 
 FROM base as base_with_source
-
-# Initialise pnpm
-ENV SHELL bash
-ENV PNPM_HOME /pnpm
-ENV PATH="$PNPM_HOME:$PATH"
-RUN pnpm setup 
 
 # Add the source code
 COPY . /app
