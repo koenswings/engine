@@ -1,14 +1,10 @@
 # -----------------------------------------------------------------------------
 # base
 # Use this target in compose-dev.yaml to run the repo using Docker Dev Environments
-# - Docker will automatically add the full repo content 
-# - After starting the dev environment, you still need to do 
-#     pnpm init (the first time)
-#     pnpm add <package> 
 # ------------------------------------------------------------------------------
 
 FROM ubuntu as base
-RUN apt-get update 
+RUN apt-get update --fix-missing
 
 # Add ssh
 # RUN apt-get install -y openssh-server && systemctl ssh start && systemctl ssh enable   
@@ -57,7 +53,6 @@ WORKDIR /app
 # dev_image
 # Use this target to build a dev image from the source code
 # This target can also be used for automated builds on Docker Hub
-# Note: Only to be used after a package.json has been created in the dev environment 
 # ------------------------------------------------------------------------------
 
 FROM base_with_source as dev_image
@@ -76,7 +71,6 @@ CMD npm run dev
 # prod_image
 # Use this target to build a prod image from the source code
 # This target can also be used for automated builds on Docker Hub
-# Note: Only to be used after a package.json has been created in the dev environment 
 # ------------------------------------------------------------------------------
 
 FROM base_with_source as prod_image
