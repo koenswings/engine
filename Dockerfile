@@ -15,7 +15,7 @@ RUN apt-get install -y openssh-server openssh-client && service ssh start
 # no need to install it as it is part of the base os
 
 # Install Docker for DIND
-RUN curl -sSL https://get.docker.com/ | sh
+RUN apt-get install -y curl && curl -sSL https://get.docker.com/ | sh
 
 # Install npm, pnpm and node
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
