@@ -4,6 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "echo \"Building...\"",
+    "dev": "echo \"Running in dev mode...\"",
+    "prod": "echo \"Running in prod mode...\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
