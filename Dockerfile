@@ -20,7 +20,8 @@ RUN apt-get install -y curl && curl -sSL https://get.docker.com/ | sh
 # Install npm, pnpm and node
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
 
-# Initialise pnpm
+# Initialise pnpm 
+# All packages will be added to /pnpm, outside the /app folder
 ENV SHELL bash
 ENV PNPM_HOME /pnpm
 ENV PATH="$PNPM_HOME:$PATH"
@@ -62,7 +63,7 @@ ENV NODE_ENV development
 RUN pnpm install
 
 # Build the code
-RUN npm run build
+RUN npm run dev_build
 
 # Run the node project on the start of the container
 CMD npm run dev
@@ -80,7 +81,7 @@ ENV NODE_ENV production
 RUN pnpm install
 
 # Build the code
-RUN npm run build
+RUN npm run prod_build
 
 # Run the node project on the start of the container
 CMD npm run prod

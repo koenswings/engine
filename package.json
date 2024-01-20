@@ -1,15 +1,26 @@
 {
   "name": "engine",
-  "version": "1.0.0",
+  "version": "1.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "build": "echo \"Building...\"",
-    "dev": "echo \"Running in dev mode...\"",
+    "dev_build": "pnpm i && tsc",
+    "dev": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && node dist/src/index.js'",
     "prod": "echo \"Running in prod mode...\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "Koen Swings",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.5.7",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "5.3.0-dev.20230830"
+  },
+  "dependencies": {
+    "tsx": "^3.12.10",
+    "zx": "^7.2.3"
+  }
 }
