@@ -1,3 +1,6 @@
+# Images
+*.img.xz
+
 # Logs
 logs
 *.log
