@@ -12,7 +12,7 @@ RUN apt-get update --fix-missing
 RUN apt-get install -y openssh-server openssh-client && service ssh start 
 
 # Install rsync
-# no need to install it as it is part of the base os
+RUN apt install rsync -y
 
 # Install Docker for DIND
 RUN apt-get install -y curl && curl -sSL https://get.docker.com/ | sh
@@ -30,6 +30,9 @@ RUN pnpm setup
 # Add any global npm packages  
 # - Install ts-node globally so the engine scripts can run globally
 RUN pnpm add -g ts-node  
+
+# Install expect
+RUN apt-get install -y expect
 
 # Expose ports
 EXPOSE 22

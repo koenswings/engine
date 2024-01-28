@@ -1,5 +1,6 @@
 # Images
 *.img.xz
+*.img
 
 # Logs
 logs
