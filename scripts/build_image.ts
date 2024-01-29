@@ -159,19 +159,32 @@ const machine = argv.machine || argv.m
 if (user && machine) {
     await executeWithErrorHandler(
         `Syncing the build_image_assets folder to the remote machine`,
-        `rsync -avz -e "ssh -o StrictHostKeyChecking=no" . ${user}@${machine}:~/tmp/build_image_assets`,
+        //`rsync -avz -e "ssh -o StrictHostKeyChecking=no" . ${user}@${machine}:~/tmp/build_image_assets`,
+        `rsync -avz . ${user}@${machine}:~/tmp/build_image_assets`,
         "Failed to sync the build_image_assets folder to the remote machine"
     );
 
-    await executeWithErrorHandler(
-        `Running the create_image.sh script on the remote machine`,
-        `ssh -o StrictHostKeyChecking=no ${user}@${machine} 'bash -s' < ~/tmp/build_image_assets/create_image.sh ~/tmp/assets/${uncompressedImage}`,
-        "Failed to run the create_image.sh script on the remote machine"
-    );
+    // Make the create_image.sh script executable
+    // await executeWithErrorHandler(
+    //     `Making the create_image.sh script executable`,
+    //     `ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image.sh'`,
+    //     "Failed to make the create_image.sh script executable"
+    // );
+    await $`ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image.sh'`
+
+    // await executeWithErrorHandler(
+    //     `Running the create_image.sh script on the remote machine`,
+    //     //`ssh -o StrictHostKeyChecking=no ${user}@${machine} 'bash -s' < ~/tmp/build_image_assets/create_image.sh ~/tmp/build_image_assets/${uncompressedImage}`,
+    //     `ssh -o StrictHostKeyChecking=no ${user}@${machine} ~/tmp/build_image_assets/create_image.sh ~/tmp/build_image_assets/${uncompressedImage}`,
+    //     "Failed to run the create_image.sh script on the remote machine"
+    // );
+
+    await $`ssh -o StrictHostKeyChecking=no ${user}@${machine} "./tmp/build_image_assets/create_image.sh ./tmp/build_image_assets/${uncompressedImage}"`
 
     await executeWithErrorHandler(
         `Copying the image from the remote machine to the local machine`,
-        `rsync -avz -e "ssh -o StrictHostKeyChecking=no" ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
+        //`rsync -avz -e "ssh -o StrictHostKeyChecking=no" ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
+        `rsync -avz ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
         "Failed to copy the image from the remote machine to the local machine"
     );
 } else {
