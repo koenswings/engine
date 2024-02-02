@@ -157,20 +157,23 @@ const machine = argv.machine || argv.m
 // If no remote machine is specified, then you only have to run the create_image.sh script on the local machine
 // Do it
 if (user && machine) {
+    //const PASSWORD = await question("Enter the password for the remote machine: ")
+    const PASSWORD = "L3qdnxg666!"
+
     await executeWithErrorHandler(
         `Syncing the build_image_assets folder to the remote machine`,
         //`rsync -avz -e "ssh -o StrictHostKeyChecking=no" . ${user}@${machine}:~/tmp/build_image_assets`,
-        `rsync -avz . ${user}@${machine}:~/tmp/build_image_assets`,
+        `sshpass -p ${PASSWORD} rsync -av . ${user}@${machine}:~/tmp/build_image_assets`,
         "Failed to sync the build_image_assets folder to the remote machine"
     );
 
     // Make the create_image.sh script executable
     // await executeWithErrorHandler(
-    //     `Making the create_image.sh script executable`,
-    //     `ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image.sh'`,
-    //     "Failed to make the create_image.sh script executable"
+    //     `Making the create_image script executable`,
+    //     `ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image'`,
+    //     "Failed to make the create_image script executable"
     // );
-    await $`ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image.sh'`
+    //await $`ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image'`
 
     // await executeWithErrorHandler(
     //     `Running the create_image.sh script on the remote machine`,
@@ -178,21 +181,26 @@ if (user && machine) {
     //     `ssh -o StrictHostKeyChecking=no ${user}@${machine} ~/tmp/build_image_assets/create_image.sh ~/tmp/build_image_assets/${uncompressedImage}`,
     //     "Failed to run the create_image.sh script on the remote machine"
     // );
-
-    await $`ssh -o StrictHostKeyChecking=no ${user}@${machine} "./tmp/build_image_assets/create_image.sh ./tmp/build_image_assets/${uncompressedImage}"`
+    await $`sshpass -p ${PASSWORD} ssh -o StrictHostKeyChecking=no ${user}@${machine} "cd ./tmp/build_image_assets; ./create_image ${uncompressedImage}"`
 
     await executeWithErrorHandler(
         `Copying the image from the remote machine to the local machine`,
         //`rsync -avz -e "ssh -o StrictHostKeyChecking=no" ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
-        `rsync -avz ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
+        `rsync -av ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
         "Failed to copy the image from the remote machine to the local machine"
     );
 } else {
     await executeWithErrorHandler(
         `Running the create_image.sh script on the local machine`,
-        `bash ./create_image.sh ${uncompressedImage}`,
+        `./create_image ${uncompressedImage}`,
         "Failed to run the create_image.sh script on the local machine"
     );
+    // try {
+    //     console.log("Running the create_image.sh script on the local machine")
+    //     await $`./create_image ${uncompressedImage}`
+    // } catch (error) {
+    //     printError(error, "Failed to run the create_image.sh script on the local machine")
+    // }
 }
 
 // if (user && machine) {

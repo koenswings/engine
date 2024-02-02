@@ -32,7 +32,7 @@ RUN pnpm setup
 RUN pnpm add -g ts-node  
 
 # Install expect
-RUN apt-get install -y expect
+RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/Brussels" apt-get install -y expect
 
 # Expose ports
 EXPOSE 22

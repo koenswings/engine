@@ -1,0 +1,101 @@
+#!/usr/bin/expect --
+
+# This solution works on the following images of the Raspberry Pi:
+# - Raspberry Pi OS Lite (32-bit) - 2019-09-26 (Buster) (NOT FINALLY TESTED)
+# - Raspberry Pi OS Lite (64-bit) - 2020-08-20 (Buster)
+# Start the script with the following command:
+# ./create_image_new <image_name> 
+
+
+# Parse parameters
+set timeout -1
+proc slurp {file} {
+    set fh [open $file r]
+    set ret [read $fh]
+    close $fh
+    return $ret
+}
+
+if { $argc == 1 } {
+  set imageName [lindex $argv 0]
+  set 64bit "false"
+  puts "32bit"
+} elseif { $argc == 2 } {
+  set imageName [lindex $argv 1]
+  set 64bit "true"
+  puts "64bit"
+}
+
+if {[string trimleft $imageName] eq ""} {
+  puts "No Image file provided"
+  exit
+}
+
+set cwd [file normalize [file dirname $argv0]]
+set imagePath [file join "/Users/koenswings/Dropbox/Code/Prive2/rpi-gadget-image-creator" $imageName]
+puts $imageName
+puts $imagePath\n
+
+# Boot the image using dockerpi
+spawn docker run --name dockerpi -it --rm -v $imagePath:/sdcard/filesystem.img lukechilds/dockerpi:vm pi3
+
+
+# Login
+expect "raspberrypi login: "
+send "pi\n"
+expect "Password: "
+send "raspberry\n"
+#send "\n"
+expect "$ "
+
+# Copy the script
+#send "sudo su -\n"
+#expect "# "
+
+send "sudo apt update -y\n"
+expect "$ "
+
+send "wget https://raw.githubusercontent.com/kmpm/rpi-usb-gadget/master/rpi4-usb.sh\n"
+expect "$ "
+send "bash rpi4-usb.sh\n"
+ 
+#Continue with modifications?
+#Are you sure? [y/N]
+expect "N] "
+send "y\n"
+#Add the line 'dtoverlay=dwc2' to '/boot/config.txt'
+#Are you sure? [y/N]
+expect "N] "
+send "y\n"
+#Add the line modules-load=dwc2 to /boot/cmdline.txt
+#Are you sure? [y/N]
+expect "N] "
+send "y\n"
+#Add the line 'libcomposite' to '/etc/modules'
+#Are you sure? [y/N]
+expect "N] "
+send "y\n"
+#Add the line 'denyinterfaces usb0' to '/etc/dhcpcd.conf'
+#Are you sure? [y/N]
+expect "N] "
+send "y\n"
+#Install dnsmasq
+#Are you sure? [y/N]
+expect "N] "
+send "y\n"
+#expect "Do you want to continue? [Y/n]"
+expect "n] "
+send "Y\n"
+expect "Pick an option: "
+send "2\n"
+expect "$ "
+
+# Enable ssh
+send "sudo touch /boot/ssh\n"
+expect "$ "
+
+# Exit
+send "sudo poweroff\n"
+expect "Reboot failed -- System halted"
+exec docker stop dockerpi
+exit

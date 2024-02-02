@@ -2,6 +2,9 @@
 *.img.xz
 *.img
 
+# Scratchpad folder
+scratchpad/
+
 # Logs
 logs
 *.log
