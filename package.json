@@ -5,7 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev_build": "pnpm i && tsc",
+    "install": "pnpm install --frozen-lockfile",
+    "start": "tsc && node dist/src/index.js",
     "dev": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && node dist/src/index.js'",
     "prod": "echo \"Running in prod mode...\"",
     "test": "echo \"Error: no test specified\" && exit 1"

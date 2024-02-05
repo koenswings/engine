@@ -2,6 +2,13 @@ import { $, ssh, argv, cd, chalk, fs, question } from 'zx'
 import pack from '../package.json' assert { type: "json" }
 import YAML from 'yaml'
 
+// TODO
+// - Port raspap installation and configuration from the build_server Python script of the BerryIT project
+// - Port zerotier installation and configuration from the build_server Python script of the BerryIT project
+// - Port the configuration of system apps from the build_server Python script of the BerryIT project
+// - Improve type checking of the defaults object. We are not detecting missing properties
+// - Test HDMI power off on boot and remove it from here it is confirmed that this is something thatr MUST be done on every boot
+
 
 const { version } = pack
 
@@ -22,6 +29,23 @@ const { version } = pack
 // - wether to install RaspAP
 // The parameters must be read from the command line
 // The defaults for these parameters (in case no value is provided on the commandline) must be read from a YAML file
+
+// Please provide a sample YAML file here in comments
+// user: pi
+// machine: raspberrypi.local
+// password: raspberry
+// hostname: raspberrypi
+// language: en_GB.UTF-8
+// keyboard: us
+// timezone: Europe/Brussels
+// update: true
+// upgrade: true
+// hdmi: false
+// temperature: true
+// argon: true
+// zerotier: true
+// raspap: true
+
 // Please define a TypeScript type for the object read from the YAML file
 interface Defaults {
     user: string,
@@ -41,16 +65,13 @@ interface Defaults {
 }
 
 // Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
-// - Exit if wrong type.  
-// - Make sure you read the 
-// Do it
-const file = fs.readFileSync('defaults.yaml', 'utf8')
-const readDefaults = YAML.parse(file)
-console.log(readDefaults)
-console.log(typeof readDefaults)
+let defaults: Defaults
 try {
-  const parsedDefaults: Defaults = readDefaults as Defaults
-
+  const file = fs.readFileSync('./build_image_assets/build_image_defaults.yaml', 'utf8')
+  const readDefaults = YAML.parse(file)
+  console.log(readDefaults)
+  console.log(typeof readDefaults)
+  defaults = readDefaults as Defaults
 } catch (e) {
   console.log(chalk.red('Error reading defaults'));
   console.error(e);
@@ -58,8 +79,7 @@ try {
 }
 console.log(chalk.green('Defaults read'));
 
-
-// Now read the configuration from the command line
+// Now override the default configuration using the command line
 const user = argv.u || argv.user || defaults.user
 const host = argv.m || argv.machine || defaults.machine
 const password = argv.p || argv.password || defaults.password
@@ -74,22 +94,6 @@ const temperature = argv.temperature || defaults.temperature
 const argon = argv.argon || defaults.argon
 const zerotier = argv.zerotier || defaults.zerotier
 const raspap = argv.raspap || defaults.raspap
-// Please provide a sample YAML file here in comments
-// user: pi
-// machine: raspberrypi.local
-// password: raspberry
-// hostname: raspberrypi
-// language: en_GB.UTF-8
-// keyboard: us
-// timezone: Europe/Brussels
-// update: true
-// upgrade: true
-// hdmi: false
-// temperature: true
-// argon: true
-// zerotier: true
-// raspap: true
-
 
 // // Read --user (abbrevyated as -u), --host (abbreviated as -m) and password arguments. Default to pi, raspberrypi and raspberry if not provided  
 // const user = argv.u || argv.user || 'pi'
@@ -153,31 +157,33 @@ const createDir = async (dir: string, chmod: string | null = "0755", chown: stri
     }
 }
 
-// Put the update and upgrade code inside build() in a named async function
-const updateAndUpgrade = async () => {
+const updateSystem = async () => {
 
-    // Update the package list
-    // We need update to cover InRelease updates
-    console.log(chalk.blue('Updating package list...'));
-    try {
-        //await $$`sudo apt update --allow-releaseinfo-change -y`;
-        await $$`sudo apt update -y`;
-    } catch (e) {
-      console.log(chalk.red('Error updating package list'));
-      console.error(e);
-      process.exit(1);
-    }
-    console.log(chalk.green('Package list updated'));
+  // Update the package list
+  // We need update to cover InRelease updates
+  console.log(chalk.blue('Updating package list...'));
+  try {
+      //await $$`sudo apt update --allow-releaseinfo-change -y`;
+      await $$`sudo apt update -y`;
+  } catch (e) {
+    console.log(chalk.red('Error updating package list'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Package list updated'));
+}
 
-    // Upgrade the packages
-    console.log(chalk.blue('Upgrading packages...'));
-    try {
-      await $$`sudo apt upgrade -y`;
-    } catch (e) {
-      console.log(chalk.red('Error upgrading packages'));
-      console.error(e);
-      process.exit(1);
-    }
+const upgradeSystem = async () => {
+  
+  // Upgrade the packages
+  console.log(chalk.blue('Upgrading packages...'));
+  try {
+    await $$`sudo apt upgrade -y`;
+  } catch (e) {
+    console.log(chalk.red('Error upgrading packages'));
+    console.error(e);
+    process.exit(1);
+  }
 }
 
 // Put the set hostname code inside build() in a named async function
@@ -194,17 +200,49 @@ const setHostname = async () => {
     console.log(chalk.green('Hostname set'));
 }
 
+// Put the argon fan script copy code and execute code that is inside build() in a named async function
+const installArgonFanScript = async () => {
+  // Copy argon_fan_script.sh asset to /usr/local/bin and make it executable
+  console.log(chalk.blue('Installing argon_fan_script.sh...'));
+  try {
+      await copyAsset('argon_fan_script.sh', '/usr/local/bin', true, "0755")
+  } catch (e) {
+    console.log(chalk.red('Error installing argon_fan_script.sh'));
+    console.error(e);
+    process.exit(1);
+  }   
+  console.log(chalk.green('Argon fan script installed'));
+
+  // Execute the argon_fan_script.sh
+  console.log(chalk.blue('Executing argon_fan_script.sh...'));
+  try {
+      await $$`sudo /usr/local/bin/argon_fan_script.sh`;
+  } catch (e) {
+    console.log(chalk.red('Error executing argon_fan_script.sh'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Argon fan script executed'));
+}
+
+
+
 
 const build = async () => {
 
     // Update and upgrade the system
-    //await updateAndUpgrade()
+    if (update) {
+        await updateSystem()
+    }
+    if (upgrade) {
+        await upgradeSystem()
+    }
     
     // Sync the assets folder to the remote host
     await syncAssets()
 
     // Set the hostname
-    //await setHostname()
+    await setHostname()
 
     // Localise the system
     console.log(chalk.blue('Localising the system...'));
@@ -215,14 +253,15 @@ const build = async () => {
         // Generate the available locales
         await $$`sudo locale-gen`;
         // Change to one selected locale
-        await $$`sudo update-locale LANG=en_GB.UTF-8`;
+        // TODO Check this chatgpt alternative: await $$`sudo update-locale LANG=${language} LC_ALL=${language} LANGUAGE=${language}`;
+        await $$`sudo update-locale LANG=${language}`;
         // TODO - Alternative option suggested by ChatGPT
         // Reconfigure locales
         // await $$`sudo dpkg-reconfigure locales`;
         // Changing keyboard layout
-        await $$`sudo raspi-config nonint do_configure_keyboard us`
+        await $$`sudo raspi-config nonint do_configure_keyboard ${keyboard}`
         // Set timezone
-        await $$`sudo timedatectl set-timezone Europe/Brussels`
+        await $$`sudo timedatectl set-timezone ${timezone}`
     } catch (e) {
       console.log(chalk.red('Error localising the system'));
       console.error(e);
@@ -257,55 +296,48 @@ const build = async () => {
     //   process.exit(1);
     // }
 
-    // Coppy argon_fan_script.sh asset to /usr/local/bin and make it executable
-    console.log(chalk.blue('Installing argon_fan_script.sh...'));
-    try {
-        await copyAsset('argon_fan_script.sh', '/usr/local/bin', true, "0755")
-    } catch (e) {
-      console.log(chalk.red('Error installing argon_fan_script.sh'));
-      console.error(e);
-      process.exit(1);
-    }   
-    console.log(chalk.green('Argon fan script installed'));
-
-
-    // Execute the argon_fan_script.sh
-    console.log(chalk.blue('Executing argon_fan_script.sh...'));
-    try {
-        await $$`sudo /usr/local/bin/argon_fan_script.sh`;
-    } catch (e) {
-      console.log(chalk.red('Error executing argon_fan_script.sh'));
-      console.error(e);
-      process.exit(1);
+    // Install the argon fan script
+    if (argon) {
+        await installArgonFanScript()
     }
-    console.log(chalk.green('Argon fan script executed'));
 
-    // Install the lm-sensors, git, dnsutlis, tree, lshw and cloud-guest-utils packages
+    // Install temperature measurement
+    if (temperature) {
+        console.log(chalk.blue('Installing lm-sensors...'));
+        try {
+            await $$`sudo apt install lm-sensors -y`;
+        } catch (e) {
+          console.log(chalk.red('Error installing lm-sensors'));
+          console.error(e);
+          process.exit(1);
+        }
+        console.log(chalk.green('lm-sensors installed'));
+        
+        // Run sensors to display the current temperature
+        console.log(chalk.blue('Running sensors...'));
+        try {
+            const ret = await $$`sensors`
+            console.log(ret.stdout)
+        } catch (e) {
+          console.log(chalk.red('Error running sensors'));
+          console.error(e);
+          process.exit(1);
+        }
+        console.log(chalk.green('Sensors run'));
+    }
+    
+    // Install the git, dnsutlis, tree, lshw and cloud-guest-utils packages
     console.log(chalk.blue('Installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils...'));
     try {
-        await $$`sudo apt install lm-sensors git dnsutils tree lshw cloud-guest-utils -y`;
+        await $$`sudo apt install git dnsutils tree lshw cloud-guest-utils -y`;
     } catch (e) {
-      console.log(chalk.red('Error installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils'));
+      console.log(chalk.red('Error installing git, dnsutils, tree, lshw and cloud-guest-utils'));
       console.error(e);
       process.exit(1);
     }
-    console.log(chalk.green('lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils installed'));
+    console.log(chalk.green('git, dnsutils, tree, lshw and cloud-guest-utils installed'));
 
-
-    // Run sensors to display the current temperature
-    console.log(chalk.blue('Running sensors...'));
-    try {
-        const ret = await $$`sensors`
-        console.log(ret.stdout)
-    } catch (e) {
-      console.log(chalk.red('Error running sensors'));
-      console.error(e);
-      process.exit(1);
-    }
-    console.log(chalk.green('Sensors run'));
-
-
-    // Run the install-dkcer.sh script
+    // Run the install-docker.sh script
     console.log(chalk.blue('Installing Docker'))
     try {
         await $$`sudo ~/tmp/build_image_assets/install-docker.sh`;
@@ -418,6 +450,33 @@ const build = async () => {
     }   
     console.log(chalk.green('The /apps, /apps/catalog, and /apps/instances directories created'));
 
+
+    // Install Zerotier
+    // if (zerotier) {
+    //     console.log(chalk.blue('Installing Zerotier'))
+    //     try {
+    //         await $$`sudo ~/tmp/build_image_assets/install-zerotier.sh`;
+    //     } catch (e) {
+    //       console.log(chalk.red('Error installing Zerotier'));
+    //       console.error(e);
+    //       process.exit(1);
+    //     }   
+    //     console.log(chalk.green('Zerotier installed'));
+    // }
+
+    // Install RaspAP
+    // if (raspap) {
+    //     console.log(chalk.blue('Installing RaspAP'))
+    //     try {
+    //         const raspap_version = "2.8.5"
+    //         await $$`sudo ~/tmp/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;
+    //     } catch (e) {
+    //       console.log(chalk.red('Error installing RaspAP'));
+    //       console.error(e);
+    //       process.exit(1);
+    //     }   
+    //     console.log(chalk.green('RaspAP installed'));
+    // }
 }
 
 await build()

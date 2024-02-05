@@ -1,10 +1,12 @@
 {
   "compilerOptions": {
     "moduleResolution": "nodenext",
-    "module": "esnext",
-    "target": "esnext",
+    "module": "NodeNext",
+    // "target": "esnext",
+    "target": "ES2017",
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "outDir": "./dist"
   },
   "include": [
     "src",

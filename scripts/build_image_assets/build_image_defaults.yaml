@@ -1,0 +1,14 @@
+user: pi
+machine: raspberrypi.local
+password: raspberry
+hostname: raspberrypi
+language: en_US.UTF-8
+keyboard: us
+timezone: Europe/Brussels
+update: true
+upgrade: true
+hdmi: false
+temperature: true
+argon: true
+zerotier: true
+raspap: true
