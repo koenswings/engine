@@ -1,260 +1,426 @@
-import { $, argv, cd, chalk, fs, question } from 'zx';
-import pack from '../package.json' assert { type: "json" };
+import { $, ssh, argv, cd, chalk, fs, question } from 'zx'
+import pack from '../package.json' assert { type: "json" }
+import YAML from 'yaml'
 
 
-function printError(error, errorMessage) {
-    //console.error(`${errorMessage}\nError: ${error}`);
-    console.error(chalk.red(`${errorMessage}\nError: ${error}`));
-    process.exit(1);
+const { version } = pack
+
+// This is the list of configuration parameters for this script
+// - the remote host to connect to
+// - the user to use to connect to the remote host
+// - the password to use to connect to the remote host
+// - the hostname to set on the remote host
+// - the language to set on the remote host
+// - the keyboard layout to set on the remote host
+// - the timezone to set on the remote host
+// - wether to upadate the system
+// - wether to upgrade the system 
+// - whether to switch off HDMI power
+// - wether to install temperature measurement
+// - whether to install the Argon fan script
+// - wether to install Zerotier
+// - wether to install RaspAP
+// The parameters must be read from the command line
+// The defaults for these parameters (in case no value is provided on the commandline) must be read from a YAML file
+// Please define a TypeScript type for the object read from the YAML file
+interface Defaults {
+    user: string,
+    machine: string,
+    password: string,
+    hostname: string,
+    language: string,
+    keyboard: string,
+    timezone: string,
+    update: boolean,
+    upgrade: boolean,
+    hdmi: boolean,
+    temperature: boolean,
+    argon: boolean,
+    zerotier: boolean,
+    raspap: boolean
 }
 
-// Custom function to execute commands with error handling
-async function executeWithErrorHandler(commandMessage, command, errorMessage) {
+// Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
+// - Exit if wrong type.  
+// - Make sure you read the 
+// Do it
+const file = fs.readFileSync('defaults.yaml', 'utf8')
+const readDefaults = YAML.parse(file)
+console.log(readDefaults)
+console.log(typeof readDefaults)
+try {
+  const parsedDefaults: Defaults = readDefaults as Defaults
+
+} catch (e) {
+  console.log(chalk.red('Error reading defaults'));
+  console.error(e);
+  process.exit(1);
+}
+console.log(chalk.green('Defaults read'));
+
+
+// Now read the configuration from the command line
+const user = argv.u || argv.user || defaults.user
+const host = argv.m || argv.machine || defaults.machine
+const password = argv.p || argv.password || defaults.password
+const hostname = argv.h || argv.hostname || defaults.hostname
+const language = argv.l || argv.language || defaults.language
+const keyboard = argv.k || argv.keyboard || defaults.keyboard
+const timezone = argv.t || argv.timezone || defaults.timezone
+const update = argv.update || defaults.update
+const upgrade = argv.upgrade || defaults.upgrade
+const hdmi = argv.hdmi || defaults.hdmi
+const temperature = argv.temperature || defaults.temperature
+const argon = argv.argon || defaults.argon
+const zerotier = argv.zerotier || defaults.zerotier
+const raspap = argv.raspap || defaults.raspap
+// Please provide a sample YAML file here in comments
+// user: pi
+// machine: raspberrypi.local
+// password: raspberry
+// hostname: raspberrypi
+// language: en_GB.UTF-8
+// keyboard: us
+// timezone: Europe/Brussels
+// update: true
+// upgrade: true
+// hdmi: false
+// temperature: true
+// argon: true
+// zerotier: true
+// raspap: true
+
+
+// // Read --user (abbrevyated as -u), --host (abbreviated as -m) and password arguments. Default to pi, raspberrypi and raspberry if not provided  
+// const user = argv.u || argv.user || 'pi'
+// const host = argv.m || argv.host || 'raspberrypi.local'
+// const password = argv.p || argv.password || 'raspberry'
+
+const $$ = ssh(`${user}@${host}`)
+
+// Sync the assets folder to the remote host
+const syncAssets = async () => {
+    console.log(chalk.blue('Syncing the build_image_assets folder to the remote host'));
     try {
-        console.log(commandMessage)
-        console.log(command)
-        // See https://github.com/google/zx/issues/164 for some explanation of the following line
-        // let res = await $`${command}`;
-        // await $([command])
-        //await $(command.split(" "))
-        await $`${command.split(" ")}`
-    } catch (error) {
-        printError(error, errorMessage)
+        //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
+        await $`rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
+    } catch (e) {   
+        console.log(chalk.red('Failed to sync the build_image_assets folder to the remote host'));
+        console.error(e);
+        process.exit(1);
     }
 }
 
-// Some tests
-// await $`cat ../package.json | grep name`
-
-// let branch = await $`git branch --show-current`
-// console.log(branch.stdout)
-
-// let listls = await $`ls -l`
-// console.log(listls.stdout)
-
-
-// const argls = ["-l"]
-// let ls2 = await $`ls -l`
-// console.log(ls2.stdout)
-
-// // Test the executeWithErrorHandler function with a simple command
-// await executeWithErrorHandler(
-//     `Testing the executeWithErrorHandler function with a simple command`,
-//     `ls -l`,
-//     "Failed to execute the command"
-// );
-
-// Check for the help flag and print usage if help is requested
-if (argv.h || argv.help) {
-    console.log(`Builds the boot image for a Raspberry Pi.`)
-    console.log(`Usage: build_image.ts [options]`)
-    console.log(`Options:`)
-    console.log(`  -h, --help               display help for command`)
-    console.log(`  -d, --date <string>      the date of the image to download (default: 2023-05-03)`)
-    console.log(`  -n, --nickname <string>  the nickname of the image to download (default: bullseye)`)
-    console.log(`  -m --machine <string>    the remote machine to build the image on (default: local machine)`)
-    console.log(`  -u, --user <string>      the user account on the remote machine (default: current user)`)
-    console.log(`  -f, --force              force downloading the image`)
-    console.log(`  -v, --version            output the version number`)
-    console.log(``)
-    process.exit(0)
+// Create a function to copy a build asset to a specified folder and changing ownership and permissions on the fly
+const copyAsset = async (asset: string, destination: string, executable: boolean = false, chmod: string | null = "0644", chown: string | null = "0:0") => {
+    console.log(chalk.blue(`Copying asset ${asset} to ${destination}`));
+    try {
+        //await $$`sshpass -p ${password} ssh ${user}@${host} "sudo cp ~/tmp/build_image_assets/${asset} ${destination}"`;
+        await $$`sudo cp ~/tmp/build_image_assets/${asset} ${destination}`;
+        console.log(chalk.blue(`chmod to ${chmod} of ${destination}/${asset}`));
+        // 644 means that the owner can read and write, and everyone else can read
+        //await $`sshpass -p ${password} ssh ${user}@${host} "sudo chmod ${chmod} ${destination}/${asset}"`;
+        await $$`sudo chmod ${chmod} ${destination}/${asset}`;
+        console.log(chalk.blue(`chown to ${chown} of ${destination}/${asset}`));
+        // 0:0 means that the owner and group are both root
+        //await $`sshpass -p ${password} ssh ${user}@${host} "sudo chown ${chown} ${destination}/${asset}"`;
+        await $$`sudo chown ${chown} ${destination}/${asset}`;
+        console.log(chalk.blue(`Setting executable to ${executable} of ${destination}/${asset}`));
+        if (executable) {
+            //await $`sshpass -p ${password} ssh  ${user}@${host} "sudo chmod +x ${destination}/${asset}"`;
+            await $$`sudo chmod +x ${destination}/${asset}`;
+        }
+    } catch (e) {
+        console.log(chalk.red(`Error copying asset ${asset} to ${destination}`));
+        console.error(e);
+        process.exit(1);
+    }
 }
 
-// Check for the version flag and print the version if requested
-if (argv.v || argv.version) {
-    console.log(`Version: ${pack.version}`)
-    process.exit(0)
-  }
-
-
-// Cd into the build_image_assets folder
-// TODO - We need to make our scripts more robust by using absolute paths
-cd("build_image_assets")
-
-
-// Given the following info
-// - All 64bit images of Raspios Lite are in `https://downloads.raspberrypi.com/raspios_lite_arm64/images` 
-// - Each image is in a folder called `raspios_lite_arm64-${DATE}`
-// - Each image is named `${DATE}-raspios-${NICKNAME}-arm64-lite.img.xz`
-// Write code that will download the image that is specified by the user using the commandline arguments --date and --nickname
-// For example, if the user runs `ts-node scripts/build_image.ts --date 2021-05-28 --nackname bookworm` then the script should download the image `2021-05-28-raspios-bookworm-arm64-lite.img.xz`
-// If no --date and --nickname are passed, then the script should download the image with date `2023-05-03` and nickname `bullseye`
-// If the image is already downloaded, then the script should not download it again
-
-// Check if --date and --nickname are passed
-// Allow these arguments to be abbreviated as -d and -n
-// Please make sure that they are both speicified or none of them
-// If not specified, set them to default values
-// If specified, set them to the values passed by the user
-// Make use of the fact that the && operator returns the value of the last operand if they are all truthy
-// Make use of the fact that the || operator returns the value of the first operand that is truthy
-const date = argv.nickname && argv.date || argv.n && argv.d || "2023-05-03"
-const nickname = argv.date && argv.nickname || argv.d && argv.n || "bullseye"
-
-// Check if the date is in the form YYYY-MM-DD
-// If not, print an error message and exit
-if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    console.log("The date must be in the form YYYY-MM-DD")
-    process.exit()
+// Create a function that creates a directory if it does not already exist and sets the user, group and persmissions
+const createDir = async (dir: string, chmod: string | null = "0755", chown: string | null = "0:0") => {
+    console.log(chalk.blue(`Creating directory ${dir}`));
+    try {
+        await $$`sudo mkdir -p ${dir}`;
+        console.log(chalk.blue(`chmod to ${chmod} of ${dir}`));
+        await $$`sudo chmod ${chmod} ${dir}`;
+        console.log(chalk.blue(`chown to ${chown} of ${dir}`));
+        await $$`sudo chown ${chown} ${dir}`;
+    } catch (e) {
+        console.log(chalk.red(`Error creating directory ${dir}`));
+        console.error(e);
+        process.exit(1);
+    }
 }
 
-// Check if the nickname is a single word
-// If not, print an error message and exit
-if (nickname.split(" ").length > 1) {
-    console.log("The nickname must be a single word")
-    process.exit()
+// Put the update and upgrade code inside build() in a named async function
+const updateAndUpgrade = async () => {
+
+    // Update the package list
+    // We need update to cover InRelease updates
+    console.log(chalk.blue('Updating package list...'));
+    try {
+        //await $$`sudo apt update --allow-releaseinfo-change -y`;
+        await $$`sudo apt update -y`;
+    } catch (e) {
+      console.log(chalk.red('Error updating package list'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Package list updated'));
+
+    // Upgrade the packages
+    console.log(chalk.blue('Upgrading packages...'));
+    try {
+      await $$`sudo apt upgrade -y`;
+    } catch (e) {
+      console.log(chalk.red('Error upgrading packages'));
+      console.error(e);
+      process.exit(1);
+    }
 }
 
-// Check if the nickname is in the list of nicknames
-// If not, print an error message and exit
-const nicknames = ["bullseye", "bookworm", "buster", "stretch", "jessie", "wheezy", "squeeze", "lenny", "etch", "sarge", "woody", "potato", "slink", "hamm", "bo", "rex"]   
-if (!nicknames.includes(nickname)) {
-    console.log(`The nickname must be one of ${nicknames}`)
-    process.exit()
+// Put the set hostname code inside build() in a named async function
+const setHostname = async () => {
+    console.log(chalk.blue('Setting hostname...'));
+    try {
+      const hostname = await question('Enter the hostname: ');
+      await $$`sudo hostnamectl set-hostname ${hostname}`;
+    }   catch (e) {
+      console.log(chalk.red('Error setting hostname'));
+      console.error(e);
+      process.exit(1);
+    } 
+    console.log(chalk.green('Hostname set'));
 }
 
 
-// Create the name of the image and a download url using the date and nickname
-const image = `${date}-raspios-${nickname}-arm64-lite.img.xz`
-const uncompressedImage = `${date}-raspios-${nickname}-arm64-lite.img`
-const url = `https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-${date}/${image}`
+const build = async () => {
 
-// Check if the file image.img exists and if not - or if the -f force command is given - download it and uncompress it
-if (!fs.existsSync(uncompressedImage) && !argv.f) {
-    // Download it
-    await executeWithErrorHandler(
-        `Downloading the Raspberry Pi base image from ${url}`,
-        `wget ${url}`,
-        "Failed to download image"
-    );
-    // Uncompressing image
-    await executeWithErrorHandler(
-        `Uncompressing the image`,
-        `unxz ${image}`,
-        "Failed to uncompress image"
-    );
-}
+    // Update and upgrade the system
+    //await updateAndUpgrade()
+    
+    // Sync the assets folder to the remote host
+    await syncAssets()
 
+    // Set the hostname
+    //await setHostname()
 
+    // Localise the system
+    console.log(chalk.blue('Localising the system...'));
+    try {
+        // Copy the locale.gen asset to /etc. 
+        // This is a file that contains the list of all available locales.
+        await copyAsset('locale.gen', '/etc')
+        // Generate the available locales
+        await $$`sudo locale-gen`;
+        // Change to one selected locale
+        await $$`sudo update-locale LANG=en_GB.UTF-8`;
+        // TODO - Alternative option suggested by ChatGPT
+        // Reconfigure locales
+        // await $$`sudo dpkg-reconfigure locales`;
+        // Changing keyboard layout
+        await $$`sudo raspi-config nonint do_configure_keyboard us`
+        // Set timezone
+        await $$`sudo timedatectl set-timezone Europe/Brussels`
+    } catch (e) {
+      console.log(chalk.red('Error localising the system'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('System localised'));
 
-// Move both images to the assets folder
-// await executeWithErrorHandler(
-//     `Moving both images to the assets folder`,
-//     `mv ${image} ${uncompressedImage} assets`,
-//     "Failed to move both images to the assets folder"
-// );
+    // Install the crontabs
+    console.log(chalk.blue('Installing crontabs...'));
+    try {
+        // Copy first_boot.sh to /usr/local/bin
+        await copyAsset('first_boot.sh', '/usr/local/bin', true)
+        // Install the crontab defs in the crondefs asset
+        await $$`sudo crontab ~/tmp/build_image_assets/crondefs`
+        // Alternative Copy the crontabs to /etc/cron.d
+        // await copyAsset('crondefs', '/etc/cron.d')
+    } catch (e) {
+      console.log(chalk.red('Error installing crontabs'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Crontabs installed'));
 
-
-// Now check if a remote machine is specified using the commandline argument --user and --machine
-// Allow these arguments to be abbreviated as -u and -m
-const user = argv.user || argv.u
-const machine = argv.machine || argv.m
-
-// If both a user and a machine are specified, then you have to do three things
-// 1. Sync the assets folder to the remote machine
-// 2. Run the create_image.sh script on the remote machine
-// 3. Copy the image from the remote machine to the local machine
-// If no remote machine is specified, then you only have to run the create_image.sh script on the local machine
-// Do it
-if (user && machine) {
-    //const PASSWORD = await question("Enter the password for the remote machine: ")
-    const PASSWORD = "L3qdnxg666!"
-
-    await executeWithErrorHandler(
-        `Syncing the build_image_assets folder to the remote machine`,
-        //`rsync -avz -e "ssh -o StrictHostKeyChecking=no" . ${user}@${machine}:~/tmp/build_image_assets`,
-        `sshpass -p ${PASSWORD} rsync -av . ${user}@${machine}:~/tmp/build_image_assets`,
-        "Failed to sync the build_image_assets folder to the remote machine"
-    );
-
-    // Make the create_image.sh script executable
-    // await executeWithErrorHandler(
-    //     `Making the create_image script executable`,
-    //     `ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image'`,
-    //     "Failed to make the create_image script executable"
-    // );
-    //await $`ssh -o StrictHostKeyChecking=no ${user}@${machine} 'chmod +x ~/tmp/build_image_assets/create_image'`
-
-    // await executeWithErrorHandler(
-    //     `Running the create_image.sh script on the remote machine`,
-    //     //`ssh -o StrictHostKeyChecking=no ${user}@${machine} 'bash -s' < ~/tmp/build_image_assets/create_image.sh ~/tmp/build_image_assets/${uncompressedImage}`,
-    //     `ssh -o StrictHostKeyChecking=no ${user}@${machine} ~/tmp/build_image_assets/create_image.sh ~/tmp/build_image_assets/${uncompressedImage}`,
-    //     "Failed to run the create_image.sh script on the remote machine"
-    // );
-    await $`sshpass -p ${PASSWORD} ssh -o StrictHostKeyChecking=no ${user}@${machine} "cd ./tmp/build_image_assets; ./create_image ${uncompressedImage}"`
-
-    await executeWithErrorHandler(
-        `Copying the image from the remote machine to the local machine`,
-        //`rsync -avz -e "ssh -o StrictHostKeyChecking=no" ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
-        `rsync -av ${user}@${machine}:~/tmp/build_image_assets/${uncompressedImage} .`,
-        "Failed to copy the image from the remote machine to the local machine"
-    );
-} else {
-    await executeWithErrorHandler(
-        `Running the create_image.sh script on the local machine`,
-        `./create_image ${uncompressedImage}`,
-        "Failed to run the create_image.sh script on the local machine"
-    );
+    // Switch off HDMI power
+    // This should be in first_boot.sh
+    // console.log(chalk.blue('Switching off HDMI power...'));
     // try {
-    //     console.log("Running the create_image.sh script on the local machine")
-    //     await $`./create_image ${uncompressedImage}`
-    // } catch (error) {
-    //     printError(error, "Failed to run the create_image.sh script on the local machine")
+    //     await $$`vcgencmd display_power 0`;
+    // } catch (e) {
+    //   console.log(chalk.red('Error switching off HDMI power'));
+    //   console.error(e);
+    //   process.exit(1);
     // }
+
+    // Coppy argon_fan_script.sh asset to /usr/local/bin and make it executable
+    console.log(chalk.blue('Installing argon_fan_script.sh...'));
+    try {
+        await copyAsset('argon_fan_script.sh', '/usr/local/bin', true, "0755")
+    } catch (e) {
+      console.log(chalk.red('Error installing argon_fan_script.sh'));
+      console.error(e);
+      process.exit(1);
+    }   
+    console.log(chalk.green('Argon fan script installed'));
+
+
+    // Execute the argon_fan_script.sh
+    console.log(chalk.blue('Executing argon_fan_script.sh...'));
+    try {
+        await $$`sudo /usr/local/bin/argon_fan_script.sh`;
+    } catch (e) {
+      console.log(chalk.red('Error executing argon_fan_script.sh'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Argon fan script executed'));
+
+    // Install the lm-sensors, git, dnsutlis, tree, lshw and cloud-guest-utils packages
+    console.log(chalk.blue('Installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils...'));
+    try {
+        await $$`sudo apt install lm-sensors git dnsutils tree lshw cloud-guest-utils -y`;
+    } catch (e) {
+      console.log(chalk.red('Error installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils installed'));
+
+
+    // Run sensors to display the current temperature
+    console.log(chalk.blue('Running sensors...'));
+    try {
+        const ret = await $$`sensors`
+        console.log(ret.stdout)
+    } catch (e) {
+      console.log(chalk.red('Error running sensors'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Sensors run'));
+
+
+    // Run the install-dkcer.sh script
+    console.log(chalk.blue('Installing Docker'))
+    try {
+        await $$`sudo ~/tmp/build_image_assets/install-docker.sh`;
+    } catch (e) {
+      console.log(chalk.red('Error installing Docker'));
+      console.error(e);
+      process.exit(1);
+    }   
+    console.log(chalk.green('Docker installed'));
+
+    // Add the docker group if it does not already exist
+    console.log(chalk.blue('Adding the docker group'))
+    try {
+        // Check if the docker group already exists
+        if (await $$`getent group docker`) {
+            console.log(chalk.blue('The docker group already exists'));
+        } else {
+            await $$`sudo groupadd docker`;
+        }
+    } catch (e) {
+      console.log(chalk.red('Error adding the docker group'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Docker group added'));
+
+
+    // Add the ssh user to the docker group
+    console.log(chalk.blue('Adding the ssh user to the docker group'))
+    try {
+        await $$`sudo usermod -aG docker ${user}`;
+    } catch (e) {
+      console.log(chalk.red('Error adding the ssh user to the docker group'));
+      console.error(e);
+      process.exit(1);
+    }
+
+    // Copy the daemon.json asset to /etc/docker
+    console.log(chalk.blue('Configuring Docker'))
+    try {
+        await copyAsset('daemon.json', '/etc/docker', false, "0644")
+    } catch (e) {
+      console.log(chalk.red('Error configuring Docker'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Docker configured'));
+
+
+    // Restart the Docker service
+    console.log(chalk.blue('Restarting the Docker service'))
+    try {
+        await $$`sudo systemctl restart docker`;
+    } catch (e) {
+      console.log(chalk.red('Error restarting the Docker service'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Docker service restarted'));
+
+    
+    // Print the Docker Compose, the Docker version and the Docker info
+    console.log(chalk.blue('Docker info'))
+    try {
+        let ret = await $$`sudo docker compose version`
+        console.log(ret.stdout)
+        ret = await $$`sudo docker version`
+        console.log(ret.stdout)
+        ret = await $$`sudo docker info`
+        console.log(ret.stdout)
+    } catch (e) {
+      console.log(chalk.red('Error printing the Docker info'));
+      console.error(e);
+      process.exit(1);
+    }
+    console.log(chalk.green('Docker info printed'));
+
+    // Create the internal docker networks frontend and backend if they do not already exist
+    console.log(chalk.blue('Creating the frontend network'))
+    try {
+        // Check if the frontend network already exists
+        if (await $$`sudo docker network ls --filter name=frontend`) {
+            console.log(chalk.blue('The frontend network already exists'));
+        } else {
+            await $$`sudo docker network create --internal frontend`;
+        }
+        // Check if the backend network already exists
+        if (await $$`sudo docker network ls --filter name=backend`) {
+            console.log(chalk.blue('The backend network already exists'));
+        } else {
+            await $$`sudo docker network create --internal backend`;
+        }
+    } catch (e) {
+      console.log(chalk.red('Error creating the frontend or backend network'));
+      console.error(e);
+      process.exit(1); 
+    }
+    console.log(chalk.green('Frontend and backend networks created'));
+
+    // Create the /apps, /apps/catalog, and /apps/instances directories 
+    console.log(chalk.blue('Creating the /apps, /apps/catalog, and /apps/instances directories'))
+    try {
+        await createDir('/apps')
+        await createDir('/apps/catalog')
+        await createDir('/apps/instances')
+    } catch (e) {
+      console.log(chalk.red('Error creating the /apps, /apps/catalog, and /apps/instances directories'));
+      console.error(e);
+      process.exit(1);
+    }   
+    console.log(chalk.green('The /apps, /apps/catalog, and /apps/instances directories created'));
+
 }
 
-// if (user && machine) {
-//     // Sync the assets folder to the remote machine
-//     await executeWithErrorHandler(
-//         `Syncing the assets folder to the remote machine`,
-//         `rsync -avz -e "ssh -o StrictHostKeyChecking=no" assets ${user}@${machine}:~/assets`,
-//         "Failed to sync assets folder to the remote machine"
-//     );
-
-//     // Run the create_image.sh script on the remote machine
-//     await executeWithErrorHandler(
-//         `Running the create_image.sh script on the remote machine`,
-//         `sshpass -p ${PASSWORD} ssh -o StrictHostKeyChecking=no 
-//         ${user}@${machine} 'bash -s' < scripts/create_image.sh ${argv[1]} ${is64Bit ? "64" : "32"}`, // 2>&1
-//         "Failed to create image"
-//     );
-
-//     // Copy the image from the remote machine to the local machine
-//     await executeWithErrorHandler(
-//         `Copying the image from the remote machine to the local machine`,
-//         `rsync -avz -e "ssh -o StrictHostKeyChecking=no" ${user}@${machine}:~/image.img .`,
-//         "Failed to copy the image from the remote machine to the local machine"
-//     );
-// }
-
-
-// I want to connect to a remote machine that will build the image for me
-// First I would like to sync all the content of the assets subfolder to the remote machine using the following command
-// rsync -avz -e "ssh -o StrictHostKeyChecking=no" assets pi@${argv[2]}:~/assets
-// rsync -ar test/ koenswings@Macbook-Pro-13.local:tmp
-
-
-
-
-
-// // Check if the file image.img exists and if not, download it
-// if (!fs.existsSync(image)) {
-//     await executeWithErrorHandler(
-//         `wget https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2023-12-11/2023-12-11-raspios-bookworm-arm64-lite.img.xz`,
-//         "Failed to download image"
-//     );
-// }
-
-// // Uncompressing image
-// await executeWithErrorHandler(
-//     `unxz ${image}`,
-//     "Failed to uncompress image"
-// );
-
-// // Remotely run docker-pi using the creat_image.sh script
-// await executeWithErrorHandler(
-//     `sshpass -p ${PASSWORD} ssh -o StrictHostKeyChecking=no 
-//     pi@${argv[2]} 'bash -s' < scripts/create_image.sh ${argv[1]} ${is64Bit ? "64" : "32"}`, // 2>&1
-//     "Failed to create image"
-// );
+await build()
+console.log(chalk.green('Build completed successfully'));
+process.exit(0);
 

@@ -1,0 +1,3 @@
+# crontab commands
+0 5 * * * /sbin/shutdown -r now
+@reboot /usr/local/bin/first_boot.sh
