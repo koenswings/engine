@@ -8,7 +8,8 @@ import YAML from 'yaml'
 // - Port the configuration of system apps from the build_server Python script of the BerryIT project
 // - Improve type checking of the defaults object. We are not detecting missing properties
 // - Test HDMI power off on boot and remove it from here it is confirmed that this is something thatr MUST be done on every boot
-
+// - Current code is for building a dev image - add a flag to build a production image
+// - Fix issue with locale-gen which only accepts en_ZW.UTF-8 and not en_GB.UTF-8 or en_US.UTF-8
 
 const { version } = pack
 
@@ -94,6 +95,7 @@ const temperature = argv.temperature || defaults.temperature
 const argon = argv.argon || defaults.argon
 const zerotier = argv.zerotier || defaults.zerotier
 const raspap = argv.raspap || defaults.raspap
+let githubToken = ""
 
 // // Read --user (abbrevyated as -u), --host (abbreviated as -m) and password arguments. Default to pi, raspberrypi and raspberry if not provided  
 // const user = argv.u || argv.user || 'pi'
@@ -106,6 +108,16 @@ const $$ = ssh(`${user}@${host}`)
 const syncAssets = async () => {
     console.log(chalk.blue('Syncing the build_image_assets folder to the remote host'));
     try {
+        // Check if the gh_token.txt file exists in the build_image_assets folder
+        // If it does not exist, ask the user to provide the GitHub token and write it to the file
+        // If it does exist, read the token from the file
+        if (!fs.existsSync('./build_image_assets/gh_token.txt')) {
+          githubToken = await question('Enter the GitHub token: ');
+            fs.writeFileSync('./build_image_assets/gh_token.txt', githubToken);
+        } else {
+            githubToken = fs.readFileSync('./build_image_assets/gh_token.txt', 'utf8');
+            console.log(`The GitHub token is: ${githubToken}`);
+        }
         //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
         await $`rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
     } catch (e) {   
@@ -190,7 +202,6 @@ const upgradeSystem = async () => {
 const setHostname = async () => {
     console.log(chalk.blue('Setting hostname...'));
     try {
-      const hostname = await question('Enter the hostname: ');
       await $$`sudo hostnamectl set-hostname ${hostname}`;
     }   catch (e) {
       console.log(chalk.red('Error setting hostname'));
@@ -223,6 +234,66 @@ const installArgonFanScript = async () => {
     process.exit(1);
   }
   console.log(chalk.green('Argon fan script executed'));
+}
+
+const installGh = async () => {
+  console.log(chalk.blue('Installing gh...'));
+  try {
+      // Suggested by Copilot
+      // await $$ `sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0`;
+      // await $$ `sudo apt-add-repository https://cli.github.com/packages`;
+      // await $$ `sudo apt update`;
+      // await $$ `sudo apt install gh -y`;
+      // This is the official installation method from the GitHub CLI website
+      // curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+      // && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+      // && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+      // && sudo apt update \
+      // && sudo apt install gh -y
+      await $$ `curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg`
+      await $$ `sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg`
+      await $$ `echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null`
+      await $$ `sudo apt update`
+      await $$ `sudo apt install gh -y`
+
+  } catch (e) {
+      console.log(chalk.red('Error installing gh'));
+      console.error(e);
+      process.exit(1);
+  }
+  console.log(chalk.green('gh installed'));
+}
+
+// Write a function to authenticate with git and clone the repo https://github.com/koenswings/engine.git
+const cloneRepo = async () => {
+  console.log(chalk.blue('Cloning the engine repo...'));
+  try {
+      await $$`git config --global user.email "koen@swings.be"`;
+      await $$`git config --global user.name "Koen Swings"`;
+      await $$`gh auth login --with-token < ~/tmp/build_image_assets/gh_token.txt`;
+      // If the repo already exists, remove it
+      // Use the test function to check if the directory exists
+      await $$`if [ -d /engine ]; then sudo rm -rf /engine; fi`;
+      await $$`cd / && sudo git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
+  } catch (e) {
+    console.log(chalk.red('Error cloning the engine repo'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine repo cloned'));
+}
+
+// Write a function to compose up the engine using the compose-test.yml file
+const composeUp = async () => {
+  console.log(chalk.blue('Composing up the engine...'));
+  try {
+      await $$`cd /engine && sudo docker compose -f compose-test.yaml up -d`;
+  } catch (e) {
+    console.log(chalk.red('Error composing up the engine'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine composed up'));
 }
 
 
@@ -336,6 +407,9 @@ const build = async () => {
       process.exit(1);
     }
     console.log(chalk.green('git, dnsutils, tree, lshw and cloud-guest-utils installed'));
+
+    // Install the GitHub CLI (gh)
+    await installGh();
 
     // Run the install-docker.sh script
     console.log(chalk.blue('Installing Docker'))
@@ -477,6 +551,13 @@ const build = async () => {
     //     }   
     //     console.log(chalk.green('RaspAP installed'));
     // }
+
+    // Clone the engine repo
+    await cloneRepo()
+
+    // Compose up the engine
+    await composeUp()
+
 }
 
 await build()

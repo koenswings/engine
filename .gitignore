@@ -5,6 +5,9 @@
 # Scratchpad folder
 scratchpad/
 
+# Github access token
+scripts/build_image_assets/gh_token.txt
+
 # Logs
 logs
 *.log

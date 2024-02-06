@@ -16,7 +16,7 @@ services:
       source: /engine
       target: /engine
     - type: bin
-      souce: ./tmp/npm
+      source: ./tmp/npm
       target: /root/.npm
     command: npm config set cache-min 9999999 && pnpm run install && pnpm run dev
 
