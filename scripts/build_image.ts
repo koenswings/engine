@@ -11,9 +11,41 @@ import YAML from 'yaml'
 // - Current code is for building a dev image - add a flag to build a production image
 // - Fix issue with locale-gen which only accepts en_ZW.UTF-8 and not en_GB.UTF-8 or en_US.UTF-8
 // - Cutting off HDMI power is not working
+// - Add the ability to set the password of the pi user
+// - print the version of the script
+// - ensure boot.out does not grow indefinitely
 
-
+// Add commandline option to print the version of the script
 const { version } = pack
+if (argv.v || argv.version) {
+  console.log(`Version: ${version}`);
+  process.exit(0);
+}
+
+// Add commandline option to print the help of the script
+if (argv.h || argv.help) {
+  console.log(`Builds a Raspberry Pi image with the specified configuration.`)
+  console.log(`Usage: build_image.ts [options]` )
+  console.log(`Options:`)
+  console.log(`  -h, --help           display help for command`)  
+  console.log(`  --version            output the version number`)
+  console.log(`  -u, --user <string>  the user to use to connect to the remote host (default: pi)`)
+  console.log(`  -m, --machine <string> the remote host to connect to (default: raspberrypi.local)`)
+  console.log(`  -p, --password <string> the password to use to connect to the remote host (default: raspberry)`)
+  console.log(`  -h, --hostname <string> the hostname to set on the remote host (default: raspberrypi)`)
+  console.log(`  -l, --language <string> the language to set on the remote host (default: en_GB.UTF-8)`)
+  console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote host (default: us)`)
+  console.log(`  -t, --timezone <string> the timezone to set on the remote host (default: Europe/Brussels)`)
+  console.log(`  --update              wether to update the system (default: true)`)
+  console.log(`  --upgrade             wether to upgrade the system (default: true)`)
+  console.log(`  --hdmi                whether to switch off HDMI power (default: false)`)
+  console.log(`  --temperature         wether to install temperature measurement (default: true)`)
+  console.log(`  --argon               wether to install the Argon fan script (default: true)`)
+  console.log(`  --zerotier            wether to install Zerotier (default: true)`)
+  console.log(`  --raspap              wether to install RaspAP (default: true)`)
+  console.log(``)
+  process.exit(0)
+}
 
 // This is the list of configuration parameters for this script
 // - the remote host to connect to
@@ -289,7 +321,7 @@ const cloneRepo = async () => {
 const composeUp = async () => {
   console.log(chalk.blue('Composing up the engine...'));
   try {
-      await $$`cd /engine && sudo docker compose -f compose-test.yaml up -d`;
+      await $$`cd /engine && docker compose -f compose-test.yaml up -d`;
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
     console.error(e);
@@ -345,8 +377,8 @@ const build = async () => {
     // Install the crontabs
     console.log(chalk.blue('Installing crontabs...'));
     try {
-        // Copy first_boot.sh to /usr/local/bin
-        await copyAsset('first_boot.sh', '/usr/local/bin', true)
+        // Copy boot.sh to /usr/local/bin
+        await copyAsset('boot.sh', '/usr/local/bin', true)
         // Install the crontab defs in the crondefs asset
         await $$`sudo crontab ~/tmp/build_image_assets/crondefs`
         // Alternative Copy the crontabs to /etc/cron.d
@@ -359,7 +391,7 @@ const build = async () => {
     console.log(chalk.green('Crontabs installed'));
 
     // Switch off HDMI power
-    // This should be in first_boot.sh
+    // This should be boot.sh
     // console.log(chalk.blue('Switching off HDMI power...'));
     // try {
     //     await $$`vcgencmd display_power 0`;

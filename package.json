@@ -8,6 +8,8 @@
     "install_packages": "pnpm install --frozen-lockfile", 
     "start": "tsc && node dist/src/index.js",
     "dev": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && node dist/src/index.js'",
+    "sync": "rsync -av --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ./ pi@raspberrypi.local:/engine",
+    "syncTest": "rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets",
     "prod": "echo \"Running in prod mode...\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
