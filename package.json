@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "install": "pnpm install --frozen-lockfile",
+    "install_packages": "pnpm install --frozen-lockfile", 
     "start": "tsc && node dist/src/index.js",
     "dev": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && node dist/src/index.js'",
     "prod": "echo \"Running in prod mode...\"",

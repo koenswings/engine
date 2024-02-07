@@ -17,6 +17,9 @@ RUN apt install rsync -y
 # Install Docker for DIND
 RUN apt-get install -y curl && curl -sSL https://get.docker.com/ | sh
 
+# Install various utilities
+RUN apt-get install -y vim
+
 # Install npm, pnpm and node
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
 
@@ -49,8 +52,8 @@ RUN ln -sf /bin/bash /bin/sh
 FROM base as base_with_source
 
 # Add the source code
-COPY . /app
-WORKDIR /app
+COPY . /engine
+WORKDIR /engine
 
 
 # ------------------------------------------------------------------------------

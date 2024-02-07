@@ -287,7 +287,7 @@ const cloneRepo = async () => {
 const composeUp = async () => {
   console.log(chalk.blue('Composing up the engine...'));
   try {
-      await $$`cd /engine && sudo docker compose -f compose-test.yaml up -d`;
+      await $$`cd /engine && mkdir -p npm_cache && sudo docker compose -f compose-test.yaml up -d`;
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
     console.error(e);

@@ -1,9 +1,10 @@
 # This file is used by Docker Dev Environment to create the dev container
 services:
   app:
-    entrypoint:
-    - sleep
-    - infinity
+    # Infinite loop to keep the container running - use when you don't have a server running
+    # entrypoint:
+    # - sleep
+    # - infinity
     build: 
       context: .
       target: base
@@ -15,8 +16,5 @@ services:
     - type: bind
       source: /engine
       target: /engine
-    - type: bin
-      source: ./tmp/npm
-      target: /root/.npm
-    command: npm config set cache-min 9999999 && pnpm run install && pnpm run dev
+    command: bash -c "cd /engine && npm config set prefer-offline=true && pnpm run install_packages && pnpm run dev" 
 
