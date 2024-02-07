@@ -10,6 +10,8 @@ import YAML from 'yaml'
 // - Test HDMI power off on boot and remove it from here it is confirmed that this is something thatr MUST be done on every boot
 // - Current code is for building a dev image - add a flag to build a production image
 // - Fix issue with locale-gen which only accepts en_ZW.UTF-8 and not en_GB.UTF-8 or en_US.UTF-8
+// - Cutting off HDMI power is not working
+
 
 const { version } = pack
 
@@ -116,7 +118,7 @@ const syncAssets = async () => {
             fs.writeFileSync('./build_image_assets/gh_token.txt', githubToken);
         } else {
             githubToken = fs.readFileSync('./build_image_assets/gh_token.txt', 'utf8');
-            console.log(`The GitHub token is: ${githubToken}`);
+            // console.log(`The GitHub token is: ${githubToken}`);
         }
         //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
         await $`rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
@@ -287,7 +289,7 @@ const cloneRepo = async () => {
 const composeUp = async () => {
   console.log(chalk.blue('Composing up the engine...'));
   try {
-      await $$`cd /engine && mkdir -p npm_cache && sudo docker compose -f compose-test.yaml up -d`;
+      await $$`cd /engine && sudo docker compose -f compose-test.yaml up -d`;
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
     console.error(e);

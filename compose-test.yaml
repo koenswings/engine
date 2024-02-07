@@ -1,6 +1,6 @@
 # This file is used by Docker Dev Environment to create the dev container
 services:
-  app:
+  engine:
     # Infinite loop to keep the container running - use when you don't have a server running
     # entrypoint:
     # - sleep
@@ -9,6 +9,7 @@ services:
       context: .
       target: base
     init: true
+    restart: always
     volumes:
     - type: bind
       source: /var/run/docker.sock
