@@ -10,12 +10,18 @@ services:
       target: base
     init: true
     restart: always
+    privileged: true
+    devices:
+      - "/dev/usb:/dev/usb"
+      #- "/dev:/dev"
+    cap_add:
+      - SYS_ADMIN
     volumes:
-    - type: bind
-      source: /var/run/docker.sock
-      target: /var/run/docker.sock
-    - type: bind
-      source: /engine
-      target: /engine
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: /engine
+        target: /engine
     command: bash -c "cd /engine && npm config set prefer-offline=true && pnpm run install_packages && pnpm run dev" 
 

@@ -17,11 +17,14 @@ RUN apt install rsync -y
 # Install Docker for DIND
 RUN apt-get install -y curl && curl -sSL https://get.docker.com/ | sh
 
-# Install various utilities
-RUN apt-get install -y vim
-
 # Install npm, pnpm and node
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
+
+# Install libusb for node-usb
+RUN apt-get install -y libusb-1.0-0
+
+# Install various utilities
+RUN apt-get install -y vim
 
 # Initialise pnpm 
 # All packages will be added to /pnpm, outside the /app folder
