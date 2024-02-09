@@ -187,6 +187,8 @@ const copyAsset = async (asset: string, destination: string, executable: boolean
     }
 }
 
+
+
 // Create a function that creates a directory if it does not already exist and sets the user, group and persmissions
 const createDir = async (dir: string, chmod: string | null = "0755", chown: string | null = "0:0") => {
     console.log(chalk.blue(`Creating directory ${dir}`));

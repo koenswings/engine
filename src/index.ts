@@ -21,7 +21,7 @@ usb.on('detach', function(device) { console.log(device); });
 // ...
 // Do it
 const displayDateAndTime = () => {
-  console.log(`Current Time: ${new Date()}`);
+  console.log(`Current Time and Date: ${new Date()}`);
 }
 
 setInterval(displayDateAndTime, 5000);
