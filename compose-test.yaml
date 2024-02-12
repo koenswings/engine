@@ -11,17 +11,18 @@ services:
     init: true
     restart: always
     privileged: true
-    devices:
-      - "/dev/usb:/dev/usb"
+    # devices:
+    #   - "/dev/bus/usb:/dev/bus/usb"
+      #- "/dev/usb:/dev/usb"
       #- "/dev:/dev"
-    cap_add:
-      - SYS_ADMIN
+    # cap_add:
+    #   - SYS_ADMIN
     volumes:
       - type: bind
         source: /var/run/docker.sock
         target: /var/run/docker.sock
       - type: bind
-        source: /engine
+        source: .
         target: /engine
     command: bash -c "cd /engine && npm config set prefer-offline=true && pnpm run install_packages && pnpm run dev" 
 

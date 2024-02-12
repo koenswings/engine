@@ -26,6 +26,13 @@ RUN apt-get install -y libusb-1.0-0
 # Install various utilities
 RUN apt-get install -y vim
 
+# Install usbutils for lsusb, and udev for triggering events
+RUN apt-get install -y usbutils udev inotify-tools
+
+# Install libudev-dev which is required for the udev npm package
+RUN apt-get install libudev-dev -y
+
+
 # Initialise pnpm 
 # All packages will be added to /pnpm, outside the /app folder
 ENV SHELL bash
@@ -36,6 +43,9 @@ RUN pnpm setup
 # Add any global npm packages  
 # - Install ts-node globally so the engine scripts can run globally
 RUN pnpm add -g ts-node  
+
+# Add udev npm package - it can not be pre-added to the package.json file because it is a native package
+RUN pnpm add udev
 
 # Install expect
 RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/Brussels" apt-get install -y expect

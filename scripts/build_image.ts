@@ -14,6 +14,8 @@ import YAML from 'yaml'
 // - Add the ability to set the password of the pi user
 // - print the version of the script
 // - ensure boot.out does not grow indefinitely
+// - Use the YAML lib from zx
+
 
 // Add commandline option to print the version of the script
 const { version } = pack
