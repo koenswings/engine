@@ -8,7 +8,7 @@ import YAML from 'yaml'
 // - Port the configuration of system apps from the build_server Python script of the BerryIT project
 // - Improve type checking of the defaults object. We are not detecting missing properties
 // - Test HDMI power off on boot and remove it from here it is confirmed that this is something thatr MUST be done on every boot
-// - Current code is for building a dev image - add a flag to build a production image
+// - Current code is for building a dev image - add a flag to build a production image (eg putting engine in /engine iso ~/engine)
 // - Fix issue with locale-gen which only accepts en_ZW.UTF-8 and not en_GB.UTF-8 or en_US.UTF-8
 // - Cutting off HDMI power is not working
 // - Add the ability to set the password of the pi user
@@ -302,6 +302,9 @@ const installGh = async () => {
   console.log(chalk.green('gh installed'));
 }
 
+const enginePath = "/home/pi/engine"
+const engineParentPath = enginePath.substring(0, enginePath.lastIndexOf("/"))
+
 // Write a function to authenticate with git and clone the repo https://github.com/koenswings/engine.git
 const cloneRepo = async () => {
   console.log(chalk.blue('Cloning the engine repo...'));
@@ -311,8 +314,8 @@ const cloneRepo = async () => {
       await $$`gh auth login --with-token < ~/tmp/build_image_assets/gh_token.txt`;
       // If the repo already exists, remove it
       // Use the test function to check if the directory exists
-      await $$`if [ -d /engine ]; then sudo rm -rf /engine; fi`;
-      await $$`cd / && sudo git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
+      await $$`if [ -d ${enginePath} ]; then sudo rm -rf ${enginePath}; fi`;
+      await $$`cd ${engineParentPath} && sudo git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
   } catch (e) {
     console.log(chalk.red('Error cloning the engine repo'));
     console.error(e);
@@ -325,7 +328,10 @@ const cloneRepo = async () => {
 const composeUp = async () => {
   console.log(chalk.blue('Composing up the engine...'));
   try {
-      await $$`cd /engine && docker compose -f compose-test.yaml up -d`;
+      // First build the image (so we can capture errors in the build process)
+      await $$`cd ${enginePath} && docker compose -f compose-test.yaml build`;
+      // Then compose up 
+      await $$`cd ${enginePath} && docker compose -f compose-test.yaml up -d`;
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
     console.error(e);
@@ -334,6 +340,19 @@ const composeUp = async () => {
   console.log(chalk.green('Engine composed up'));
 }
 
+// Write a function to install udev and the udev rules in 90-docking.rules
+const installUdev = async () => {
+  console.log(chalk.blue('Installing udev and udev rules...'));
+  try {
+      await $$`sudo apt install udev -y`;
+      await copyAsset('90-docking.rules', '/etc/udev/rules.d')
+  } catch (e) {
+    console.log(chalk.red('Error installing udev and udev rules'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Udev and udev rules installed'));
+} 
 
 
 
@@ -434,6 +453,9 @@ const build = async () => {
         }
         console.log(chalk.green('Sensors run'));
     }
+
+    // Install udev and udev rules
+    await installUdev()
     
     // Install the git, dnsutlis, tree, lshw and cloud-guest-utils packages
     console.log(chalk.blue('Installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils...'));
