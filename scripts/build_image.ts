@@ -8,46 +8,22 @@ import YAML from 'yaml'
 // - Port the configuration of system apps from the build_server Python script of the BerryIT project
 // - Improve type checking of the defaults object. We are not detecting missing properties
 // - Test HDMI power off on boot and remove it from here it is confirmed that this is something thatr MUST be done on every boot
-// - Current code is for building a dev image - add a flag to build a production image (eg putting engine in /engine iso ~/engine)
+// - Current code is for building a dev image - add a flag to build a production image. This mght involve
+//      Cloning a specified release of the engine to /engine (using sudo !) instead of syncing it from the development machine
 // - Fix issue with locale-gen which only accepts en_ZW.UTF-8 and not en_GB.UTF-8 or en_US.UTF-8
 // - Cutting off HDMI power is not working
 // - Add the ability to set the password of the pi user
 // - print the version of the script
 // - ensure boot.out does not grow indefinitely
 // - Use the YAML lib from zx
+// - Remove the syncAssets function and start with cloning the repo
+// - Add firewall rules to give network access to the gadget when it is connected to a host
+// - The Argon install script is ececuted from /usr/local/bin. It should be executed from the engine folder like all other install scripts
 
 
-// Add commandline option to print the version of the script
-const { version } = pack
-if (argv.v || argv.version) {
-  console.log(`Version: ${version}`);
-  process.exit(0);
-}
-
-// Add commandline option to print the help of the script
-if (argv.h || argv.help) {
-  console.log(`Builds a Raspberry Pi image with the specified configuration.`)
-  console.log(`Usage: build_image.ts [options]` )
-  console.log(`Options:`)
-  console.log(`  -h, --help           display help for command`)  
-  console.log(`  --version            output the version number`)
-  console.log(`  -u, --user <string>  the user to use to connect to the remote host (default: pi)`)
-  console.log(`  -m, --machine <string> the remote host to connect to (default: raspberrypi.local)`)
-  console.log(`  -p, --password <string> the password to use to connect to the remote host (default: raspberry)`)
-  console.log(`  -h, --hostname <string> the hostname to set on the remote host (default: raspberrypi)`)
-  console.log(`  -l, --language <string> the language to set on the remote host (default: en_GB.UTF-8)`)
-  console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote host (default: us)`)
-  console.log(`  -t, --timezone <string> the timezone to set on the remote host (default: Europe/Brussels)`)
-  console.log(`  --update              wether to update the system (default: true)`)
-  console.log(`  --upgrade             wether to upgrade the system (default: true)`)
-  console.log(`  --hdmi                whether to switch off HDMI power (default: false)`)
-  console.log(`  --temperature         wether to install temperature measurement (default: true)`)
-  console.log(`  --argon               wether to install the Argon fan script (default: true)`)
-  console.log(`  --zerotier            wether to install Zerotier (default: true)`)
-  console.log(`  --raspap              wether to install RaspAP (default: true)`)
-  console.log(``)
-  process.exit(0)
-}
+// ********************************************************************************************************************
+// Read the defaults from the YAML file and override the default configuration using the command line
+// ********************************************************************************************************************
 
 // This is the list of configuration parameters for this script
 // - the remote host to connect to
@@ -98,7 +74,8 @@ interface Defaults {
     temperature: boolean,
     argon: boolean,
     zerotier: boolean,
-    raspap: boolean
+    raspap: boolean,
+    gadget: boolean
 }
 
 // Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
@@ -131,18 +108,60 @@ const temperature = argv.temperature || defaults.temperature
 const argon = argv.argon || defaults.argon
 const zerotier = argv.zerotier || defaults.zerotier
 const raspap = argv.raspap || defaults.raspap
+const gadget = argv.gadget || defaults.gadget
+
+
+// ********************************************************************************************************************
+// Process command line options
+// ********************************************************************************************************************
+
+// Add commandline option to print the version of the script
+const { version } = pack
+if (argv.v || argv.version) {
+  console.log(`Version: ${version}`);
+  process.exit(0);
+}
+
+// Add commandline option to print the help of the script
+if (argv.h || argv.help) {
+  console.log(`Builds a Raspberry Pi image with the specified configuration.`)
+  console.log(`Usage: build_image.ts [options]` )
+  console.log(`Options:`)
+  console.log(`  -h, --help              display help for command`)  
+  console.log(`  -v, --version           output the version number`)
+  console.log(`  -m, --machine <string>  the remote host to connect to (default: raspberrypi.local)`)
+  console.log(`  -u, --user <string>     the user to use to connect to the remote host (default: ${defaults.user})`)
+  console.log(`  -p, --password <string> the password to use to connect to the remote host (default: ${defaults.password})`)
+  console.log(`  -h, --hostname <string> the hostname to set on the remote host (default: ${defaults.hostname})`)
+  console.log(`  -l, --language <string> the language to set on the remote host (default: ${defaults.language})`)
+  console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote host (default: ${defaults.keyboard})`)
+  console.log(`  -t, --timezone <string> the timezone to set on the remote host (default: ${defaults.timezone})`)
+  console.log(`  --update                wether to update the system (default: ${defaults.update})`)
+  console.log(`  --upgrade               wether to upgrade the system (default: ${defaults.upgrade})`)
+  console.log(`  --hdmi                  whether to switch off HDMI power (default: ${defaults.hdmi})`)
+  console.log(`  --temperature           wether to install temperature measurement (default: ${defaults.temperature})`)
+  console.log(`  --argon                 wether to install the Argon fan script (default: ${defaults.argon})`)
+  console.log(`  --zerotier              wether to install Zerotier (default: ${defaults.zerotier})`)
+  console.log(`  --raspap                wether to install RaspAP (default: ${defaults.raspap})`)
+  console.log(`  --gadget                wether to run the rpi4-usb script (default: ${defaults.gadget})`)
+  console.log(``)
+  process.exit(0)
+}
+
+// ********************************************************************************************************************
+// Installer Helper Functions
+// ********************************************************************************************************************
+
+// Globals
 let githubToken = ""
-
-// // Read --user (abbrevyated as -u), --host (abbreviated as -m) and password arguments. Default to pi, raspberrypi and raspberry if not provided  
-// const user = argv.u || argv.user || 'pi'
-// const host = argv.m || argv.host || 'raspberrypi.local'
-// const password = argv.p || argv.password || 'raspberry'
-
 const $$ = ssh(`${user}@${host}`)
+const enginePath = "/home/pi/engine"
+const engineParentPath = enginePath.substring(0, enginePath.lastIndexOf("/"))
+
 
 // Sync the assets folder to the remote host
-const syncAssets = async () => {
-    console.log(chalk.blue('Syncing the build_image_assets folder to the remote host'));
+const syncEngine = async () => {
+    console.log(chalk.blue('Syncing the engine to the remote host'));
     try {
         // Check if the gh_token.txt file exists in the build_image_assets folder
         // If it does not exist, ask the user to provide the GitHub token and write it to the file
@@ -154,10 +173,12 @@ const syncAssets = async () => {
             githubToken = fs.readFileSync('./build_image_assets/gh_token.txt', 'utf8');
             // console.log(`The GitHub token is: ${githubToken}`);
         }
-        //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
-        await $`rsync -av build_image_assets/ ${user}@${host}:~/tmp/build_image_assets`;
+        //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${host}:~/build_image_assets`;
+        //await $`rsync -av build_image_assets/ ${user}@${host}:~/build_image_assets`;
+        // Call the sync_engine script
+        await $`./sync_engine --user ${user} --host ${host}`;
     } catch (e) {   
-        console.log(chalk.red('Failed to sync the build_image_assets folder to the remote host'));
+        console.log(chalk.red('Failed to sync the engine to the remote host'));
         console.error(e);
         process.exit(1);
     }
@@ -167,8 +188,8 @@ const syncAssets = async () => {
 const copyAsset = async (asset: string, destination: string, executable: boolean = false, chmod: string | null = "0644", chown: string | null = "0:0") => {
     console.log(chalk.blue(`Copying asset ${asset} to ${destination}`));
     try {
-        //await $$`sshpass -p ${password} ssh ${user}@${host} "sudo cp ~/tmp/build_image_assets/${asset} ${destination}"`;
-        await $$`sudo cp ~/tmp/build_image_assets/${asset} ${destination}`;
+        //await $$`sshpass -p ${password} ssh ${user}@${host} "sudo cp ${enginePath}/scripts/build_image_assets/${asset} ${destination}"`;
+        await $$`sudo cp ${enginePath}/scripts/build_image_assets/${asset} ${destination}`;
         console.log(chalk.blue(`chmod to ${chmod} of ${destination}/${asset}`));
         // 644 means that the owner can read and write, and everyone else can read
         //await $`sshpass -p ${password} ssh ${user}@${host} "sudo chmod ${chmod} ${destination}/${asset}"`;
@@ -188,8 +209,6 @@ const copyAsset = async (asset: string, destination: string, executable: boolean
         process.exit(1);
     }
 }
-
-
 
 // Create a function that creates a directory if it does not already exist and sets the user, group and persmissions
 const createDir = async (dir: string, chmod: string | null = "0755", chown: string | null = "0:0") => {
@@ -236,6 +255,75 @@ const upgradeSystem = async () => {
   }
 }
 
+// Write a function to localise the system
+const localiseSystem = async () => {
+  console.log(chalk.blue('Localising the system...'));
+  try {
+      // Copy the locale.gen asset to /etc. 
+      // This is a file that contains the list of all available locales.
+      await copyAsset('locale.gen', '/etc')
+      // Generate the available locales
+      await $$`sudo locale-gen`;
+      // Change to one selected locale
+      // TODO Check this chatgpt alternative: await $$`sudo update-locale LANG=${language} LC_ALL=${language} LANGUAGE=${language}`;
+      await $$`sudo update-locale LANG=${language}`;
+      // TODO - Alternative option suggested by ChatGPT
+      // Reconfigure locales
+      // await $$`sudo dpkg-reconfigure locales`;
+      // Changing keyboard layout
+      await $$`sudo raspi-config nonint do_configure_keyboard ${keyboard}`
+      // Set timezone
+      await $$`sudo timedatectl set-timezone ${timezone}`
+  } catch (e) {
+    console.log(chalk.red('Error localising the system'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('System localised'));
+}
+
+// Write a function to install the crontabs
+const installCrontabs = async () => {
+  console.log(chalk.blue('Installing crontabs...'));
+  try {
+    // Copy boot.sh to /usr/local/bin
+    await copyAsset('boot.sh', '/usr/local/bin', true)
+    // Install the crontab defs in the crondefs asset
+    await $$`sudo crontab ${enginePath}/scripts/build_image_assets/crondefs`
+    // Alternative Copy the crontabs to /etc/cron.d
+    // await copyAsset('crondefs', '/etc/cron.d')
+  } catch (e) {
+    console.log(chalk.red('Error installing crontabs'));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+// Write a function to install temperature measurement
+const installTemperature = async () => {
+  console.log(chalk.blue('Installing lm-sensors...'));
+  try {
+      await $$`sudo apt install lm-sensors -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing lm-sensors'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('lm-sensors installed'));
+  
+  // Run sensors to display the current temperature
+  console.log(chalk.blue('Running sensors...'));
+  try {
+      const ret = await $$`sensors`
+      console.log(ret.stdout)
+  } catch (e) {
+    console.log(chalk.red('Error running sensors'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Sensors run'));
+}
+
 // Put the set hostname code inside build() in a named async function
 const setHostname = async () => {
     console.log(chalk.blue('Setting hostname...'));
@@ -274,6 +362,134 @@ const installArgonFanScript = async () => {
   console.log(chalk.green('Argon fan script executed'));
 }
 
+const installDocker = async () => {
+  
+  // Run the install-docker.sh script
+  console.log(chalk.blue('Installing Docker'))
+  try {
+      // Make the script executable
+      await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/install-docker.sh`;
+      await $$`sudo ${enginePath}/scripts/build_image_assets/install-docker.sh`;
+  } catch (e) {
+    console.log(chalk.red('Error installing Docker'));
+    console.error(e);
+    process.exit(1);
+  }   
+  console.log(chalk.green('Docker installed'));
+
+  // Add the docker group if it does not already exist
+  console.log(chalk.blue('Adding the docker group'))
+  try {
+      // Check if the docker group already exists
+      if (await $$`getent group docker`) {
+          console.log(chalk.blue('The docker group already exists'));
+      } else {
+          await $$`sudo groupadd docker`;
+      }
+  } catch (e) {
+    console.log(chalk.red('Error adding the docker group'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker group added'));
+
+
+  // Add the ssh user to the docker group
+  console.log(chalk.blue('Adding the ssh user to the docker group'))
+  try {
+      await $$`sudo usermod -aG docker ${user}`;
+  } catch (e) {
+    console.log(chalk.red('Error adding the ssh user to the docker group'));
+    console.error(e);
+    process.exit(1);
+  }
+
+  // Copy the daemon.json asset to /etc/docker
+  console.log(chalk.blue('Configuring Docker'))
+  try {
+      await copyAsset('daemon.json', '/etc/docker', false, "0644")
+  } catch (e) {
+    console.log(chalk.red('Error configuring Docker'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker configured'));
+
+
+  // Restart the Docker service
+  console.log(chalk.blue('Restarting the Docker service'))
+  try {
+      await $$`sudo systemctl restart docker`;
+  } catch (e) {
+    console.log(chalk.red('Error restarting the Docker service'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker service restarted'));
+
+
+  // Print the Docker Compose, the Docker version and the Docker info
+  console.log(chalk.blue('Docker info'))
+  try {
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      let ret = await $$`sudo docker compose version`
+      console.log(ret.stdout)
+      ret = await $$`sudo docker version`
+      console.log(ret.stdout)
+      ret = await $$`sudo docker info`
+      console.log(ret.stdout)
+  } catch (e) {
+    console.log(chalk.red('Error printing the Docker info'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker info printed'));
+}
+
+// Write a function to build the required Docker Infrastructure
+const buildDockerInfrastructure = async () => { 
+
+  // Create the internal docker networks frontend and backend if they do not already exist
+  console.log(chalk.blue('Creating the frontend network'))
+  try {
+      // Check if the frontend network already exists
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      if (await $$`sudo docker network ls --filter name=frontend`) {
+          console.log(chalk.blue('The frontend network already exists'));
+      } else {
+          await $$`sudo docker network create --internal frontend`;
+      }
+      // Check if the backend network already exists
+      if (await $$`sudo docker network ls --filter name=backend`) {
+          console.log(chalk.blue('The backend network already exists'));
+      } else {
+          await $$`sudo docker network create --internal backend`;
+      }
+  } catch (e) {
+    console.log(chalk.red('Error creating the frontend or backend network'));
+    console.error(e);
+    process.exit(1); 
+  }
+  console.log(chalk.green('Frontend and backend networks created'));
+}
+
+// Write a function to build the Apps Infrastructure
+const buildAppsInfrastructure = async () => {
+// Create the /apps, /apps/catalog, and /apps/instances directories 
+  console.log(chalk.blue('Creating the /apps, /apps/catalog, and /apps/instances directories'))
+  try {
+      await createDir('/apps')
+      await createDir('/apps/catalog')
+      await createDir('/apps/instances')
+  } catch (e) {
+    console.log(chalk.red('Error creating the /apps, /apps/catalog, and /apps/instances directories'));
+    console.error(e);
+    process.exit(1);
+  }   
+  console.log(chalk.green('The /apps, /apps/catalog, and /apps/instances directories created'));
+}
+
+// Write a function to install gh
 const installGh = async () => {
   console.log(chalk.blue('Installing gh...'));
   try {
@@ -302,20 +518,18 @@ const installGh = async () => {
   console.log(chalk.green('gh installed'));
 }
 
-const enginePath = "/home/pi/engine"
-const engineParentPath = enginePath.substring(0, enginePath.lastIndexOf("/"))
-
 // Write a function to authenticate with git and clone the repo https://github.com/koenswings/engine.git
 const cloneRepo = async () => {
   console.log(chalk.blue('Cloning the engine repo...'));
   try {
       await $$`git config --global user.email "koen@swings.be"`;
       await $$`git config --global user.name "Koen Swings"`;
-      await $$`gh auth login --with-token < ~/tmp/build_image_assets/gh_token.txt`;
+      await $$`gh auth login --with-token < ${enginePath}/scripts/build_image_assets/gh_token.txt`;
       // If the repo already exists, remove it
       // Use the test function to check if the directory exists
       await $$`if [ -d ${enginePath} ]; then sudo rm -rf ${enginePath}; fi`;
-      await $$`cd ${engineParentPath} && sudo git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
+      // Do not use sudo if you clone to a user folder !
+      await $$`cd ${engineParentPath} && git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
   } catch (e) {
     console.log(chalk.red('Error cloning the engine repo'));
     console.error(e);
@@ -325,13 +539,26 @@ const cloneRepo = async () => {
 }
 
 // Write a function to compose up the engine using the compose-test.yml file
-const composeUp = async () => {
+const startEngine = async () => {
+  // Build the engine image
+  console.log(chalk.blue('Building the engine image...'));
+  try {
+      // Compose build
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      await $$`cd ${enginePath} && sudo docker compose -f compose-test.yaml build`;
+  } catch (e) {
+    console.log(chalk.red('Error building the engine image'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine image built'));
+
+  // Start the engine
   console.log(chalk.blue('Composing up the engine...'));
   try {
-      // First build the image (so we can capture errors in the build process)
-      await $$`cd ${enginePath} && docker compose -f compose-test.yaml build`;
-      // Then compose up 
-      await $$`cd ${enginePath} && docker compose -f compose-test.yaml up -d`;
+      // Compose up 
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      await $$`cd ${enginePath} && sudo docker compose -f compose-test.yaml up -d`;
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
     console.error(e);
@@ -354,7 +581,64 @@ const installUdev = async () => {
   console.log(chalk.green('Udev and udev rules installed'));
 } 
 
+// Write a function to reboot the system
+const rebootSystem = async () => {
+  console.log(chalk.blue('Rebooting the system...'));
+  try {
+      await $$`sudo reboot`;
+  } catch (e) {
+    console.log(chalk.red('Error rebooting the system'));
+    console.error(e);
+    process.exit(1);
+  }
+}
 
+// Write a function to run the rpi4-usb script that turns the Pi into a USB gadget
+const usbGadget = async () => {
+  console.log(chalk.blue('Running the rpi4-usb script...'));
+  try {
+      // Make the script executable
+      await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/rpi4-usb.sh`;
+      await $$`sudo ${enginePath}/scripts/build_image_assets/rpi4-usb.sh`;
+  } catch (e) {
+    console.log(chalk.red('Error running the rpi4-usb script'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('rpi4-usb script run'));
+}
+
+// Write a function to install RaspAP
+const installRaspAP = async () => {
+  console.log(chalk.blue('Installing RaspAP...'));
+  try {
+    const raspap_version = "2.8.5"
+    // Make the script executable
+    await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/install-raspap.sh`;
+    await $$`sudo ${enginePath}/scripts/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;  
+  } catch (e) {
+    console.log(chalk.red('Error installing RaspAP'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('RaspAP installed'));
+}
+
+// Write a function to install Zerotier
+const installZerotier = async () => {
+  console.log(chalk.blue('Installing Zerotier...'));
+  try {
+    // Make the script executable
+    await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/install-zerotier.sh`;
+    await $$`sudo ${enginePath}/scripts/build_image_assets/install-zerotier.sh`;  
+  } catch (e) {
+    console.log(chalk.red('Error installing Zerotier'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Zerotier installed'));
+}
+    
 
 const build = async () => {
 
@@ -366,52 +650,17 @@ const build = async () => {
         await upgradeSystem()
     }
     
-    // Sync the assets folder to the remote host
-    await syncAssets()
+    // Sync the engine to the remote host
+    await syncEngine()
 
     // Set the hostname
     await setHostname()
 
     // Localise the system
-    console.log(chalk.blue('Localising the system...'));
-    try {
-        // Copy the locale.gen asset to /etc. 
-        // This is a file that contains the list of all available locales.
-        await copyAsset('locale.gen', '/etc')
-        // Generate the available locales
-        await $$`sudo locale-gen`;
-        // Change to one selected locale
-        // TODO Check this chatgpt alternative: await $$`sudo update-locale LANG=${language} LC_ALL=${language} LANGUAGE=${language}`;
-        await $$`sudo update-locale LANG=${language}`;
-        // TODO - Alternative option suggested by ChatGPT
-        // Reconfigure locales
-        // await $$`sudo dpkg-reconfigure locales`;
-        // Changing keyboard layout
-        await $$`sudo raspi-config nonint do_configure_keyboard ${keyboard}`
-        // Set timezone
-        await $$`sudo timedatectl set-timezone ${timezone}`
-    } catch (e) {
-      console.log(chalk.red('Error localising the system'));
-      console.error(e);
-      process.exit(1);
-    }
-    console.log(chalk.green('System localised'));
+    await localiseSystem()
 
     // Install the crontabs
-    console.log(chalk.blue('Installing crontabs...'));
-    try {
-        // Copy boot.sh to /usr/local/bin
-        await copyAsset('boot.sh', '/usr/local/bin', true)
-        // Install the crontab defs in the crondefs asset
-        await $$`sudo crontab ~/tmp/build_image_assets/crondefs`
-        // Alternative Copy the crontabs to /etc/cron.d
-        // await copyAsset('crondefs', '/etc/cron.d')
-    } catch (e) {
-      console.log(chalk.red('Error installing crontabs'));
-      console.error(e);
-      process.exit(1);
-    }
-    console.log(chalk.green('Crontabs installed'));
+    await installCrontabs()
 
     // Switch off HDMI power
     // This should be boot.sh
@@ -431,27 +680,7 @@ const build = async () => {
 
     // Install temperature measurement
     if (temperature) {
-        console.log(chalk.blue('Installing lm-sensors...'));
-        try {
-            await $$`sudo apt install lm-sensors -y`;
-        } catch (e) {
-          console.log(chalk.red('Error installing lm-sensors'));
-          console.error(e);
-          process.exit(1);
-        }
-        console.log(chalk.green('lm-sensors installed'));
-        
-        // Run sensors to display the current temperature
-        console.log(chalk.blue('Running sensors...'));
-        try {
-            const ret = await $$`sensors`
-            console.log(ret.stdout)
-        } catch (e) {
-          console.log(chalk.red('Error running sensors'));
-          console.error(e);
-          process.exit(1);
-        }
-        console.log(chalk.green('Sensors run'));
+        await installTemperature()
     }
 
     // Install udev and udev rules
@@ -471,153 +700,39 @@ const build = async () => {
     // Install the GitHub CLI (gh)
     await installGh();
 
-    // Run the install-docker.sh script
-    console.log(chalk.blue('Installing Docker'))
-    try {
-        await $$`sudo ~/tmp/build_image_assets/install-docker.sh`;
-    } catch (e) {
-      console.log(chalk.red('Error installing Docker'));
-      console.error(e);
-      process.exit(1);
-    }   
-    console.log(chalk.green('Docker installed'));
+    // Install Docker
+    await installDocker()
 
-    // Add the docker group if it does not already exist
-    console.log(chalk.blue('Adding the docker group'))
-    try {
-        // Check if the docker group already exists
-        if (await $$`getent group docker`) {
-            console.log(chalk.blue('The docker group already exists'));
-        } else {
-            await $$`sudo groupadd docker`;
-        }
-    } catch (e) {
-      console.log(chalk.red('Error adding the docker group'));
-      console.error(e);
-      process.exit(1);
-    }
-    console.log(chalk.green('Docker group added'));
+    // Build the required Docker Infrastructure
+    await buildDockerInfrastructure()
 
-
-    // Add the ssh user to the docker group
-    console.log(chalk.blue('Adding the ssh user to the docker group'))
-    try {
-        await $$`sudo usermod -aG docker ${user}`;
-    } catch (e) {
-      console.log(chalk.red('Error adding the ssh user to the docker group'));
-      console.error(e);
-      process.exit(1);
-    }
-
-    // Copy the daemon.json asset to /etc/docker
-    console.log(chalk.blue('Configuring Docker'))
-    try {
-        await copyAsset('daemon.json', '/etc/docker', false, "0644")
-    } catch (e) {
-      console.log(chalk.red('Error configuring Docker'));
-      console.error(e);
-      process.exit(1);
-    }
-    console.log(chalk.green('Docker configured'));
-
-
-    // Restart the Docker service
-    console.log(chalk.blue('Restarting the Docker service'))
-    try {
-        await $$`sudo systemctl restart docker`;
-    } catch (e) {
-      console.log(chalk.red('Error restarting the Docker service'));
-      console.error(e);
-      process.exit(1);
-    }
-    console.log(chalk.green('Docker service restarted'));
+    // Build the Apps Infrastructure
+    await buildAppsInfrastructure()
 
     
-    // Print the Docker Compose, the Docker version and the Docker info
-    console.log(chalk.blue('Docker info'))
-    try {
-        let ret = await $$`sudo docker compose version`
-        console.log(ret.stdout)
-        ret = await $$`sudo docker version`
-        console.log(ret.stdout)
-        ret = await $$`sudo docker info`
-        console.log(ret.stdout)
-    } catch (e) {
-      console.log(chalk.red('Error printing the Docker info'));
-      console.error(e);
-      process.exit(1);
+    // Install RaspAP
+    if (raspap) {
+        await installRaspAP()
     }
-    console.log(chalk.green('Docker info printed'));
-
-    // Create the internal docker networks frontend and backend if they do not already exist
-    console.log(chalk.blue('Creating the frontend network'))
-    try {
-        // Check if the frontend network already exists
-        if (await $$`sudo docker network ls --filter name=frontend`) {
-            console.log(chalk.blue('The frontend network already exists'));
-        } else {
-            await $$`sudo docker network create --internal frontend`;
-        }
-        // Check if the backend network already exists
-        if (await $$`sudo docker network ls --filter name=backend`) {
-            console.log(chalk.blue('The backend network already exists'));
-        } else {
-            await $$`sudo docker network create --internal backend`;
-        }
-    } catch (e) {
-      console.log(chalk.red('Error creating the frontend or backend network'));
-      console.error(e);
-      process.exit(1); 
-    }
-    console.log(chalk.green('Frontend and backend networks created'));
-
-    // Create the /apps, /apps/catalog, and /apps/instances directories 
-    console.log(chalk.blue('Creating the /apps, /apps/catalog, and /apps/instances directories'))
-    try {
-        await createDir('/apps')
-        await createDir('/apps/catalog')
-        await createDir('/apps/instances')
-    } catch (e) {
-      console.log(chalk.red('Error creating the /apps, /apps/catalog, and /apps/instances directories'));
-      console.error(e);
-      process.exit(1);
-    }   
-    console.log(chalk.green('The /apps, /apps/catalog, and /apps/instances directories created'));
-
 
     // Install Zerotier
-    // if (zerotier) {
-    //     console.log(chalk.blue('Installing Zerotier'))
-    //     try {
-    //         await $$`sudo ~/tmp/build_image_assets/install-zerotier.sh`;
-    //     } catch (e) {
-    //       console.log(chalk.red('Error installing Zerotier'));
-    //       console.error(e);
-    //       process.exit(1);
-    //     }   
-    //     console.log(chalk.green('Zerotier installed'));
-    // }
+    if (zerotier) {
+        await installZerotier()
+    }
 
-    // Install RaspAP
-    // if (raspap) {
-    //     console.log(chalk.blue('Installing RaspAP'))
-    //     try {
-    //         const raspap_version = "2.8.5"
-    //         await $$`sudo ~/tmp/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;
-    //     } catch (e) {
-    //       console.log(chalk.red('Error installing RaspAP'));
-    //       console.error(e);
-    //       process.exit(1);
-    //     }   
-    //     console.log(chalk.green('RaspAP installed'));
-    // }
-
+    
     // Clone the engine repo
-    await cloneRepo()
+    // Only required for production build - for dev build, we sync the engine from the development machine
+    // await cloneRepo(releaseSpecified)
 
-    // Compose up the engine
-    await composeUp()
+    // Start the engine
+    await startEngine()
 
+    // Run the rpi4-usb script
+    await usbGadget()
+
+    // Reboot the system
+    await rebootSystem()
 }
 
 await build()

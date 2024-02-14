@@ -21,14 +21,13 @@ RUN apt-get install -y curl && curl -sSL https://get.docker.com/ | sh
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
 
 # Install libusb for node-usb
-RUN apt-get install -y libusb-1.0-0
+# RUN apt-get install -y libusb-1.0-0
 
 # Install various utilities
 RUN apt-get install -y vim
 
 # Install usbutils for lsusb, and udev for triggering events
 RUN apt-get install -y usbutils udev
-
 
 # Initialise pnpm 
 # All packages will be added to /pnpm, outside the /app folder
@@ -40,9 +39,6 @@ RUN pnpm setup
 # Add any global npm packages  
 # - Install ts-node globally so the engine scripts can run globally
 RUN pnpm add -g ts-node  
-
-# Install expect
-RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/Brussels" apt-get install -y expect
 
 # Expose ports
 EXPOSE 22

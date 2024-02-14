@@ -19,6 +19,7 @@ watcher
     // Strip out the name of the device from the path and assign it to a variable
     const device = path.split('/').pop()
     // Check if the device begins with "sd", is then followed by a letter and ends with the number 2
+    // We need the m flag - see https://regexr.com/7rvpq
     if (device.match(/^sd[a-z]2$/m)) {
       log(`USB device ${device} has been added`)
       try {

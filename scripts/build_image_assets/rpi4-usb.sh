@@ -11,17 +11,20 @@ UNITFILE=/lib/systemd/system/usb-gadget.service
 BASE_IP=10.55.0
 
 # some usefull functions
+# KSW HACKED - confirm everything automatically
 confirm() {
     # call with a prompt string or use a default
-    read -r -p "${1:-Are you sure? [y/N]} " response
-    case "$response" in
-        [yY][eE][sS]|[yY]) 
-            true
-            ;;
-        *)
-            false
-            ;;
-    esac
+    # KSW hack - return true to confirm everything automatically
+    true
+    # read -r -p "${1:-Are you sure? [y/N]} " response
+    # case "$response" in
+    #     [yY][eE][sS]|[yY]) 
+    #         true
+    #         ;;
+    #     *)
+    #         false
+    #         ;;
+    # esac
 }
 
 teeconfirm() {
@@ -239,21 +242,22 @@ EOF
     echo "Created $USBFILE"
 fi
 
+# KSW HACKED - default to ECM
+# prompt="Pick an option:"
+# options=("RNDIS Network device type (best with windows)" "ECM Network device type")
 
-prompt="Pick an option:"
-options=("RNDIS Network device type (best with windows)" "ECM Network device type")
+#DEVICETYPE="net-rndis"
+DEVICETYPE="net-ecm"
 
-DEVICETYPE="net-rndis"
-
-echo -e "\n\nSelect network device type"
-PS3="$prompt "
-select opt in "${options[@]}" ; do 
-    case "$REPLY" in
-    1) DEVICETYPE="net-rndis";break;;
-    2) DEVICETYPE="net-ecm";break;;
-    *) echo "Invalid option. Try another one.";continue;;
-    esac
-done
+# echo -e "\n\nSelect network device type"
+# PS3="$prompt "
+# select opt in "${options[@]}" ; do 
+#     case "$REPLY" in
+#     1) DEVICETYPE="net-rndis";break;;
+#     2) DEVICETYPE="net-ecm";break;;
+#     *) echo "Invalid option. Try another one.";continue;;
+#     esac
+# done
 echo -e "\nYou selected '$DEVICETYPE' which will be configured in"
 echo -e "the systemd unit file for usb-gadget.\n"
 

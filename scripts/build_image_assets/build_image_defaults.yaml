@@ -12,3 +12,4 @@ temperature: true
 argon: true
 zerotier: false
 raspap: false
+gadget: true
