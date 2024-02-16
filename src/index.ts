@@ -2,6 +2,7 @@ import { $, fs} from 'zx'
 import chokidar  from 'chokidar' // https://stackoverflow.com/questions/42406913/nodejs-import-require-conversion
 import { Doc } from 'yjs'
 import { yjsWebsocketServer } from './yjsWebSocketServer.js'
+import { WebsocketProvider } from 'y-websocket'
 
 // TODO: Alternative implementations for usb device detection:
 // 1. Monitor /dev iso /dev/engine
@@ -91,8 +92,20 @@ apps.observe(event => {
 log('Observing apps')
 
 // create a websocket server
-const wsServer = yjsWebsocketServer('localhost', 1234)
-log(`Serving apps on ws://localhost:1234`)
+// const host = 'localhost'
+const port = '1234'
+const wsServer = yjsWebsocketServer(port)
+log(`Serving apps on ws://xxx:${port}`)
+
+// create a websocket client
+const host = 'localhost'
+const wsProvider = new WebsocketProvider(`ws://${host}:1234`, 'appdocker', sharedDoc)
+wsProvider.on('status', (event: { status: any; }) => {
+  console.log(event.status) // logs "connected" or "disconnected"
+})
+log(`Establishing a connection to ws://${host}:1234 with room name appdocker`)
+
+
 
 // Randomly populate and depopulate the apps array with app names every 5 seconds. 
 // Choose from a list of app names such as "app1", "app2", "app3", "app4", "app5" etc.

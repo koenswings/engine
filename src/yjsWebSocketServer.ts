@@ -10,10 +10,10 @@ import { setupWSConnection } from './utils.js'
 // const http = require('http')
 import http from 'http'
 
-export const yjsWebsocketServer = (host, port) => {
+export const yjsWebsocketServer = (port) => {
   const wss = new WebSocketServer({ noServer: true })
 
-  const host2 = host || process.env.HOST || 'localhost' 
+  //const host2 = host || process.env.HOST || 'localhost' 
   const port2 = port || process.env.PORT || 1234
 
   const server = http.createServer((request, response) => {
@@ -35,7 +35,7 @@ export const yjsWebsocketServer = (host, port) => {
     wss.handleUpgrade(request, socket, head, handleAuth)
   })
 
-  server.listen(port2, host2, () => {
-    console.log(`running at '${host2}' on port ${port2}`)
+  server.listen(port2, () => {
+    console.log(`running on port ${port2}`)
   })
 }
