@@ -1,5 +1,7 @@
 import { $, fs} from 'zx'
 import chokidar  from 'chokidar' // https://stackoverflow.com/questions/42406913/nodejs-import-require-conversion
+import { Doc } from 'yjs'
+import { yjsWebsocketServer } from './yjsWebSocketServer.js'
 
 // TODO: Alternative implementations for usb device detection:
 // 1. Monitor /dev iso /dev/engine
@@ -78,6 +80,62 @@ watcher
 
 // Say we are ready to go
 log(`Watching ${watchDir} for USB devices`)
+
+
+const sharedDoc = new Doc()
+const apps = sharedDoc.getArray('apps')
+// every time a local or remote client modifies apps, the observer is called
+apps.observe(event => {
+  console.log(`apps was modified. Apps is now: ${apps.toArray()}`)
+})
+log('Observing apps')
+
+// create a websocket server
+const wsServer = yjsWebsocketServer('localhost', 1234)
+log(`Serving apps on ws://localhost:1234`)
+
+// Randomly populate and depopulate the apps array with app names every 5 seconds. 
+// Choose from a list of app names such as "app1", "app2", "app3", "app4", "app5" etc.
+// The array should contain between 0 and 5 app names at any given time.
+// Make sure that any app name only appears once in the array.
+// Do it
+const appNames = ['app1', 'app2', 'app3', 'app4', 'app5']
+// If the array is empty, add a random app name
+// If the array is full, remove a random app name
+// If the array is not empty and not full, randomly decide whether to add or remove an app name and only select an app name that is not already in the array
+const populateApps = () => {
+  if (apps.length === 0) {
+    apps.insert(0, [appNames[Math.floor(Math.random() * appNames.length)]])
+  } else if (apps.length === 5) {
+    apps.delete(Math.floor(Math.random() * 5))
+  } else {
+    if (Math.random() < 0.5) {
+      const randomAppName = appNames[Math.floor(Math.random() * appNames.length)]
+      if (!contains(apps, randomAppName)) {
+        apps.insert(0, [randomAppName])
+      }
+    } else {
+      apps.delete(Math.floor(Math.random() * apps.length))
+    }
+  }
+}
+setInterval(populateApps, 5000)
+log(`Randomly populating and depopulating apps array every 5 seconds`)
+
+
+
+// Write a function that checks if a given yarray contains a specific value
+// Use the Y.Array API of the Yjs library (which does not have a built-in method for this)
+// Do it
+const contains = (yarray, value) => {
+  let found = false
+  yarray.forEach((item) => {
+    if (item === value) {
+      found = true
+    }
+  })
+  return found
+}
 
 
 // Write a simple Nodejs program that displays the current date and time every 5 seconds using the setInterval function
