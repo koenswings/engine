@@ -42,6 +42,7 @@ RUN pnpm add -g ts-node
 
 # Expose ports
 EXPOSE 22
+EXPOSE 1234
 
 # Replace sh by bash so that the terminal window in Docker Desktop starts with bash
 RUN ln -sf /bin/bash /bin/sh

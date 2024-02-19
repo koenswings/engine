@@ -2,7 +2,7 @@ import { $, fs} from 'zx'
 import chokidar  from 'chokidar' // https://stackoverflow.com/questions/42406913/nodejs-import-require-conversion
 import { Doc } from 'yjs'
 import { yjsWebsocketServer } from './yjsWebSocketServer.js'
-import { WebsocketProvider } from 'y-websocket'
+import { WebsocketProvider } from './y-websocket.js'
 
 // TODO: Alternative implementations for usb device detection:
 // 1. Monitor /dev iso /dev/engine
