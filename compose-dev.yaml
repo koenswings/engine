@@ -8,6 +8,7 @@ services:
       context: .
       target: base
     init: true
+    network_mode: "host"        
     volumes:
     - type: bind
       source: /var/run/docker.sock

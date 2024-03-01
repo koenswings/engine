@@ -24,7 +24,7 @@ RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
 # RUN apt-get install -y libusb-1.0-0
 
 # Install various utilities
-RUN apt-get install -y vim
+RUN apt-get install -y vim iputils-ping
 
 # Install usbutils for lsusb, and udev for triggering events
 RUN apt-get install -y usbutils udev
