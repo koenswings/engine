@@ -3,6 +3,41 @@ import chokidar  from 'chokidar' // https://stackoverflow.com/questions/42406913
 import { Doc } from 'yjs'
 import { yjsWebsocketServer } from './yjsWebSocketServer.js'
 import { WebsocketProvider } from './y-websocket.js'
+import os from 'os'
+import net_listner from 'network-interfaces-listener'
+
+
+console.log(`Hello from ${os.hostname()}!`) 
+console.log(`Interfaces: ${JSON.stringify(os.networkInterfaces())}`)
+console.log(`Platform: ${os.platform()}`)
+console.log(`Architecture: ${os.arch()}`)
+console.log(`OS Type: ${os.type()}`)
+console.log(`OS Release: ${os.release()}`)
+console.log(`OS Uptime: ${os.uptime()}`)
+console.log(`OS Load Average: ${os.loadavg()}`)
+console.log(`Total Memory: ${os.totalmem()}`)
+console.log(`Free Memory: ${os.freemem()}`)
+console.log(`CPU Cores: ${os.cpus().length}`)
+console.log(`User Info: ${JSON.stringify(os.userInfo())}`)
+console.log(`Home Directory: ${os.homedir()}`)
+console.log(`Temp Directory: ${os.tmpdir()}`)
+console.log(`Endianness: ${os.endianness()}`)
+console.log(`Network Hostname: ${os.hostname()}`)
+
+// Get a list of all non-virtual interface names
+const nonVirtualInterfaces = Object.keys(os.networkInterfaces()).filter(name => !name.startsWith('v'))
+console.log(`Non-virtual interfaces: ${nonVirtualInterfaces}`)
+
+// Monitor the non-virtual interfaces for changes
+function onNetworkInterfaceChange(data){
+  console.log(`New data for interface ${data.name}: ${JSON.stringify(data)}`);
+}
+// Call net_listner.addNetInterfaceListener for each non-virtual interface and add the listener
+nonVirtualInterfaces.forEach((interfaceName) => {
+  net_listner.addNetInterfaceListener(interfaceName, onNetworkInterfaceChange)
+})
+
+
 
 // TODO: Alternative implementations for usb device detection:
 // 1. Monitor /dev iso /dev/engine
@@ -86,8 +121,8 @@ log(`Watching ${watchDir} for USB devices`)
 const sharedDoc = new Doc()
 const apps = sharedDoc.getArray('apps')
 // every time a local or remote client modifies apps, the observer is called
-apps.observe(event => {
-  console.log(`apps was modified. Apps is now: ${apps.toArray()}`)
+apps.observeDeep(event => {
+  console.log(`apps was modified. Apps is now: ${JSON.stringify(apps.toArray())}`)
 })
 log('Observing apps')
 
@@ -132,8 +167,27 @@ const populateApps = () => {
     }
   }
 }
-setInterval(populateApps, 5000)
+// setInterval(populateApps, 5000)
+// log(`Randomly populating and depopulating apps array every 5 seconds`)
+
+
+apps.insert(0, [{name: 'app1'}, {name: 'app2'}, {name: 'app3'}, {name: 'app4'}, {name: 'app5'}])
+log(`Initialising apps array with app names`)
+// Create a function that first removes any x letters from all app names and then 
+// randomly puts a capital x behind the name of an app in the apps array 
+// Do it
+const modifyApps = () => {
+  apps.forEach((app: { name: string }, index: number) => {
+    app.name = app.name.replace('X', '')
+    if (Math.random() < 0.5) {
+      app.name = app.name + 'X'
+    }
+  })
+  console.log(`Deep change to apps: ${JSON.stringify(apps.toArray())}`)
+}
+setInterval(modifyApps, 60000)
 log(`Randomly populating and depopulating apps array every 5 seconds`)
+
 
 
 

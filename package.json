@@ -25,6 +25,7 @@
     "chokidar": "^3.6.0",
     "lib0": "^0.2.88",
     "lodash": "^4.17.21",
+    "network-interfaces-listener": "^1.0.1",
     "tsx": "^3.12.10",
     "usb": "^2.11.0",
     "ws": "^8.16.0",
