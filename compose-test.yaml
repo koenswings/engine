@@ -10,17 +10,21 @@ services:
       target: base
     init: true
     restart: always
-    privileged: true # Required to mount USB devices
+
+    # Configuration to anble the ability to mount USB devices
+    privileged: true 
     # devices:
     #   - "/dev/bus/usb:/dev/bus/usb"
       #- "/dev/usb:/dev/usb"
       #- "/dev:/dev"
     # cap_add:
     #   - SYS_ADMIN
-    # network_mode: "host"        
-    ports:
-      - "1234:1234"  # Yjs websocket
-      - "22:5123"    # SSH
+
+    # The test machine must run in host mode in order to detect connects and disconnects to the nework interfaces of the host
+    network_mode: "host"        
+    # ports:
+    #   - "1234:1234"  # Yjs websocket
+    #   - "22:5123"    # SSH
     volumes:
       - type: bind
         source: /var/run/docker.sock
