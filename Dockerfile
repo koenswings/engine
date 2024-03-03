@@ -15,8 +15,8 @@ RUN apt-get install -y openssh-server openssh-client && service ssh start
 RUN apt install rsync -y
 
 # Install Docker for DIND
-RUN apt-get install -y curl && curl -sSL https://get.docker.com/ > install-docker.sh && chmod +x ./install-docker.sh && ./install-docker.sh --version 24.0.7 # Same version as Docker Desktop 4.26.1 (131620)
-
+#RUN apt-get install -y curl && curl -sSL https://get.docker.com/ > install-docker.sh && chmod +x ./install-docker.sh && ./install-docker.sh --version 24.0.7 # Same version as Docker Desktop 4.26.1 (131620)
+RUN apt-get install -y curl && curl -sSL https://get.docker.com/ > install-docker.sh && chmod +x ./install-docker.sh && ./install-docker.sh                   # Latest version
 
 # Install npm, pnpm and node
 RUN apt-get install -y npm && npm install -g -y n pnpm && n 19.6.0
