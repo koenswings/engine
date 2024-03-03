@@ -5,7 +5,7 @@
 // import WebSocket from 'ws';
 import { WebSocketServer } from 'ws'
 // const setupWSConnection = require('./utils.js').setupWSConnection
-import { setupWSConnection } from './utils.js'
+import { setupWSConnection } from './yjsUtils.js'
 
 // const http = require('http')
 import http from 'http'

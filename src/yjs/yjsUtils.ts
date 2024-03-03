@@ -17,7 +17,7 @@ import debounce from 'lodash/debounce.js'
 
 // const callbackHandler = require('./callback.js').callbackHandler
 // const isCallbackSet = require('./callback.js').isCallbackSet
-import { callbackHandler, isCallbackSet } from './callback.js'
+import { callbackHandler, isCallbackSet } from '../callback.js'
 
 
 const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
