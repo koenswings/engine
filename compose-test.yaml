@@ -17,9 +17,10 @@ services:
       #- "/dev:/dev"
     # cap_add:
     #   - SYS_ADMIN
-    network_mode: "host"        
-    # ports:
-    #   - "1234:1234"
+    # network_mode: "host"        
+    ports:
+      - "1234:1234"  # Yjs websocket
+      - "22:5123"    # SSH
     volumes:
       - type: bind
         source: /var/run/docker.sock
