@@ -64,77 +64,20 @@ const initialiseNetwork = (iface, ip4, net) => {
     // const networkData:NetworkData = proxy<NetworkData>({
     //     engines: [getEngine()],
     // });
+
+
+    // Clone the result of getEngine() into a new object. Do NOT use JSON.parse(JSON.stringify(getEngine())) 
+    const engine = { ...getEngine() }
+    // Remove all networkInterfaces from the cloned engine object except the one that corresponds with the network we are currently adding
+    // We do not want other engines to see what networks this engine is connected to
+    engine.networkInterfaces = engine.networkInterfaces.filter(networkInterface => networkInterface.iface === iface)
     const networkData:NetworkData = proxy<NetworkData>({
-        // TBD - Shouldn't we clone engine here?
-        // Or add the non-proxied engine object?
         engines: [getEngine()]
     })
 
     // bind them
     const unbind = bind(networkData, yNetworkData);
-
-
-
-    // const apps: Array<string> = networkDoc.getArray('apps')
-    // apps.observe(event => {
-    //     console.log(`apps was modified. Apps is now: ${JSON.stringify(apps.toArray())}`)
-    // })
-    // log('Initialising and observing apps')
-
-    // Same for Engines and Disks
-    // const engines = networkDoc.getArray('engines')
-    // engines.observe(event => {
-    //     console.log(`engines was modified. Engines is now: ${JSON.stringify(engines.toArray())}`)
-    // })
-    // log('Initialising and observing engines')
-
-    // Add an Engine object to Engines representing the local engine 
-    // Be careful: Map only allows values of type object|boolean|string|number|Uint8Array|Y.AbstractType
-    //const engine:Map<string | Status | Version | DockerEvents | DockerLogs | DockerMetrics> = new Map()
-    //const engine:Map<any> = new Map()
-    // const engine = new Map()
-    // engine.set('hostName', os.hostname())
-    // engine.set('version', { major: 1, minor: 0 })
-    // engine.set('hostOS', os.type())
-    // engine.set('status', 'Running')
-    // engine.set('dockerMetrics', {
-    //     memory: os.totalmem().toString(),
-    //     cpu: os.loadavg().toString(),
-    //     network: "",
-    //     disk: ""
-    // })
-    // engine.set('dockerLogs', { logs: [] })
-    // engine.set('dockerEvents', { events: [] })
-    // engine.set('lastBooted', new Date().getTime())
-    // engines.insert(0, [getEngine()])
-    // log('Initialising and adding local engine to engines')
-
-    // engines.insert(0, [{
-    //     hostName: os.hostname(),
-    //     version: {
-    //         major: 1,
-    //         minor: 0
-    //     },
-    //     hostOS: os.type(),
-    //     status: 'Running',
-    //     dockerMetrics: {
-    //         memory: os.totalmem().toString(),
-    //         cpu: os.loadavg().toString(),
-    //         network: "",
-    //         disk: ""
-    //     },
-    //     dockerLogs: { logs: [] },
-    //     dockerEvents: { events: [] },
-    //     lastBooted: new Date()
-    // }])
-    // log('Initialising and adding local engine to engines')
-
-
-    // const disks: Array<Disk> = networkDoc.getArray('disks')
-    // disks.observe(event => {
-    //     console.log(`disks was modified. Disks is now: ${JSON.stringify(disks.toArray())}`)
-    // })
-    // log('Initialising and observing disks')
+    log(`Interface ${iface}: Created a Valtio-yjs proxy for networkData`)
 
     // Enable the Yjs WebSocket service for this network
     enableYjsWebSocketService(ip4, '1234')
@@ -149,9 +92,6 @@ const initialiseNetwork = (iface, ip4, net) => {
 
     const network: Network = {
         id: networkDoc.guid,
-        // iface: iface,
-        // ip4: ip4,
-        // netmask: net,
         doc: networkDoc,
         wsProvider: wsProvider,
         data: networkData,
@@ -162,18 +102,14 @@ const initialiseNetwork = (iface, ip4, net) => {
     log(`Interface ${iface}: Network initialised with ID ${network.id} and added to store`)
 
     // Create a NetworkInterface
-    // const networkInterface = {
-    //     network: network.id,
-    //     iface: iface,
-    //     ip4: ip4,
-    //     netmask: net
-    // }
+    const networkInterface = {
+        network: network.id,
+        iface: iface,
+        ip4: ip4,
+        netmask: net
+    }
     // And add it to the local engine
-    // getEngine().networkInterfaces.push(networkInterface)
-    // log(`Interface ${iface}: Network interface added to local engine`)
-
-    // Add the network to the local engine
-    getNetworks().push(network)
+    get$Engine().networkInterfaces.push(networkInterface)
     log(`Interface ${iface}: Network interface added to local engine`)
 
     // Monitor networkData for changes using a Valtio subscription

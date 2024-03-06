@@ -229,11 +229,11 @@ const testStore = () => {
   }, 5000)
 }
 
-// Subscribe to engine changes
-// subscribe(engine, () => {
-//   console.log(`Local engine has changed to ${deepPrint(engine)}`)
+// Subscribe to the addition of network Interfaces
+subscribe($engine.networkInterfaces, (val) => {
+  console.log(`Local Engine has received a new network interface: ${deepPrint(val)}`)
 
-// })
+})
 
 // Subscribe to $engine.lastBooted changes
 subscribeKey($engine, 'lastBooted', (lastBooted) => {
