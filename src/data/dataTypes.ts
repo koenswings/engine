@@ -119,7 +119,6 @@ export interface Engine {
   dockerLogs: DockerLogs;
   dockerEvents: DockerEvents;
   lastBooted: number; // We must use a timestamp number as Date objects are not supported in YJS
-  networkInterfaces: NetworkInterface[],
   disks: Disk[],
  }
 
@@ -138,18 +137,21 @@ export interface App {
   //disk: Disk;
 }
 
-type NetworkID = string;
+// type NetworkID = string;
 
-export interface NetworkInterface {
-  network: NetworkID;  // Reference by id since we do not want to expose Yjs details to the proxy
-  iface: string
-  ip4: string;
-  netmask: string;
-}
+// export interface NetworkInterface {
+//   network: NetworkID;  // Reference by id since we do not want to expose Yjs details to the proxy
+//   iface: string
+//   ip4: string;
+//   netmask: string;
+// }
 
 // The root level Network object which is NOT proxied  
 export interface Network {
-  id: NetworkID;
+  id: string;
+  iface: string
+  ip4: string;
+  netmask: string;
   doc: Doc;
   wsProvider: WebsocketProvider;
   data: NetworkData; // The Valtio proxy object

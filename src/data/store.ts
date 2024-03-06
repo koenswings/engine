@@ -1,7 +1,7 @@
 //import { Doc } from 'yjs'
-import { Network, NetworkInterface, Disk, Engine } from "./dataTypes.js"
+import { Network, Disk, Engine } from "./dataTypes.js"
 import { os } from "zx"
-import { proxy, subscribe } from 'valtio'
+import { proxy, subscribe, ref } from 'valtio'
 import { subscribeKey, watch } from 'valtio/utils'
 import { deepPrint } from "../utils/utils.js"
 import { Array, Map } from "yjs"
@@ -16,14 +16,14 @@ import { log } from "console"
 const networks: Network[] = []
 
 // The local Engine object which is proxied
-const engine = proxy<Engine>({
+const engine = {
   hostName: os.hostname(),
   version: {
     major: 1,
     minor: 0
   },
   hostOS: os.type(),
-  status: 'Running',
+  status: 'Running' as Status,
   dockerMetrics: {
     memory: os.totalmem().toString(),
     cpu: os.loadavg().toString(),
@@ -33,10 +33,11 @@ const engine = proxy<Engine>({
   dockerLogs: { logs: [] },
   dockerEvents: { events: [] },
   lastBooted: new Date().getTime(),
-  networkInterfaces: [] as NetworkInterface[],
+  // networkInterfaces: [] as NetworkInterface[],
   disks: [] as Disk[],
 }
-)
+
+const $engine =  proxy<Engine>(engine)
 
 // **********
 // API
@@ -57,7 +58,7 @@ export function removeNetwork(network: Network) {
 // getNetwork(iface: string). Complicated.  We must first find the interface in the local engine object, get the network id, then find the network in the networks array
 export function getNetwork(iface: string) {
   return networks.find(network => {
-    const networkId = engine.networkInterfaces.find(networkInterface => networkInterface.iface === iface)?.network
+    const networkId = networks.find(networkInterface => networkInterface.iface === iface).id
     return networkId && networkId === network.id
   })
 }
@@ -103,6 +104,10 @@ export function getEngine() {
   return engine
 }
 
+export function get$Engine() {
+  return $engine
+}
+
 // *************
 // Subscriptions
 // *************
@@ -128,25 +133,25 @@ export function getEngine() {
 //     })
 //   })
 // })
-subscribe(engine, () => {
+subscribe($engine, () => {
   //log(`Local engine has changed to ${deepPrint(engine)}`)
-  log(`Replicating changes to all Engine objects in networks ${networks.map(network => network.id)}`)
+  log(`Replicating changes to all Engine objects in networks with id ${networks.map(network => network.id)}`)
   networks.forEach(network => {
     //log(`Replicating changes to network ${network.id}`)
     network.doc.transact(() => {
       // Find this engine in the engines array of that network
       //log(`network.data.engines: ${deepPrint(network.data.engines)}`)
-      const remoteEngine = network.data.engines.find(remoteEngine => remoteEngine.hostName === engine.hostName)
+      const remoteEngine = network.data.engines.find(remoteEngine => remoteEngine.hostName === $engine.hostName)
       if (remoteEngine) {
         //log(`Found remote engine ${remoteEngine.hostName}`)
         // Update the remote copy with the properties of the local engine
         network.doc.transact(() => {
-          remoteEngine.version = engine.version
-          remoteEngine.status = engine.status
-          remoteEngine.dockerMetrics = engine.dockerMetrics
-          remoteEngine.dockerLogs = engine.dockerLogs
-          remoteEngine.dockerEvents = engine.dockerEvents
-          remoteEngine.lastBooted = engine.lastBooted
+          remoteEngine.version = $engine.version
+          remoteEngine.status = $engine.status
+          remoteEngine.dockerMetrics = $engine.dockerMetrics
+          remoteEngine.dockerLogs = $engine.dockerLogs
+          remoteEngine.dockerEvents = $engine.dockerEvents
+          remoteEngine.lastBooted = $engine.lastBooted
         })
       }
     })
@@ -219,8 +224,8 @@ subscribe(engine, () => {
 
 const testStore = () => {
   setInterval(() => {
-    ++engine.lastBooted
-    ++engine.version.minor
+    ++$engine.lastBooted
+    ++$engine.version.minor
   }, 5000)
 }
 
@@ -230,14 +235,14 @@ const testStore = () => {
 
 // })
 
-// Subscribe to engine.lastBooted changes
-subscribeKey(engine, 'lastBooted', (lastBooted) => {
-  console.log(`engine.lastBooted has changed to ${lastBooted}`)
+// Subscribe to $engine.lastBooted changes
+subscribeKey($engine, 'lastBooted', (lastBooted) => {
+  console.log(`$engine.lastBooted has changed to ${lastBooted}`)
 })
 
-// Subscribe to engine.version.minor changes
-subscribeKey(engine.version, 'minor', (minor) => {
-  console.log(`engine.version.minor has changed to ${minor}`)
+// Subscribe to $engine.version.minor changes
+subscribeKey($engine.version, 'minor', (minor) => {
+  console.log(`$engine.version.minor has changed to ${minor}`)
 })
 
 testStore()

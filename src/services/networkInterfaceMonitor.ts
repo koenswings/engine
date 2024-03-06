@@ -4,9 +4,9 @@ import { Doc, Array, Map } from 'yjs'
 import { WebsocketProvider } from '../yjs/y-websocket.js'
 import { enableRandomArrayPopulation } from '../services/randomDataChangeServices.js'
 import { enableYjsWebSocketService } from '../services/yjsWebSocketService.js'
-import { addNetwork, removeNetwork, getNetwork, getEngine} from '../data/store.js'
+import { addNetwork, removeNetwork, getNetwork, getEngine, get$Engine, getNetworks} from '../data/store.js'
 import { Network, Engine, Disk, NetworkData} from '../data/dataTypes.js'
-import { proxy, subscribe } from 'valtio'
+import { proxy, subscribe, ref } from 'valtio'
 import { bind } from 'valtio-yjs'
 
 import { deepPrint, log } from '../utils/utils.js'
@@ -51,18 +51,24 @@ export const enableNetworkInterfaceMonitor = () => {
 
 }
 
+export let networkDoc
 
 const initialiseNetwork = (iface, ip4, net) => {
     log(`Initialising a new network for interface ${iface} with IP4 address ${ip4} and netmask ${net}`)
-    const networkDoc = new Doc()
+    networkDoc = new Doc()
 
     // Create the YMap for the network data
     const yNetworkData = networkDoc.getMap('data')
 
     // create a valtio state for the network data
+    // const networkData:NetworkData = proxy<NetworkData>({
+    //     engines: [getEngine()],
+    // });
     const networkData:NetworkData = proxy<NetworkData>({
-        engines: [getEngine()],
-    });
+        // TBD - Shouldn't we clone engine here?
+        // Or add the non-proxied engine object?
+        engines: [getEngine()]
+    })
 
     // bind them
     const unbind = bind(networkData, yNetworkData);
@@ -143,9 +149,9 @@ const initialiseNetwork = (iface, ip4, net) => {
 
     const network: Network = {
         id: networkDoc.guid,
-        // iface: iface,
-        // ip4: ip4,
-        // netmask: net,
+        iface: iface,
+        ip4: ip4,
+        netmask: net,
         doc: networkDoc,
         wsProvider: wsProvider,
         data: networkData
@@ -154,16 +160,19 @@ const initialiseNetwork = (iface, ip4, net) => {
     log(`Interface ${iface}: Network initialised with ID ${network.id} and added to store`)
 
     // Create a NetworkInterface
-    const networkInterface = {
-        network: network.id,
-        iface: iface,
-        ip4: ip4,
-        netmask: net
-    }
+    // const networkInterface = {
+    //     network: network.id,
+    //     iface: iface,
+    //     ip4: ip4,
+    //     netmask: net
+    // }
     // And add it to the local engine
-    getEngine().networkInterfaces.push(networkInterface)
-    log(`Interface ${iface}: Network interface added to local engine`)
+    // getEngine().networkInterfaces.push(networkInterface)
+    // log(`Interface ${iface}: Network interface added to local engine`)
 
+    // Add the network to the local engine
+    getNetworks().push(network)
+    log(`Interface ${iface}: Network interface added to local engine`)
 
     // Monitor networkData for changes using a Valtio subscription
     subscribe(networkData.engines, (value) => {
