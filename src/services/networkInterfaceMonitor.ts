@@ -149,12 +149,14 @@ const initialiseNetwork = (iface, ip4, net) => {
 
     const network: Network = {
         id: networkDoc.guid,
-        iface: iface,
-        ip4: ip4,
-        netmask: net,
+        // iface: iface,
+        // ip4: ip4,
+        // netmask: net,
         doc: networkDoc,
         wsProvider: wsProvider,
-        data: networkData
+        data: networkData,
+        yData: yNetworkData,
+        unbind: unbind
     }
     addNetwork(network)
     log(`Interface ${iface}: Network initialised with ID ${network.id} and added to store`)

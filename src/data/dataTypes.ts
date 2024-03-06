@@ -1,4 +1,4 @@
-import { Doc } from 'yjs'
+import { Doc, Map as YMap } from 'yjs'
 import { WebsocketProvider } from '../yjs/y-websocket.js'
 
 // TODOS
@@ -120,6 +120,7 @@ export interface Engine {
   dockerEvents: DockerEvents;
   lastBooted: number; // We must use a timestamp number as Date objects are not supported in YJS
   disks: Disk[],
+  networkInterfaces: NetworkInterface[];
  }
 
 export interface App {
@@ -137,24 +138,26 @@ export interface App {
   //disk: Disk;
 }
 
-// type NetworkID = string;
+type NetworkID = string;
 
-// export interface NetworkInterface {
-//   network: NetworkID;  // Reference by id since we do not want to expose Yjs details to the proxy
-//   iface: string
-//   ip4: string;
-//   netmask: string;
-// }
-
-// The root level Network object which is NOT proxied  
-export interface Network {
-  id: string;
+export interface NetworkInterface {
+  network: NetworkID;  // Reference by id since we do not want to expose Yjs details to the proxy
   iface: string
   ip4: string;
   netmask: string;
+}
+
+// The root level Network object which is NOT proxied  
+export interface Network {
+  id: NetworkID;
+  // iface: string
+  // ip4: string;
+  // netmask: string;
   doc: Doc;
   wsProvider: WebsocketProvider;
-  data: NetworkData; // The Valtio proxy object
+  data: NetworkData;       // The Valtio-yjs proxy object through which we capture Yjs changes
+  yData: any;              // The correspond YMap object
+  unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
 }
 
 // export interface NetworkData {

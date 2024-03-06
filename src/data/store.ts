@@ -1,5 +1,5 @@
 //import { Doc } from 'yjs'
-import { Network, Disk, Engine } from "./dataTypes.js"
+import { Network, NetworkInterface, Disk, Engine } from "./dataTypes.js"
 import { os } from "zx"
 import { proxy, subscribe, ref } from 'valtio'
 import { subscribeKey, watch } from 'valtio/utils'
@@ -33,7 +33,7 @@ const engine = {
   dockerLogs: { logs: [] },
   dockerEvents: { events: [] },
   lastBooted: new Date().getTime(),
-  // networkInterfaces: [] as NetworkInterface[],
+  networkInterfaces: [] as NetworkInterface[],
   disks: [] as Disk[],
 }
 
@@ -58,7 +58,7 @@ export function removeNetwork(network: Network) {
 // getNetwork(iface: string). Complicated.  We must first find the interface in the local engine object, get the network id, then find the network in the networks array
 export function getNetwork(iface: string) {
   return networks.find(network => {
-    const networkId = networks.find(networkInterface => networkInterface.iface === iface).id
+    const networkId = engine.networkInterfaces.find(networkInterface => networkInterface.iface === iface).network
     return networkId && networkId === network.id
   })
 }
