@@ -1,9 +1,5 @@
 import os from 'os'
-import { Doc, Array } from 'yjs'
-import { WebsocketProvider } from './y-websocket.js'
-import { log } from './utils/utils.js'
 import { enableYjsWebSocketService } from './services/yjsWebSocketService.js'
-import { enableRandomArrayPopulation } from './services/randomDataChangeServices.js'
 import { enableNetworkInterfaceMonitor } from './services/networkInterfaceMonitor.js'
 import { enableUsbDeviceMonitor } from './services/usbDeviceMonitor.js'
 import { enableDateTimeMonitor } from './services/dateTimeMonitor.js'
@@ -29,32 +25,10 @@ enableNetworkInterfaceMonitor()
 
 enableUsbDeviceMonitor()
 
-enableYjsWebSocketService()
-
 //enableDateTimeMonitor()
 
 
-const sharedDoc = new Doc()
-const apps:Array<string> = sharedDoc.getArray('apps')
-// every time a local or remote client modifies apps, the observer is called
-apps.observe(event => {
-  console.log(`apps was modified. Apps is now: ${JSON.stringify(apps.toArray())}`)
-})
-log('Observing apps')
 
-
-
-// create a websocket client
-const host = 'localhost'
-const wsProvider = new WebsocketProvider(`ws://${host}:1234`, 'appdocker', sharedDoc)
-wsProvider.on('status', (event: { status: any; }) => {
-  console.log(event.status) // logs "connected" or "disconnected"
-})
-log(`Establishing a connection to ws://${host}:1234 with room name appdocker`)
-
-
-
-enableRandomArrayPopulation(apps)
 
 
 
