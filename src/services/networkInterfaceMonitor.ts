@@ -6,10 +6,11 @@ import { enableRandomArrayPopulation } from '../services/randomDataChangeService
 import { enableYjsWebSocketService } from '../services/yjsWebSocketService.js'
 import { addNetwork, removeNetwork, getNetwork, getEngine} from '../data/store.js'
 import { Network, Engine, Disk, NetworkData} from '../data/dataTypes.js'
-import { proxy } from 'valtio'
+import { proxy, subscribe } from 'valtio'
 import { bind } from 'valtio-yjs'
 
 import { deepPrint, log } from '../utils/utils.js'
+import { get } from 'http'
 
 export const enableNetworkInterfaceMonitor = () => {
     // Get a list of all non-virtual interface names
@@ -60,7 +61,7 @@ const initialiseNetwork = (iface, ip4, net) => {
 
     // create a valtio state for the network data
     const networkData:NetworkData = proxy<NetworkData>({
-        engines: []
+        engines: [getEngine()],
     });
 
     // bind them
@@ -165,7 +166,7 @@ const initialiseNetwork = (iface, ip4, net) => {
 
 
     // Monitor networkData for changes using a Valtio subscription
-    networkData.engines.subscribe((value) => {
+    subscribe(networkData.engines, (value) => {
         console.log(`Interface ${iface}: Engines was modified. Engines is now: ${deepPrint(value)}`)
     })
     log('Interface ${iface}: Subscribed to networkData.engines')

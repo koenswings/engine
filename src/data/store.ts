@@ -6,6 +6,7 @@ import { subscribeKey, watch } from 'valtio/utils'
 import { deepPrint } from "../utils/utils.js"
 import { Array, Map } from "yjs"
 import { Status, Version, DockerEvents, DockerLogs, DockerMetrics } from "./dataTypes.js"
+import { log } from "console"
 
 // **********
 // Definition
@@ -128,11 +129,16 @@ export function getEngine() {
 //   })
 // })
 subscribe(engine, () => {
+  //log(`Local engine has changed to ${deepPrint(engine)}`)
+  log(`Replicating changes to all Engine objects in networks ${networks.map(network => network.id)}`)
   networks.forEach(network => {
+    //log(`Replicating changes to network ${network.id}`)
     network.doc.transact(() => {
       // Find this engine in the engines array of that network
+      //log(`network.data.engines: ${deepPrint(network.data.engines)}`)
       const remoteEngine = network.data.engines.find(remoteEngine => remoteEngine.hostName === engine.hostName)
       if (remoteEngine) {
+        //log(`Found remote engine ${remoteEngine.hostName}`)
         // Update the remote copy with the properties of the local engine
         network.doc.transact(() => {
           remoteEngine.version = engine.version
@@ -180,28 +186,28 @@ subscribe(engine, () => {
 
 
 // Watch engine changes and replicate them to all Engine objects in every network  Use the watch() function of Valtio
-watch((get) => {
-  get(engine)
-  networks.forEach(network => {
-    networks.forEach(network => {
-      network.doc.transact(() => {
-        // Find this engine in the engines array of that network
-        const remoteEngine = network.data.engines.find(remoteEngine => remoteEngine.hostName === engine.hostName)
-        if (remoteEngine) {
-          // Update the remote copy with the properties of the local engine
-          network.doc.transact(() => {
-            remoteEngine.version = engine.version
-            remoteEngine.status = engine.status
-            remoteEngine.dockerMetrics = engine.dockerMetrics
-            remoteEngine.dockerLogs = engine.dockerLogs
-            remoteEngine.dockerEvents = engine.dockerEvents
-            remoteEngine.lastBooted = engine.lastBooted
-          })
-        }
-      })
-    })
-  })
-})
+// watch((get) => {
+//   get(engine)
+//   networks.forEach(network => {
+//     networks.forEach(network => {
+//       network.doc.transact(() => {
+//         // Find this engine in the engines array of that network
+//         const remoteEngine = network.data.engines.find(remoteEngine => remoteEngine.hostName === engine.hostName)
+//         if (remoteEngine) {
+//           // Update the remote copy with the properties of the local engine
+//           network.doc.transact(() => {
+//             remoteEngine.version = engine.version
+//             remoteEngine.status = engine.status
+//             remoteEngine.dockerMetrics = engine.dockerMetrics
+//             remoteEngine.dockerLogs = engine.dockerLogs
+//             remoteEngine.dockerEvents = engine.dockerEvents
+//             remoteEngine.lastBooted = engine.lastBooted
+//           })
+//         }
+//       })
+//     })
+//   })
+// })
 
 
 
@@ -218,25 +224,20 @@ const testStore = () => {
   }, 5000)
 }
 
-// Subscribe to all store changes
-subscribe(engine, () => {
-  console.log(`Local engine has changed`)
-})
-
 // Subscribe to engine changes
-subscribe(engine, () => {
-  console.log(`Engine has changed to ${deepPrint(engine)}`)
+// subscribe(engine, () => {
+//   console.log(`Local engine has changed to ${deepPrint(engine)}`)
 
-})
+// })
 
 // Subscribe to engine.lastBooted changes
 subscribeKey(engine, 'lastBooted', (lastBooted) => {
-  console.log(`store.engine.lastBooted has changed to ${lastBooted}`)
+  console.log(`engine.lastBooted has changed to ${lastBooted}`)
 })
 
 // Subscribe to engine.version.minor changes
 subscribeKey(engine.version, 'minor', (minor) => {
-  console.log(`store.engine.version.minor has changed to ${minor}`)
+  console.log(`engine.version.minor has changed to ${minor}`)
 })
 
 testStore()
