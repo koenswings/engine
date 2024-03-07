@@ -1,5 +1,6 @@
 //import { Doc } from 'yjs'
 import { Network, NetworkInterface, NetworkData, Disk, Engine, Status } from "./dataTypes.js"
+import { appMasters } from "./data.js"
 import { os } from "zx"
 import { proxy, subscribe, ref } from 'valtio'
 import { subscribeKey, watch } from 'valtio/utils'
@@ -150,6 +151,36 @@ export const addDisk = (device) => {
   // Add the disk to the local engine
   engine.disks.push(disk)
   log(`Disk ${device} initialised`)
+
+  
+
+  // Now generate between 1 to 3 apps for the disk
+  // Each generated app is an instance of one of the appMasters from the imported appMasters array random appMaster
+  // Each app has a name that is the same as its appMaster name but with a random number between 1 and 5 appended to it
+  // Also generate theAppMaster objects from which the instances are created
+  const appCount = Math.floor(Math.random() * 3) + 1
+  for (let i = 0; i < appCount; i++) {
+    const appMaster = appMasters[Math.floor(Math.random() * appMasters.length)]
+    const app = {
+      instanceOf: appMaster,
+      name: `${appMaster.name}${Math.floor(Math.random() * 5)}`,
+      status: 'Running' as Status,
+      dockerMetrics: {
+        memory: os.totalmem().toString(),
+        cpu: os.loadavg().toString(),
+        network: "",
+        disk: ""
+      },
+      dockerLogs: { logs: [] },
+      dockerEvents: { events: [] },
+      created: new Date(),
+      lastBackedUp: new Date(),
+      lastStarted: new Date(),
+      upgradable: false,
+      backUpEnabled: false
+    }
+    disk.apps.push(app)
+  }
   return disk
 }
 
