@@ -40,7 +40,7 @@ export const enableUsbDeviceMonitor = () => {
                         await $`mount /dev/${device} /disks/${device}`
                         log(`Device ${device} has been successfully mounted`)
                     }
-                    initializeDisk(device)
+                    addDisk(device)
                 } catch (e) {
                     log(`Error mounting device ${device}`)
                     log(e)
@@ -93,20 +93,5 @@ export const enableUsbDeviceMonitor = () => {
     log(`Watching ${watchDir} for USB devices`)
 }
 
-const initializeDisk = (device) => {
-    log(`Initialising disk ${device}`)
-    const disk:Disk = {
-        name: device,
-        type: 'Apps',
-        created: new Date(),
-        lastDocked: new Date(),
-        removable: false,
-        upgradable: false,
-        apps: []
-    }
-    // Add the disk to the store
-    addDisk(disk)
-    log(`Disk ${device} initialised`)
-    return disk
-}
+
 
