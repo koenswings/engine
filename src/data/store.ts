@@ -1,5 +1,5 @@
 //import { Doc } from 'yjs'
-import { Network, NetworkInterface, NetworkData, Disk, Engine, Status } from "./dataTypes.js"
+import { Network, NetworkInterface, NetworkData, Disk, Engine, Status, Command } from "./dataTypes.js"
 import { appMasters } from "./data.js"
 import { os } from "zx"
 import { proxy, subscribe, ref } from 'valtio'
@@ -9,6 +9,7 @@ import { deepPrint, log } from "../utils/utils.js"
 import { Doc, Array, Map } from "yjs"
 import { WebsocketProvider } from '../yjs/y-websocket.js'
 import { enableYjsWebSocketService } from '../services/yjsWebSocketService.js'
+import { $, chalk, cd } from 'zx'
 
 // **********
 // Definition
@@ -17,7 +18,7 @@ import { enableYjsWebSocketService } from '../services/yjsWebSocketService.js'
 // The root level list of all Networks
 const networks: Network[] = []
 
-// The local Engine object which is proxied
+// The local Engine object running on port 1234
 const engine = {
   hostName: os.hostname(),
   version: {
@@ -37,13 +38,18 @@ const engine = {
   lastBooted: new Date().getTime(),
   networkInterfaces: [] as NetworkInterface[],
   disks: [] as Disk[],
+  commands: [] as Command[]
 }
 
+// This engine object is proxied with Valtio
 const $engine = proxy<Engine>(engine)
+
 
 // **********
 // API
 // **********
+
+
 
 export const addNetwork = (iface, ip4, net) => {
   log(`Initialising a new network for interface ${iface} with IP4 address ${ip4} and netmask ${net}`)
@@ -104,11 +110,26 @@ export const addNetwork = (iface, ip4, net) => {
   get$Engine().networkInterfaces.push(networkInterface)
   log(`Interface ${iface}: Network interface added to local engine`)
 
-  // TEMPORARY: Monitor networkData for changes using a Valtio subscription
+  // TEMPORARY: Monitor networkData for changes propagate by Yjs 
   subscribe(networkData.engines, (value) => {
     console.log(`Interface ${iface}: Engines was modified. Engines is now: ${deepPrint(value)}`)
   })
   log('Interface ${iface}: Subscribed to networkData.engines')
+
+  // Monitor our local engine for commands to be executed
+  // Now we have an issue: how do we monitor for changes in the commands array of the local engine that is somewhere in the networkData.engines array?
+  // We must find the engine in the networkData.engines array and then subscribe to the commands array
+  const localEngine = networkData.engines.find(engine => engine.hostName === get$Engine().hostName)
+  if (localEngine) {
+    subscribe(localEngine.commands, (value) => {
+      console.log(`Engine ${localEngine.hostName}: commands was modified via interface ${iface}. Commands is now: ${deepPrint(value)}`)
+    })
+    log('Interface ${iface}: Subscribed to localEngine.commands')
+  } else {
+    log(`Interface ${iface}: Could not find local engine in networkData.engines`)
+  }
+
+
 }
 
 export const removeNetwork = (network: Network) => {
@@ -236,8 +257,9 @@ export const get$Engine = () => {
 //     })
 //   })
 // })
-subscribe($engine, () => {
+subscribe($engine, (update) => {
   //log(`Local engine has changed to ${deepPrint(engine)}`)
+  log(`Local engine update: ${deepPrint(update)}`)
   log(`Replicating changes to all Engine objects in networks with id ${networks.map(network => network.id)}`)
   networks.forEach(network => {
     //log(`Replicating changes to network ${network.id}`)
@@ -332,10 +354,13 @@ const testStore = () => {
   }, 5000)
 }
 
-// Subscribe to the addition of network Interfaces
-subscribe($engine.networkInterfaces, (val) => {
-  console.log(`Local Engine has received a new network interface: ${deepPrint(val)}`)
 
+// Subscribe to the addition of network Interfaces
+subscribe($engine.networkInterfaces, (update) => {
+  log(`engine.networkInterfaces update: ${deepPrint(update)}`)
+  if (update[0][0] == 'set') {
+    console.log(`Local Engine has received a new network interface: ${deepPrint(update[0][2])}`)
+  }
 })
 
 // Subscribe to $engine.lastBooted changes

@@ -99,17 +99,6 @@ export interface DockerEvents {
 //   [key: string]: any; // Placeholder, adjust as needed
 // }
 
-export interface Disk {
-  name: string;
-  type: DiskType;
-  created: Date;
-  lastDocked: Date;
-  removable: boolean;
-  upgradable: boolean;
-  //engine: Engine;   
-  apps: App[];     
-}
-
 export interface Engine {
   hostName: string;
   version: Version;
@@ -121,7 +110,21 @@ export interface Engine {
   lastBooted: number; // We must use a timestamp number as Date objects are not supported in YJS
   disks: Disk[],
   networkInterfaces: NetworkInterface[];
+  commands: Command[];
  }
+
+export interface Disk {
+  name: string;
+  type: DiskType;
+  created: Date;
+  lastDocked: Date;
+  removable: boolean;
+  upgradable: boolean;
+  //engine: Engine;   
+  apps: App[];     
+}
+
+
 
 export interface App {
   instanceOf: AppMaster;
@@ -170,4 +173,28 @@ export interface NetworkData {
   [key: string]: any;
 }
 
+// Generalized argument types
+type ArgumentType = 'string' | 'number' | 'object';
+
+// Updated FieldSpec to support multiple types
+interface FieldSpec {
+    type: 'number' | 'string'; // Extend this as needed
+}
+
+interface ObjectSpec {
+    [key: string]: FieldSpec;
+}
+
+// Updated ArgumentDescriptor to include ObjectSpec
+export interface ArgumentDescriptor {
+    type: ArgumentType;
+    objectSpec?: ObjectSpec;
+}
+
+// Interface for commands
+export interface Command {
+    name: string;
+    execute: (...args: any[]) => void;
+    args: ArgumentDescriptor[];
+}
 
