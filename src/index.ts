@@ -1,6 +1,6 @@
 import os from 'os'
 import { enableYjsWebSocketService } from './services/yjsWebSocketService.js'
-import { enableNetworkInterfaceMonitor } from './services/networkInterfaceMonitor.js'
+import { monitorInterface } from './services/networkInterfaceMonitor.js'
 import { enableUsbDeviceMonitor } from './services/usbDeviceMonitor.js'
 import { enableDateTimeMonitor } from './services/dateTimeMonitor.js'
 
@@ -21,7 +21,8 @@ console.log(`Temp Directory: ${os.tmpdir()}`)
 console.log(`Endianness: ${os.endianness()}`)
 console.log(`Network Hostname: ${os.hostname()}`)
 
-enableNetworkInterfaceMonitor()
+monitorInterface('eth0', 'LAN')
+monitorInterface('lo', 'Self')
 
 enableUsbDeviceMonitor()
 

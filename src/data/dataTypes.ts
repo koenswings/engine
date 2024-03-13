@@ -145,6 +145,7 @@ type NetworkID = string;
 
 export interface NetworkInterface {
   network: NetworkID;  // Reference by id since we do not want to expose Yjs details to the proxy
+  name: string, 
   iface: string
   ip4: string;
   netmask: string;

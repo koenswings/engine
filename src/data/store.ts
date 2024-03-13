@@ -51,8 +51,8 @@ const $engine = proxy<Engine>(engine)
 
 
 
-export const addNetwork = (iface, ip4, net) => {
-  log(`Initialising a new network for interface ${iface} with IP4 address ${ip4} and netmask ${net}`)
+export const addNetwork = (networkName, iface, ip4, net) => {
+  log(`Initialising network ${networkName} for interface ${iface} with IP4 address ${ip4} and netmask ${net}`)
   const networkDoc = new Doc()
 
   // Create the YMap for the network data
@@ -102,6 +102,7 @@ export const addNetwork = (iface, ip4, net) => {
   // Create a NetworkInterface
   const networkInterface = {
     network: network.id,
+    name: networkName,
     iface: iface,
     ip4: ip4,
     netmask: net
@@ -114,7 +115,7 @@ export const addNetwork = (iface, ip4, net) => {
   subscribe(networkData.engines, (value) => {
     console.log(`Interface ${iface}: Engines was modified. Engines is now: ${deepPrint(value)}`)
   })
-  log('Interface ${iface}: Subscribed to networkData.engines')
+  log(`Interface ${iface}: Subscribed to networkData.engines`)
 
   // Monitor our local engine for commands to be executed
   // Now we have an issue: how do we monitor for changes in the commands array of the local engine that is somewhere in the networkData.engines array?
@@ -124,7 +125,7 @@ export const addNetwork = (iface, ip4, net) => {
     subscribe(localEngine.commands, (value) => {
       console.log(`Engine ${localEngine.hostName}: commands was modified via interface ${iface}. Commands is now: ${deepPrint(value)}`)
     })
-    log('Interface ${iface}: Subscribed to localEngine.commands')
+    log(`Interface ${iface}: Subscribed to localEngine.commands`)
   } else {
     log(`Interface ${iface}: Could not find local engine in networkData.engines`)
   }
