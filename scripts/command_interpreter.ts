@@ -1,9 +1,14 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd } from 'zx';
 import * as readline from 'readline';
-import {  } from '../src/data/store.js';
-import { Command } from '../src/data/dataTypes.js';
+import { getNetwork, getNetworks, networkApps, networkDisks } from '../src/data/store.js';
+import { Command, Engine, NetworkData } from '../src/data/dataTypes.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
+import { WebsocketProvider } from '../src/yjs/y-websocket.js';
+import { Doc, Array, Map } from "yjs"
+import { deepPrint } from '../src/utils/utils.js';
+import { bind } from 'valtio-yjs';
+import { proxy } from 'valtio';
 
 
 interface VirtualEngine {
@@ -80,8 +85,96 @@ function processMixedData(data: { id: number; name: string }): void {
     console.log(`Processing data: id=${data.id}, name=${data.name}`);
 }
 
+let networkDoc: Doc
+let networkData: NetworkData
+
+const connect = (network, ip4, port) => {
+    console.log(`Connecting to ${network} using the engine at ${ip4}:${port}`)
+    networkDoc = new Doc()
+    const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, network, networkDoc)
+    wsProvider.on('status', (event: { status: any; }) => {
+        console.log(event.status) // logs "connected" or "disconnected"
+        let unbind: () => void
+        if (event.status === 'connected') {
+            console.log(`Connected to network ${network}`)
+            const yNetworkData = networkDoc.getMap('data')
+            //const engines = yNetworkData.get('engines') as Engine[]
+            //console.log(deepPrint(engines, 1))
+            networkData = proxy<NetworkData>({});
+            // Bind the Valtio proxy to the Yjs object
+            unbind = bind(networkData, yNetworkData);
+        } 
+        if (event.status === 'disconnected') {
+            console.log('Disconnected from network')
+            unbind()
+        }
+    })
+}
+
+connect('LAN', 'localhost', 1234)
+
+const lsEngines = () => {
+    console.log('Engines:')
+    console.log(deepPrint(networkData.engines, 3))
+}
+
+const lsDisks = () => {
+    console.log('Disks:')
+    const disks = networkDisks(networkData)
+    console.log(deepPrint(disks, 2))
+}
+
+const lsApps = () => {
+    console.log('Apps:')
+    const disks = networkApps(networkData)
+    console.log(deepPrint(disks, 2))
+}
+
+// `monitorNetwork engine1 eth0 class2c`
+const monitorNetwork = (engineName: string, iface: string, network: string) => {
+    console.log(`Instructing engine ${engineName} to monitor network ${network} on interface ${iface}`)
+    // We must send a remote command to engine1 to monitor the network
+    // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
+    const engine = networkData.engines.find(e => e.hostName === engineName)
+    if (engine) {
+        console.log(`Pushing commands to ${engineName}`)
+        engine.commands.push({
+            name: 'monitorNetwork',
+            args: [iface, network]
+        })
+    }
+}
+
+
+
+
 // Command registry with an example of the new object command
 const commands: Command[] = [
+    {
+        name: "connect",
+        execute: connect,
+        args: [{ type: "string" }, { type: "string" }, { type: "number" }],
+    },
+    {
+        name: "engines",
+        execute: lsEngines,
+        args: []
+    },
+    {
+        name: "disks",
+        execute: lsDisks,
+        args: []
+    },
+    {
+        name: "apps",
+        execute: lsApps,
+        args: []
+    },
+    {
+        name: "monitorNetwork",
+        execute: monitorNetwork,
+        args: [{ type: "string" }, { type: "string" }, { type: "string" }],
+    },
     {
         name: "addDisk",
         execute: addDisk,

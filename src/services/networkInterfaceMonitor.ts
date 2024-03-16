@@ -2,7 +2,7 @@ import net_listner from 'network-interfaces-listener'
 import os from 'os'
 
 import { enableRandomArrayPopulation } from '../services/randomDataChangeServices.js'
-import { addNetwork, removeNetwork, getNetwork, getEngine, get$Engine, getNetworks} from '../data/store.js'
+import { addNetwork, removeNetwork, getNetwork, getEngine, getNetworks} from '../data/store.js'
 import { Network, Engine, Disk, NetworkData} from '../data/dataTypes.js'
 
 

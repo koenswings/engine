@@ -3,6 +3,7 @@ import { enableYjsWebSocketService } from './services/yjsWebSocketService.js'
 import { monitorInterface } from './services/networkInterfaceMonitor.js'
 import { enableUsbDeviceMonitor } from './services/usbDeviceMonitor.js'
 import { enableDateTimeMonitor } from './services/dateTimeMonitor.js'
+import { sleep } from 'zx'
 
 console.log(`Hello from ${os.hostname()}!`) 
 console.log(`Interfaces: ${JSON.stringify(os.networkInterfaces())}`)
@@ -21,9 +22,15 @@ console.log(`Temp Directory: ${os.tmpdir()}`)
 console.log(`Endianness: ${os.endianness()}`)
 console.log(`Network Hostname: ${os.hostname()}`)
 
+console.log('STARTING MONITOR OF ETH0')
 monitorInterface('eth0', 'LAN')
+console.log('SLEEPING')
+//await sleep(5000)
+console.log('STARTING MONITOR OF LO')
 monitorInterface('lo', 'Self')
-
+console.log('SLEEPING')
+await sleep(5000)
+console.log('STARTING MONITOR OF USB0')
 enableUsbDeviceMonitor()
 
 //enableDateTimeMonitor()
