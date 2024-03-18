@@ -1,4 +1,4 @@
-import { yjsWebsocketServer } from '../yjs/yjsWebSocketServer.js'
+import { yjsWebsocketServer } from '../y-websocket/yjsWebSocketServer.js'
 import { log } from '../utils/utils.js'
 
 

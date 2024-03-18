@@ -1,5 +1,5 @@
 import { Doc, Map as YMap } from 'yjs'
-import { WebsocketProvider } from '../yjs/y-websocket.js'
+import { WebsocketProvider } from '../y-websocket/y-websocket.js'
 
 // TODOS
 // 1. Backup Disks

@@ -4,15 +4,17 @@ import { appMasters } from "./data.js"
 import { os } from "zx"
 import { proxy, subscribe, ref, snapshot } from 'valtio'
 import { subscribeKey, watch } from 'valtio/utils'
-import { bind } from 'valtio-yjs'
+import { bind } from '../valtio-yjs/index.js'
 import { deepPrint, log } from "../utils/utils.js"
 import { Doc, Array, Map } from "yjs"
-import { WebsocketProvider } from '../yjs/y-websocket.js'
+import { WebsocketProvider } from '../y-websocket/y-websocket.js'
 import { enableYjsWebSocketService } from '../services/yjsWebSocketService.js'
 import { $, chalk, cd } from 'zx'
-import pkg from 'lodash'
+import lodash from 'lodash'
+
 import { Console } from "console"
-const { cloneDeep } = pkg
+const { cloneDeep } = lodash
+//const { bind } = await import('valtio-yjs')
 
 // **********
 // Definition
