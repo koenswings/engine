@@ -7,6 +7,6 @@ export const enableYjsWebSocketService = (host, port) => {
     // const host = 'localhost'
     //const port = '1234'
     const wsServer = yjsWebsocketServer(host, port)
-    log(`Serving apps on ws://${host}:${port}`)
+    log(`Serving web socket connections on ws://${host}:${port}`)
 }
 

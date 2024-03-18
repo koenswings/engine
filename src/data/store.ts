@@ -11,6 +11,7 @@ import { WebsocketProvider } from '../yjs/y-websocket.js'
 import { enableYjsWebSocketService } from '../services/yjsWebSocketService.js'
 import { $, chalk, cd } from 'zx'
 import pkg from 'lodash'
+import { Console } from "console"
 const { cloneDeep } = pkg
 
 // **********
@@ -44,8 +45,8 @@ const localEngine = {
 }
 
 // This engine object is proxied with Valtio
-// const $engine = proxy<Engine>(engine)
-// log(`Proxied engine object: ${deepPrint($engine, 2)}`)
+const $localEngine = proxy<Engine>(localEngine)
+log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
 
 
@@ -55,108 +56,105 @@ const localEngine = {
 
 
 
-export const addNetwork = (networkName, iface, ip4, net) => {
-  log(`Initialising network ${networkName} for interface ${iface} with IP4 address ${ip4} and netmask ${net}`)
+export const addNetwork = (networkName, ifaceName, ip4, net) => {
+  log(`Connecting engine to network ${networkName} over interface ${ifaceName} with IP4 address ${ip4} and netmask ${net}`)
 
-  // Create a Yjs document for the network
-  const networkDoc = new Doc()
-  
-  // Create a NetworkInterface
-  const networkInterface = {
-    network: networkDoc.guid,
-    name: networkName,
-    iface: iface,
-    ip4: ip4,
-    netmask: net
+  // Check if we already have a network with the same name; this means the engine was already connected to the network but over a different interface
+  let network = networks.find(network => network.name === networkName)
+  let networkDoc, networkData
+
+  if (network) {
+
+    log(`Engine was already connected to network ${networkName} over a different interface. No new network created`)
+    networkDoc = network.doc
+    networkData = network.data
+
+  } else {
+    
+    log(`Initialising network ${networkName}`)
+
+    // Create a Yjs document for the network
+    const networkDoc = new Doc()
+
+    // Create the YMap for the network data
+    const yNetworkData = networkDoc.getMap('data')
+
+    // Now add the proxied engine object to the networkData
+    // Valtio supports nesting of proxied objects 
+    const networkData: NetworkData = proxy<NetworkData>({});
+    networkData.engines = [getEngine()]
+
+    // Bind the Valtio proxy to the Yjs object
+    const unbind = bind(networkData, yNetworkData);
+    //log(`Interface ${ifaceName}: Created a Valtio-yjs proxy for networkData`)
+
+      // Create a Network object
+    const network: Network = {
+      name: networkName,
+      doc: networkDoc,
+      data: networkData,
+      yData: yNetworkData,
+      unbind: unbind
+    }
+
+    // And add it to the networks array
+    networks.push(network)
+
+
+  // Add subscriptions
+
+  // TEMPORARY for testing: Monitor networkData for changes propagate by Yjs 
+  subscribe(networkData, (value) => {
+    console.log(`NETWORKDATA GLOBAL MONITOR: Network ${networkName}: Network data was modified as follows: ${deepPrint(value)}`)
+  })
+  log(`Added GLOBAL MONITOR to network ${networkName}`)
+
+  // Monitor our local engine for commands to be executed
+  // Find the engine in the networkData.engines array and then subscribe to the commands array
+  const localEngine = networkData.engines.find(engine => engine.hostName === getEngine().hostName)
+  if (localEngine) {
+    subscribe(localEngine.commands, (value) => {
+      console.log(`NETWORKDATA ENGINE ${localEngine.hostName} COMMANDS MONITOR: Engine ${localEngine.hostName} commands is modified. Commands is now: ${deepPrint(value)}`)
+    })
+    log(`Added COMMANDS MONITOR for engine ${localEngine.hostName} to network ${networkName}`)
+  } else {
+    log(`Network ${networkName}: Could not find local engine in networkData.engines`)
   }
-  // And add it to the local engine
-  getEngine().networkInterfaces.push(networkInterface)
-  log(`Interface ${iface}: Network interface added to local engine`)
-  //log(`Engine: ${deepPrint(getEngine(), 2)}`)
 
-
-  // Problem - by adding it to $engine, it gets copied to all networks. 
-  // We must find a way to add it to the local engine only since the network interface on a copied engine only refers to one and the sae=me networkl
-
-  // Remove all networkInterfaces from the cloned engine object except the one that corresponds with the network we are currently adding
-  // We do not want other engines to see what networks this engine is connected to
-  // engine.networkInterfaces = engine.networkInterfaces.filter(networkInterface => networkInterface.iface === iface)
-  
-  // Create the YMap for the network data
-  const yNetworkData = networkDoc.getMap('data')
-
-  // Create a valtio state for the network data
-  // First clone the result of getEngine() into a new object. Do NOT use JSON.parse(JSON.stringify(getEngine())) 
-  // const engine = { ...getEngine() }
-  // const engine = { ...snapshot(getEngine())}
-  const engineClone = cloneDeep(getEngine())
-  //log(`Cloned engine object: ${deepPrint(engineClone, 2)}`)
- 
-  // log(`Testing if engine is proxied`)
-  // subscribe(engine, (update) => {
-  //   console.log(`XXXXXXXX Non-proxied local engine has changed with ${deepPrint(update)}`)
-  // })
-  // NO  - it is not proxied (subscribe throws an error)
-
-
-
-
-  // Now add the cloned engine object to the networkData
-  const networkData: NetworkData = proxy<NetworkData>({
-    engines: [engineClone],
-  });
-
-  // Bind the Valtio proxy to the Yjs object
-  const unbind = bind(networkData, yNetworkData);
-  log(`Interface ${iface}: Created a Valtio-yjs proxy for networkData`)
+  log(`Network ${network.name} initialised and added to the store`)
+}
 
   // Enable the Yjs WebSocket service for this network
   enableYjsWebSocketService(ip4, '1234')
   const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, networkName, networkDoc)
   wsProvider.on('status', (event: { status: any; }) => {
-    console.log(event.status) // logs "connected" or "disconnected"
+    if (event.status === 'connected') {
+      log(`${event.status} on ws://${ip4}:1234`) // logs "connected" or "disconnected"
+    } else if (event.status === 'disconnected') {
+      log(`${event.status} from ws://${ip4}:1234`) // logs "connected" or "disconnected"
+    } else {
+      log(`Unknown status ${event.status} from ws://${ip4}:1234`)
+    }
   })
-  log(`Interface ${iface}: Created an Yjs websocket service on adddress ws://${ip4}:1234 with room name appdocker`)
+  log(`Interface ${ifaceName}: Created an Yjs websocket client connection on adddress ws://${ip4}:1234 with room name ${networkName}`)
 
+  // Create a NetworkInterface
+  const networkInterface = {
+    network: networkName,
+    iface: ifaceName,
+    ip4: ip4,
+    netmask: net,
+    wsProvider: wsProvider
+  }
+  // And add it to the local engine
+  getEngine().networkInterfaces.push(networkInterface)
+  log(`Interface ${ifaceName} added to local engine`)
+  //log(`Engine: ${deepPrint(getEngine(), 2)}`)
+  
+  
+  
   // Enable random array population for the apps array
   // enableRandomArrayPopulation(apps)
-
-  // Create a Network object
-  const network: Network = {
-    id: networkDoc.guid,
-    doc: networkDoc,
-    wsProvider: wsProvider,
-    data: networkData,
-    yData: yNetworkData,
-    unbind: unbind
-  }
-
-  // And add it to the networks array
-  networks.push(network)
-
-  log(`Interface ${iface}: Network initialised with ID ${network.id} and added to store`)
-
- 
-  // TEMPORARY: Monitor networkData for changes propagate by Yjs 
-  subscribe(networkData, (value) => {
-    console.log(`NETWORKDATA GLOBAL MONITOR: Interface ${iface}: Network data was modified as follows: ${deepPrint(value)}`)
-  })
-  log(`Interface ${iface}: Subscribed to networkData`)
-
-
-
-  // Monitor our local engine for commands to be executed
-  // Now we have an issue: how do we monitor for changes in the commands array of the local engine that is somewhere in the networkData.engines array?
-  // We must find the engine in the networkData.engines array and then subscribe to the commands array
-  const localEngine = networkData.engines.find(engine => engine.hostName === getEngine().hostName)
-  if (localEngine) {
-    subscribe(localEngine.commands, (value) => {
-      console.log(`NETWORKDATA ENGINE ${localEngine.hostName} COMMANDS MONITOR: Interface ${iface}: Engine ${localEngine.hostName} commands is modified. Commands is now: ${deepPrint(value)}`)
-    })
-    log(`Interface ${iface}: Subscribed to localEngine.commands`)
-  } else {
-    log(`Interface ${iface}: Could not find local engine in networkData.engines`)
-  }
 
 
 }
@@ -170,11 +168,13 @@ export const removeNetwork = (network: Network) => {
   }
 }
 
-// getNetwork(iface: string). Complicated.  We must first find the interface in the local engine object, get the network id, then find the network in the networks array
-export const getNetwork = (iface: string) => {
-  return networks.find(network => {
-    const networkInterface = getEngine().networkInterfaces.find(networkInterface => networkInterface.iface === iface)
-    return networkInterface.network && networkInterface.network === network.id
+export const getNetworksForInterface = (iface: string) => {
+  // Filter all network interfaces for the specified interface
+  const networkInterfaces = getEngine().networkInterfaces.filter(networkInterface => networkInterface.iface === iface)
+
+  // Now find the networks for these interfaces
+  return networks.filter(network => {
+    return networkInterfaces.find(networkInterface => networkInterface.network === network.name)
   })
 }
 
@@ -182,8 +182,12 @@ export const getNetworks = () => {
   return networks
 }
 
-export const getNetworkIds = () => {
-  return networks.map(network => network.id)
+export const getNetwork = (name: string) => {
+  return networks.find(network => network.name === name)
+} 
+
+export const getNetworkNames = () => {
+  return networks.map(network => network.name)
 }
 
 // Create similar operations for the disks
@@ -254,7 +258,7 @@ export const getDiskNames  = () => {
 }
 
 export const getEngine = () => {
-  return localEngine
+  return $localEngine
 }
 
 // export const get$Engine = () => {
@@ -410,7 +414,9 @@ const testStore = () => {
   setInterval(() => {
     //++engine.lastBooted
     ++getEngine().version.minor
-    deepPrint(getNetworks())
+    getEngine().version.major = getEngine().version.major + 1
+    console.log(`CHANGING ENGINE VERSION TO ${getEngine().version.major}.${getEngine().version.minor}`)
+    //console.log(getNetworks())
   }, 5000)
 }
 

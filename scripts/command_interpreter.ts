@@ -1,7 +1,7 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd } from 'zx';
 import * as readline from 'readline';
-import { getNetwork, getNetworks, networkApps, networkDisks } from '../src/data/store.js';
+import { networkApps, networkDisks } from '../src/data/store.js';
 import { Command, Engine, NetworkData } from '../src/data/dataTypes.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { WebsocketProvider } from '../src/yjs/y-websocket.js';

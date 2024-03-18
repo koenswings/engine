@@ -144,21 +144,21 @@ export interface App {
 type NetworkID = string;
 
 export interface NetworkInterface {
-  network: NetworkID;  // Reference by id since we do not want to expose Yjs details to the proxy
-  name: string, 
+  // Primary key is the network + iface since we can have multiple interfaces on the same network and multiple networks on the same interface
+  network: string;  // Reference by name since we do not want to expose Yjs details to the proxy
   iface: string
   ip4: string;
   netmask: string;
+  wsProvider: WebsocketProvider;
 }
 
 // The root level Network object which is NOT proxied  
 export interface Network {
-  id: NetworkID;
+   name: string;    // The unique identifier of the Network
   // iface: string
   // ip4: string;
   // netmask: string;
   doc: Doc;
-  wsProvider: WebsocketProvider;
   data: NetworkData;       // The Valtio-yjs proxy object through which we capture Yjs changes
   yData: any;              // The correspond YMap object
   unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
