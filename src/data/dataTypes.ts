@@ -149,7 +149,6 @@ export interface NetworkInterface {
   iface: string
   ip4: string;
   netmask: string;
-  wsProvider: WebsocketProvider;
 }
 
 // The root level Network object which is NOT proxied  
@@ -162,6 +161,8 @@ export interface Network {
   data: NetworkData;       // The Valtio-yjs proxy object through which we capture Yjs changes
   yData: any;              // The correspond YMap object
   unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
+  // Add a wsProviders object that has a key for each interface and a value that points to the wsProvider object of that interface
+  wsProviders: {[key: string]: WebsocketProvider}
 }
 
 // export interface NetworkData {

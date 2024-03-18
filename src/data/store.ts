@@ -46,7 +46,7 @@ const localEngine = {
 
 // This engine object is proxied with Valtio
 const $localEngine = proxy<Engine>(localEngine)
-log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
+//log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
 
 
@@ -60,8 +60,8 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
   log(`Connecting engine to network ${networkName} over interface ${ifaceName} with IP4 address ${ip4} and netmask ${net}`)
 
   // Check if we already have a network with the same name; this means the engine was already connected to the network but over a different interface
-  let network = networks.find(network => network.name === networkName)
-  let networkDoc, networkData
+  let network:Network = networks.find(network => network.name === networkName)
+  let networkDoc:Doc, networkData:NetworkData
 
   if (network) {
 
@@ -70,63 +70,67 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
     networkData = network.data
 
   } else {
-    
+
     log(`Initialising network ${networkName}`)
 
     // Create a Yjs document for the network
-    const networkDoc = new Doc()
+    networkDoc = new Doc()
+    log(`Created a Yjs document for network ${networkName} with id ${networkDoc.clientID}`)
 
     // Create the YMap for the network data
     const yNetworkData = networkDoc.getMap('data')
 
     // Now add the proxied engine object to the networkData
     // Valtio supports nesting of proxied objects 
-    const networkData: NetworkData = proxy<NetworkData>({});
+    networkData = proxy<NetworkData>({});
     networkData.engines = [getEngine()]
 
     // Bind the Valtio proxy to the Yjs object
     const unbind = bind(networkData, yNetworkData);
     //log(`Interface ${ifaceName}: Created a Valtio-yjs proxy for networkData`)
 
-      // Create a Network object
-    const network: Network = {
+    // Create a Network object
+    network = {
       name: networkName,
       doc: networkDoc,
       data: networkData,
       yData: yNetworkData,
-      unbind: unbind
+      unbind: unbind,
+      wsProviders: {}
     }
 
     // And add it to the networks array
     networks.push(network)
 
 
-  // Add subscriptions
+    // Add subscriptions
 
-  // TEMPORARY for testing: Monitor networkData for changes propagate by Yjs 
-  subscribe(networkData, (value) => {
-    console.log(`NETWORKDATA GLOBAL MONITOR: Network ${networkName}: Network data was modified as follows: ${deepPrint(value)}`)
-  })
-  log(`Added GLOBAL MONITOR to network ${networkName}`)
-
-  // Monitor our local engine for commands to be executed
-  // Find the engine in the networkData.engines array and then subscribe to the commands array
-  const localEngine = networkData.engines.find(engine => engine.hostName === getEngine().hostName)
-  if (localEngine) {
-    subscribe(localEngine.commands, (value) => {
-      console.log(`NETWORKDATA ENGINE ${localEngine.hostName} COMMANDS MONITOR: Engine ${localEngine.hostName} commands is modified. Commands is now: ${deepPrint(value)}`)
+    // TEMPORARY for testing: Monitor networkData for changes propagate by Yjs 
+    subscribe(networkData, (value) => {
+      log(`NETWORKDATA GLOBAL MONITOR: Network ${networkName}: Network data was modified as follows: ${deepPrint(value)}`)
     })
-    log(`Added COMMANDS MONITOR for engine ${localEngine.hostName} to network ${networkName}`)
-  } else {
-    log(`Network ${networkName}: Could not find local engine in networkData.engines`)
-  }
+    log(`Added GLOBAL MONITOR to network ${networkName}`)
 
-  log(`Network ${network.name} initialised and added to the store`)
-}
+    // Monitor our local engine for commands to be executed
+    // Find the engine in the networkData.engines array and then subscribe to the commands array
+    const localEngine = networkData.engines.find(engine => engine.hostName === getEngine().hostName)
+    if (localEngine) {
+      subscribe(localEngine.commands, (value) => {
+        log(`NETWORKDATA ENGINE ${localEngine.hostName} COMMANDS MONITOR: Engine ${localEngine.hostName} commands is modified. Commands is now: ${deepPrint(value)}`)
+      })
+      log(`Added COMMANDS MONITOR for engine ${localEngine.hostName} to network ${networkName}`)
+    } else {
+      log(`Network ${networkName}: Could not find local engine in networkData.engines`)
+    }
+
+    log(`Network ${network.name} initialised and added to the store`)
+  }
 
   // Enable the Yjs WebSocket service for this network
   enableYjsWebSocketService(ip4, '1234')
   const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, networkName, networkDoc)
+  // Add the wsProvider to the wsProviders object of the network
+  network.wsProviders[ifaceName] = wsProvider
   wsProvider.on('status', (event: { status: any; }) => {
     if (event.status === 'connected') {
       log(`${event.status} on ws://${ip4}:1234`) // logs "connected" or "disconnected"
@@ -144,15 +148,15 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
     iface: ifaceName,
     ip4: ip4,
     netmask: net,
-    wsProvider: wsProvider
+    //wsProvider: wsProvider
   }
   // And add it to the local engine
   getEngine().networkInterfaces.push(networkInterface)
   log(`Interface ${ifaceName} added to local engine`)
   //log(`Engine: ${deepPrint(getEngine(), 2)}`)
-  
-  
-  
+
+
+
   // Enable random array population for the apps array
   // enableRandomArrayPopulation(apps)
 
@@ -162,6 +166,7 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
 export const removeNetwork = (network: Network) => {
   network.unbind()
   network.doc.destroy()
+  Object.keys(network.wsProviders).forEach(iface => network.wsProviders[iface].destroy())
   const index = networks.indexOf(network)
   if (index > -1) {
     networks.splice(index, 1)
@@ -184,7 +189,7 @@ export const getNetworks = () => {
 
 export const getNetwork = (name: string) => {
   return networks.find(network => network.name === name)
-} 
+}
 
 export const getNetworkNames = () => {
   return networks.map(network => network.name)
@@ -206,7 +211,7 @@ export const addDisk = (device) => {
   getEngine().disks.push(disk)
   log(`Disk ${device} initialised`)
 
-  
+
 
   // Now generate between 1 to 3 apps for the disk
   // Each generated app is an instance of one of the appMasters from the imported appMasters array random appMaster
@@ -253,7 +258,7 @@ export const getDisks = () => {
   return getEngine().disks
 }
 
-export const getDiskNames  = () => {
+export const getDiskNames = () => {
   return getEngine().disks.map(disk => disk.name)
 }
 
@@ -267,28 +272,28 @@ export const getEngine = () => {
 
 export const engineApps = (engine: Engine) => {
   return engine.disks.reduce(
-      (acc, disk) => {
-          return acc.concat(disk.apps)
-      }, 
-      [])
+    (acc, disk) => {
+      return acc.concat(disk.apps)
+    },
+    [])
 }
 
 export const networkApps = (network: NetworkData) => {
   return network.engines.reduce(
-      (acc, engine) => {
-          return acc.concat(engineApps(engine))
-      }, 
-      [])
+    (acc, engine) => {
+      return acc.concat(engineApps(engine))
+    },
+    [])
 }
 
 export const networkDisks = (networkData: NetworkData) => {
   // Collect all disks from all networkData.engines
   // Loop over all networkData.engines and collect all disks in one array called disks
   return networkData.engines.reduce(
-      (acc, engine) => {
-          return acc.concat(engine.disks)
-      }, 
-      []
+    (acc, engine) => {
+      return acc.concat(engine.disks)
+    },
+    []
   )
 }
 
