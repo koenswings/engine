@@ -116,8 +116,8 @@ export interface Engine {
 export interface Disk {
   name: string;
   type: DiskType;
-  created: Date;
-  lastDocked: Date;
+  created: number; // We must use a timestamp number as Date objects are not supported in YJS
+  lastDocked: number; // We must use a timestamp number as Date objects are not supported in YJS
   removable: boolean;
   upgradable: boolean;
   //engine: Engine;   
@@ -133,9 +133,9 @@ export interface App {
   dockerMetrics: DockerMetrics;
   dockerLogs: DockerLogs;
   dockerEvents: DockerEvents;
-  created: Date;
-  lastBackedUp: Date;
-  lastStarted: Date;
+  created: number; // We must use a timestamp number as Date objects are not supported in YJS
+  lastBackedUp: number; // We must use a timestamp number as Date objects are not supported in YJS
+  lastStarted: number; // We must use a timestamp number as Date objects are not supported in YJS
   upgradable: boolean;
   backUpEnabled: boolean;
   //disk: Disk;
@@ -163,7 +163,15 @@ export interface Network {
   unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
   // Add a wsProviders object that has a key for each interface and a value that points to the wsProvider object of that interface
   wsProviders: {[key: string]: WebsocketProvider}
-  listeners: {[key: string]: (data: any) => void} // A map of listeners for each interface
+}
+
+export type Listener = {[key: string]: (data: any) => void}  // The key is the interface name and the value is the listener function
+
+// Define an object that stores all running servers on the local engine
+// It should have the ip address as a key and a truth value to indicate if the server is running
+// Add a type definition for this object
+export type RunningServers = {
+  [ip: string]: boolean
 }
 
 // export interface NetworkData {

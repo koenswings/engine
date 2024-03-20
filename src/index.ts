@@ -2,7 +2,9 @@ import os from 'os'
 import { monitorNetwork } from './monitors/networkMonitor.js'
 import { enableUsbDeviceMonitor } from './monitors/usbDeviceMonitor.js'
 import { enableTimeMonitor, generateRandomArrayPopulationCallback,  } from './monitors/timeMonitor.js'
-import { enableEngineCommandsMonitor, enableEngineGlobalMonitor } from "./monitors/commandsMonitor.js"
+import { enableEngineCommandsMonitor } from "./monitors/commandsMonitor.js"
+import { enableEngineGlobalMonitor } from "./monitors/engineMonitor.js"
+import { changeTest } from "./monitors/timeMonitor.js"
 
 import { sleep } from 'zx'
 
@@ -36,6 +38,9 @@ console.log('SLEEPING')
 await sleep(5000)
 console.log('STARTING MONITOR OF USB0')
 enableUsbDeviceMonitor()
+
+enableTimeMonitor(300000, changeTest)
+
 
 // log(`Randomly populating and depopulating apps array every 5 seconds`)
 // const apps = new Array<string>()

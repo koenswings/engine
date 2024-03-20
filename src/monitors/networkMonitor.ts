@@ -1,12 +1,14 @@
 import net_listner from 'network-interfaces-listener'
 import os from 'os'
 
-import { addNetwork, removeNetwork, getEngine, getNetwork} from '../data/store.js'
+import { addNetwork, removeNetwork, getEngine, getNetwork, addListener, removeListener, getListener, getListeners, removeNetworkInterface, getNetworkInterface} from '../data/store.js'
 import { Network, Engine, Disk, NetworkData} from '../data/dataTypes.js'
 
 
 import { deepPrint, log } from '../utils/utils.js'
 import { get } from 'http'
+import { add } from 'lib0/math.js'
+import { remove } from 'lib0/dom.js'
 
 // export const enableNetworkInterfaceMonitor = () => {
 //     // Get a list of all non-virtual interface names
@@ -51,55 +53,76 @@ export const monitorNetwork = (iface:string, networkName:string) => {
     // Create a dedicated handler for the specified interface and vlan
     const onNetworkChange = (data) => {
 
-        console.log(`New data for network ${networkName} on interface ${iface}: ${JSON.stringify(data)}`)
-        if (iface == Object.keys(data)[0]) {
+        console.log(`New data for network ${networkName} on interface ${iface} with keys ${Object.keys(data)}: ${JSON.stringify(data)}`)
+        const networkInterface = getNetworkInterface(iface, networkName)
+        
 
-            // If the localEngine already has a network interface for this interface and networkName, process the new data
-            const networkInterface = getEngine().networkInterfaces.find((netiface) => netiface.iface === iface && netiface.network === networkName)
+        // TODO - We should tolerate data with more than one key
+        // Replace Object.keys(data)[0] == 'xxx' with data[xxx]
+        if (data.message && data.message === 'Network interface is not active') {
+            // This is a message that the network interface is not active
+            // If the local engine already has a connection to this network, remove it
             if (networkInterface) {
+                removeNetworkInterface(networkInterface)
+            }
+            return
+        }
 
-                // Find the IP4 address of the interface
-                const ip4 = data[iface].find((address) => address.family === 'IPv4').address
-                const connected:Boolean = ip4 ? true : false
+        if (data[iface]) {
 
-                if (connected) {
-                    // Update the network interface with the new data
-                    const netmask = data[iface].find((address) => address.family === 'IPv4').netmask
-                    log(`Updating network interface ${networkInterface.iface} with IP4 address ${ip4} and netmask ${netmask}`)
-                    networkInterface.ip4 = ip4
-                    networkInterface.netmask = netmask
-                    return 
-                } 
+            const ip4 = data[iface].find((address) => address.family === 'IPv4').address
+            const netmask = data[iface].find((address) => address.family === 'IPv4').netmask
+            const connected:Boolean = ip4 ? true : false
 
-                if (!connected) {
-                    // This interface has lost its connection to the network
-                    // Remove the network interface from the localEngine
-                    log(`Removing network interface ${networkInterface.iface} from localEngine`)
-                    getEngine().networkInterfaces = getEngine().networkInterfaces.filter((netiface) => netiface.iface !== iface && netiface.network !== networkName)
+            if (networkInterface && connected) {
 
-                    // If the localEngine no longer has network interfaces connected to the Network, remove the network 
-                    if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
-                        log(`Removing network ${networkName} from localEngine`)
-                        removeNetwork(getNetwork(networkName))
-                    }
-
-                    // console.log(`Interface ${iface} is disconnected and has no IP4 address`)
-                    // // Find the network wi
-                    // const network = getNetwork(networkInterface.network)
-                    // removeNetwork(network)
-                    // console.log(`Network ${network.name} removed from store`)
-                    }
-            } else {
-                // If the localEngine does not have a network interface for this interface and networkName, create one
-                console.log(`Creating new network interface for interface ${iface} and network ${networkName}`)
-                addNetwork(networkName, iface, data[iface].find((address) => address.family === 'IPv4').address, data[iface].find((address) => address.family === 'IPv4').netmask)
+                // Update the network interface with the new data
+                log(`Updating network interface ${networkInterface.iface} with IP4 address ${ip4} and netmask ${netmask}`)
+                networkInterface.ip4 = ip4
+                networkInterface.netmask = netmask
+                return 
             }
 
-        } else {
-            // We have an issue - We are getting a callback for an interface for which we didn't register a listener
-            console.error(`Interface ${iface} is not the interface we are monitoring`)
-        }   
-    }
+            if (networkInterface && !connected) {
+                
+                // This interface has lost its connection to the network
+                // Remove the network interface from the localEngine
+                removeNetworkInterface(networkInterface)
+                return
+
+            }
+
+            if (!networkInterface && connected) {
+
+                // Add the network interface to the localEngine
+                log(`Adding network interface ${iface} with IP4 address ${ip4} and netmask ${netmask} to network ${networkName}`)
+                addNetwork(iface, networkName, ip4, netmask)
+                return
+
+            }
+
+            if (!networkInterface && !connected) {
+
+                // This interface is not connected to the network
+                console.error(`Received new data for ${iface} without an IP4 address`)
+                return
+
+            }
+        }
+
+        if (data.message) {
+            
+            // This is an unknown message - do nothing
+            console.error(`Unknown message: ${data.message}`)
+            return
+
+        } 
+
+        // We are getting a callback for an interface for which we didn't register a listener
+        console.error(`Unknown keys ${Object.keys(data)}: does not match the interface we are monitoring or 'message'`)
+
+    }   
+
     // Call the listener once with the current state of the interface
     // Read the curent state of the interface from a call to os.networkInterfaces()
     const ifaceData = os.networkInterfaces()[iface]
@@ -119,33 +142,30 @@ export const monitorNetwork = (iface:string, networkName:string) => {
     // We need to remove the listener when we unmonitor the network
     // We can store the listener in the network object
     const network = getNetwork(networkName)
-    network.listeners[iface] = onNetworkChange
-    log(`Adding to Listeners: ${deepPrint(network.listeners, 1)}`)
+    addListener(networkName, iface, onNetworkChange)
+    //network.listeners[iface] = onNetworkChange
+    log(`Adding to Listeners: ${deepPrint(getListeners(), 1)}`)
 
 }
 
 
 export const unmonitorNetwork = (iface:string, networkName:string) => {
+
     // Remove the network interface from the localEngine
-    log(`Removing network interface ${networkName}/${iface}`)
-    getEngine().networkInterfaces = getEngine().networkInterfaces.filter((netiface) => !(netiface.iface == iface && netiface.network == networkName))
+    const networkInterface = getNetworkInterface(iface, networkName)
+    if (networkInterface) {
+        removeNetworkInterface(networkInterface)
+    } else {
+        console.error(`No network interface found for interface ${iface} on network ${networkName}`)
+    }
 
     // Remove the listener
-    // Tricky  We must specify the right listener function to remove
-    const listeners = getNetwork(networkName).listeners
-    // If there is a key in the listeners object that matches the interface, remove the listener 
-    log(`Removing listener for interface ${iface} from network ${networkName} : ${deepPrint(listeners, 1)}`)
-    if (listeners.hasOwnProperty(iface)) {
-        net_listner.removeNetInterfaceListener(listeners[iface])
+    // If there is a key in the listeners object that matches the interface and network, remove the listener 
+    log(`Removing listener for interface ${iface} from network ${networkName} : ${deepPrint(getListeners(), 1)}`)
+    const listener = getListener(iface, networkName)
+    if (listener) {
+        net_listner.removeNetInterfaceListener(listener)
     } else {
         console.error(`No listener found for interface ${iface} on network ${networkName}`)
     }
-
-    // If the localEngine no longer has network interfaces connected to the Network, remove the network 
-    if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
-        log(`Removing network ${networkName}`)
-        removeNetwork(getNetwork(networkName))
-    }
-
-    
 }

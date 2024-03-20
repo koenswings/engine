@@ -1,5 +1,5 @@
 //import { Doc } from 'yjs'
-import { Network, NetworkInterface, NetworkData, Disk, Engine, Status, Command } from "./dataTypes.js"
+import { Network, NetworkInterface, NetworkData, Disk, App, Engine, Status, Command, RunningServers, Listener } from "./dataTypes.js"
 import { appMasters } from "./data.js"
 import { os } from "zx"
 import { proxy, subscribe, ref, snapshot } from 'valtio'
@@ -52,13 +52,10 @@ const localEngine = {
 const $localEngine = proxy<Engine>(localEngine)
 //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
-// Define an object that stores all running servers on the local engine
-// It should have the ip address as a key and a truth value to indicate if the server is running
-// Add a type definition for this object
-type RunningServers = {
-  [ip: string]: boolean
-}
+
 const runningServers:RunningServers = {}
+
+const listeners: Listener[] = []
 
 
 // **********
@@ -67,8 +64,8 @@ const runningServers:RunningServers = {}
 
 
 
-export const addNetwork = (networkName, ifaceName, ip4, net) => {
-  log(`Connecting engine to network ${networkName} over interface ${ifaceName} with IP4 address ${ip4} and netmask ${net}`)
+export const addNetwork = (ifaceName, networkName, ip4, netmask) => {
+  log(`Connecting engine to network ${networkName} over interface ${ifaceName} with IP4 address ${ip4} and netmask ${netmask}`)
 
   // Check if we already have a network with the same name; this means the engine was already connected to the network but over a different interface
   let network:Network = networks.find(network => network.name === networkName)
@@ -108,7 +105,6 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
       yData: yNetworkData,
       unbind: unbind,
       wsProviders: {},
-      listeners: {}
     }
 
     // And add it to the networks array
@@ -150,7 +146,7 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
     network: networkName,
     iface: ifaceName,
     ip4: ip4,
-    netmask: net,
+    netmask: netmask,
     //wsProvider: wsProvider
   }
   // And add it to the local engine
@@ -172,7 +168,7 @@ export const removeNetwork = (network: Network) => {
   network.unbind()
   log(`Destroying network ${network.name}`)
   network.doc.destroy()
-  log(`Destroying wsProviders ${deepPrint(network.wsProviders, 1)} for network ${network.name}`)
+  log(`Destroying wsProviders for network ${network.name}`)
   Object.keys(network.wsProviders).forEach(iface => network.wsProviders[iface].destroy())
   log(`Removing network ${network.name} from the networks array`)
   const index = networks.indexOf(network)
@@ -209,17 +205,18 @@ export const addDisk = (device) => {
   const disk: Disk = {
     name: device,
     type: 'Apps',
-    created: new Date(),
-    lastDocked: new Date(),
+    created: new Date().getTime(),
+    lastDocked: new Date().getTime(),
     removable: false,
     upgradable: false,
     apps: []
   }
   // Add the disk to the local engine
   getEngine().disks.push(disk)
-  log(`Disk ${device} initialised`)
+  log(`Disk ${device} pushed to local engine`)
 
 
+  // Temporary code simulating an analysis of the apps found on the disk
 
   // Now generate between 1 to 3 apps for the disk
   // Each generated app is an instance of one of the appMasters from the imported appMasters array random appMaster
@@ -240,16 +237,22 @@ export const addDisk = (device) => {
       },
       dockerLogs: { logs: [] },
       dockerEvents: { events: [] },
-      created: new Date(),
-      lastBackedUp: new Date(),
-      lastStarted: new Date(),
+      created: new Date().getTime(),
+      lastBackedUp: new Date().getTime(),
+      lastStarted: new Date().getTime(),
       upgradable: false,
       backUpEnabled: false
     }
-    disk.apps.push(app)
+    // Add the app to the disk
+    addApp(disk, app)
   }
   return disk
 }
+
+export const addApp = (disk: Disk, app: App) => {
+  disk.apps.push(app)
+}
+
 
 export const removeDisk = (disk: Disk) => {
   const index = getEngine().disks.indexOf(disk)
@@ -304,6 +307,46 @@ export const networkDisks = (networkData: NetworkData) => {
     []
   )
 }
+
+export const addListener = (iface: string, networkName: string, listener: (data: any) => void ) => {
+  listeners[iface+networkName] = listener
+}
+
+export const removeListener = (iface: string, networkName: string) => {
+  delete listeners[iface+networkName]
+}
+
+export const getListeners = () => {
+  return listeners
+}
+
+export const getListener = (iface: string, networkName: string) => {
+  if (listeners.hasOwnProperty(iface+networkName)) {
+    return listeners[iface+networkName]
+  } else {
+    return null
+  }
+}
+
+export const getNetworkInterface = (iface: string, networkName: string) => {
+  return getEngine().networkInterfaces.find((netiface) => netiface.iface === iface && netiface.network === networkName)
+}
+
+export const removeNetworkInterface = (networkInterface:NetworkInterface) => {
+  const iface = networkInterface.iface
+  const networkName = networkInterface.network
+  // Remove the network interface from the localEngine
+  log(`Removing network interface ${iface}/${networkName} from localEngine`)
+  getEngine().networkInterfaces = getEngine().networkInterfaces.filter((netiface) => !(netiface.iface == iface && netiface.network == networkName))
+
+  // If the localEngine no longer has network interfaces connected to the Network, remove the network 
+  if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
+      log(`Removing network ${networkName} from localEngine`)
+      removeNetwork(getNetwork(networkName))
+  }
+}
+
+
 
 // *************
 // Subscriptions
@@ -423,7 +466,6 @@ export const networkDisks = (networkData: NetworkData) => {
 // Tests
 // *************
 
-enableTimeMonitor(5000, changeTest)
 
 // Subscribe to the addition of network Interfaces
 // subscribe($engine.networkInterfaces, (update) => {

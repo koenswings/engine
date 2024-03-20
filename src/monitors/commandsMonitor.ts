@@ -61,11 +61,3 @@ export const enableEngineCommandsMonitor = () => {
     log(`Added COMMANDS MONITOR for engine ${localEngine.hostName}`)
 }
 
-export const enableEngineGlobalMonitor = () => {
-    // Monitor our local engine for any changes
-    const localEngine = getEngine()
-    subscribe(localEngine, (value) => {
-        log(`LOCAL ENGINE ${localEngine.hostName} GLOBAL MONITOR: Engine ${localEngine.hostName} is modified as follows: ${deepPrint(value)}`)
-    })
-    log(`Added COMMANDS MONITOR for engine ${localEngine.hostName}`)
-}
