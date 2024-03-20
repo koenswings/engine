@@ -7,7 +7,7 @@ import { handleCommand } from '../src/utils/commandHandler.js';
 import { WebsocketProvider } from '../src/y-websocket/y-websocket.js';
 import { Doc, Array, Map } from "yjs"
 import { deepPrint } from '../src/utils/utils.js';
-import { bind } from 'valtio-yjs';
+import { bind } from '../src/valtio-yjs/index.js';
 import { proxy } from 'valtio';
 
 
@@ -131,20 +131,28 @@ const lsApps = () => {
 }
 
 // `monitorNetwork engine1 eth0 class2c`
-const monitorNetwork = (engineName: string, iface: string, network: string) => {
-    console.log(`Instructing engine ${engineName} to monitor network ${network} on interface ${iface}`)
+const attachNetwork = (engineName: string, iface: string, network: string) => {
+    console.log(`Instructing engine ${engineName} to monitor network ${network} via interface ${iface}`)
     // We must send a remote command to engine1 to monitor the network
+    sendCommand(engineName, `attachNetwork ${iface} ${network}`)
+}
+
+
+const detachNetwork = (engineName: string, iface: string, network: string) => {
+    console.log(`Instructing engine ${engineName} to unmonitor network ${network} via interface ${iface}`)
+    // We must send a remote command to engine1 to monitor the network
+    sendCommand(engineName, `detachNetwork ${iface} ${network}`)
+}
+
+const sendCommand = (engineName: string, command: string) => {
+    console.log(`Sending command '${command}' to engine ${engineName}`)
     // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
     const engine = networkData.engines.find(e => e.hostName === engineName)
     if (engine) {
         console.log(`Pushing commands to ${engineName}`)
-        engine.commands.push({
-            name: 'monitorNetwork',
-            args: [iface, network]
-        })
+        engine.commands.push(command)
     }
 }
-
 
 
 
@@ -171,8 +179,13 @@ const commands: Command[] = [
         args: []
     },
     {
-        name: "monitorNetwork",
-        execute: monitorNetwork,
+        name: "attachNetwork",
+        execute: attachNetwork,
+        args: [{ type: "string" }, { type: "string" }, { type: "string" }],
+    },
+    {
+        name: "detachNetwork",
+        execute: detachNetwork,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
     {

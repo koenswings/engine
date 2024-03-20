@@ -8,17 +8,19 @@ import { bind } from '../valtio-yjs/index.js'
 import { deepPrint, log } from "../utils/utils.js"
 import { Doc, Array, Map } from "yjs"
 import { WebsocketProvider } from '../y-websocket/y-websocket.js'
-import { enableYjsWebSocketService } from '../services/yjsWebSocketService.js'
 import { $, chalk, cd } from 'zx'
 import lodash from 'lodash'
 
 import { Console } from "console"
+import { enableWebSocketMonitor } from "../monitors/webSocketMonitor.js"
+import { enableNetworkDataCommandsMonitor, enableNetworkDataGlobalMonitor } from "../monitors/networkDataMonitor.js"
+import { changeTest, enableTimeMonitor } from "../monitors/timeMonitor.js"
 const { cloneDeep } = lodash
 //const { bind } = await import('valtio-yjs')
 
-// **********
-// Definition
-// **********
+// ***********
+// Definitions
+// ***********
 
 // The root level list of all Networks
 const networks: Network[] = []
@@ -50,6 +52,13 @@ const localEngine = {
 const $localEngine = proxy<Engine>(localEngine)
 //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
+// Define an object that stores all running servers on the local engine
+// It should have the ip address as a key and a truth value to indicate if the server is running
+// Add a type definition for this object
+type RunningServers = {
+  [ip: string]: boolean
+}
+const runningServers:RunningServers = {}
 
 
 // **********
@@ -98,7 +107,8 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
       data: networkData,
       yData: yNetworkData,
       unbind: unbind,
-      wsProviders: {}
+      wsProviders: {},
+      listeners: {}
     }
 
     // And add it to the networks array
@@ -107,29 +117,20 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
 
     // Add subscriptions
 
-    // TEMPORARY for testing: Monitor networkData for changes propagate by Yjs 
-    subscribe(networkData, (value) => {
-      log(`NETWORKDATA GLOBAL MONITOR: Network ${networkName}: Network data was modified as follows: ${deepPrint(value)}`)
-    })
-    log(`Added GLOBAL MONITOR to network ${networkName}`)
+    enableNetworkDataGlobalMonitor(networkData, networkName)
 
-    // Monitor our local engine for commands to be executed
-    // Find the engine in the networkData.engines array and then subscribe to the commands array
-    const localEngine = networkData.engines.find(engine => engine.hostName === getEngine().hostName)
-    if (localEngine) {
-      subscribe(localEngine.commands, (value) => {
-        log(`NETWORKDATA ENGINE ${localEngine.hostName} COMMANDS MONITOR: Engine ${localEngine.hostName} commands is modified. Commands is now: ${deepPrint(value)}`)
-      })
-      log(`Added COMMANDS MONITOR for engine ${localEngine.hostName} to network ${networkName}`)
-    } else {
-      log(`Network ${networkName}: Could not find local engine in networkData.engines`)
-    }
+    //enableNetworkDataCommandsMonitor(networkData, networkName)
 
     log(`Network ${network.name} initialised and added to the store`)
   }
 
-  // Enable the Yjs WebSocket service for this network
-  enableYjsWebSocketService(ip4, '1234')
+  // Enable the Yjs WebSocket service for this interface if it is not already enabled
+  if (!runningServers.hasOwnProperty(ip4)) {
+    enableWebSocketMonitor(ip4, '1234')
+    runningServers[ip4] = true
+  } else {
+    log(`WebSocket server already running on ${ip4}`)
+  }
   const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, networkName, networkDoc)
   // Add the wsProvider to the wsProviders object of the network
   network.wsProviders[ifaceName] = wsProvider
@@ -154,7 +155,7 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
   }
   // And add it to the local engine
   getEngine().networkInterfaces.push(networkInterface)
-  log(`Interface ${ifaceName} added to local engine`)
+  log(`Network Interface ${networkName} via ${ifaceName} added to local engine`)
   //log(`Engine: ${deepPrint(getEngine(), 2)}`)
 
 
@@ -166,9 +167,14 @@ export const addNetwork = (networkName, ifaceName, ip4, net) => {
 }
 
 export const removeNetwork = (network: Network) => {
+  log(`Removing network ${network.name} from the store`)
+  log(`Unbinding network ${network.name}`)
   network.unbind()
+  log(`Destroying network ${network.name}`)
   network.doc.destroy()
+  log(`Destroying wsProviders ${deepPrint(network.wsProviders, 1)} for network ${network.name}`)
   Object.keys(network.wsProviders).forEach(iface => network.wsProviders[iface].destroy())
+  log(`Removing network ${network.name} from the networks array`)
   const index = networks.indexOf(network)
   if (index > -1) {
     networks.splice(index, 1)
@@ -417,17 +423,7 @@ export const networkDisks = (networkData: NetworkData) => {
 // Tests
 // *************
 
-const testStore = () => {
-  setInterval(() => {
-    //++engine.lastBooted
-    ++getEngine().version.minor
-    getEngine().version.major = getEngine().version.major + 1
-    console.log(`CHANGING ENGINE VERSION TO ${getEngine().version.major}.${getEngine().version.minor}`)
-    //console.log(getNetworks())
-  }, 5000)
-}
-
-testStore()
+enableTimeMonitor(5000, changeTest)
 
 // Subscribe to the addition of network Interfaces
 // subscribe($engine.networkInterfaces, (update) => {

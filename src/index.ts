@@ -1,8 +1,9 @@
 import os from 'os'
-import { enableYjsWebSocketService } from './services/yjsWebSocketService.js'
-import { monitorInterface } from './services/networkInterfaceMonitor.js'
-import { enableUsbDeviceMonitor } from './services/usbDeviceMonitor.js'
-import { enableDateTimeMonitor } from './services/dateTimeMonitor.js'
+import { monitorNetwork } from './monitors/networkMonitor.js'
+import { enableUsbDeviceMonitor } from './monitors/usbDeviceMonitor.js'
+import { enableTimeMonitor, generateRandomArrayPopulationCallback,  } from './monitors/timeMonitor.js'
+import { enableEngineCommandsMonitor, enableEngineGlobalMonitor } from "./monitors/commandsMonitor.js"
+
 import { sleep } from 'zx'
 
 console.log(`Hello from ${os.hostname()}!`) 
@@ -22,18 +23,34 @@ console.log(`Temp Directory: ${os.tmpdir()}`)
 console.log(`Endianness: ${os.endianness()}`)
 console.log(`Network Hostname: ${os.hostname()}`)
 
+enableEngineGlobalMonitor()
+enableEngineCommandsMonitor()
+
 console.log('STARTING MONITOR OF ETH0')
-monitorInterface('eth0', 'LAN')
+monitorNetwork('eth0', 'LAN')
 console.log('SLEEPING')
 await sleep(5000)
 console.log('STARTING MONITOR OF LO')
-monitorInterface('lo', 'Self')
+monitorNetwork('lo', 'Self')
 console.log('SLEEPING')
 await sleep(5000)
 console.log('STARTING MONITOR OF USB0')
 enableUsbDeviceMonitor()
 
-//enableDateTimeMonitor()
+// log(`Randomly populating and depopulating apps array every 5 seconds`)
+// const apps = new Array<string>()
+// enableDateTimeMonitor(5000, generateRandomArrayPopulationCallback())
+
+
+// log(`Logging the time every 5 seconds`)
+// enableTimeMonitor(5000, logTimeCallback)
+
+// log(`Randomly populating and depopulating apps array every 5 seconds`)
+// const apps = new Array<object>()
+// enableDateTimeMonitor(5000, generateRandomArrayModification(apps))
+
+
+
 
 
 

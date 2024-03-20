@@ -163,6 +163,7 @@ export interface Network {
   unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
   // Add a wsProviders object that has a key for each interface and a value that points to the wsProvider object of that interface
   wsProviders: {[key: string]: WebsocketProvider}
+  listeners: {[key: string]: (data: any) => void} // A map of listeners for each interface
 }
 
 // export interface NetworkData {

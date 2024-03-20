@@ -1,7 +1,6 @@
 import net_listner from 'network-interfaces-listener'
 import os from 'os'
 
-import { enableRandomArrayPopulation } from '../services/randomDataChangeServices.js'
 import { addNetwork, removeNetwork, getEngine, getNetwork} from '../data/store.js'
 import { Network, Engine, Disk, NetworkData} from '../data/dataTypes.js'
 
@@ -47,7 +46,7 @@ import { get } from 'http'
 
 // }
 
-export const monitorInterface = (iface:string, networkName:string) => {
+export const monitorNetwork = (iface:string, networkName:string) => {
     // Monitor the interface for changes
     // Create a dedicated handler for the specified interface and vlan
     const onNetworkChange = (data) => {
@@ -115,5 +114,38 @@ export const monitorInterface = (iface:string, networkName:string) => {
     }
     // Add the listener
     net_listner.addNetInterfaceListener(iface, onNetworkChange)
+
+    // We should store the listener so that we can remove it later
+    // We need to remove the listener when we unmonitor the network
+    // We can store the listener in the network object
+    const network = getNetwork(networkName)
+    network.listeners[iface] = onNetworkChange
+    log(`Adding to Listeners: ${deepPrint(network.listeners, 1)}`)
+
 }
 
+
+export const unmonitorNetwork = (iface:string, networkName:string) => {
+    // Remove the network interface from the localEngine
+    log(`Removing network interface ${networkName}/${iface}`)
+    getEngine().networkInterfaces = getEngine().networkInterfaces.filter((netiface) => !(netiface.iface == iface && netiface.network == networkName))
+
+    // Remove the listener
+    // Tricky  We must specify the right listener function to remove
+    const listeners = getNetwork(networkName).listeners
+    // If there is a key in the listeners object that matches the interface, remove the listener 
+    log(`Removing listener for interface ${iface} from network ${networkName} : ${deepPrint(listeners, 1)}`)
+    if (listeners.hasOwnProperty(iface)) {
+        net_listner.removeNetInterfaceListener(listeners[iface])
+    } else {
+        console.error(`No listener found for interface ${iface} on network ${networkName}`)
+    }
+
+    // If the localEngine no longer has network interfaces connected to the Network, remove the network 
+    if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
+        log(`Removing network ${networkName}`)
+        removeNetwork(getNetwork(networkName))
+    }
+
+    
+}
