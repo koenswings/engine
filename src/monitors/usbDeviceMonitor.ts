@@ -28,16 +28,16 @@ export const enableUsbDeviceMonitor = () => {
             if (device.match(/^sd[a-z]2$/m)) {
                 log(`USB device ${device} has been added`)
                 try {
-                    // Check if the mount point exists. Run "mount -t ext4" and check if the output contains the string "/dev/<device> on /disks/<device> type ext4". 
+                    // Check if the mount point exists. Run "mount -t ext4" and check if the output contains the string "/dev/<device> on /disks/external/<device> type ext4". 
                     const mountOutput = await $`mount -t ext4`
-                    if (mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
+                    if (mountOutput.stdout.includes(`/dev/${device} on /disks/external/${device} type ext4`)) {
                         log(`Device ${device} already mounted`)
                     } else {
                         log(`Mounting device ${device}`)
                         // Make the mount point
-                        await $`mkdir -p /disks/${device}`
+                        await $`mkdir -p /disks/external/${device}`
                         // Mount the device to the mount point
-                        await $`mount /dev/${device} /disks/${device}`
+                        await $`mount /dev/${device} /disks/external/${device}`
                         log(`Device ${device} has been successfully mounted`)
                     }
                     addDisk(device)
@@ -68,17 +68,17 @@ export const enableUsbDeviceMonitor = () => {
                 try {
                     // Check if the mount point exists. Run "mount -t ext4" and check if the output contains the device
                     const mountOutput = await $`mount -t ext4`
-                    if (!mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
+                    if (!mountOutput.stdout.includes(`/dev/${device} on /disks/external/${device} type ext4`)) {
                         log(`Device ${device} already unmounted`)
                     } else {
                         log(`Unmounting device ${device}`)
                         // Unmount
-                        await $`umount /disks/${device}`
-                        await $`rmdir /disks/${device}`
+                        await $`umount /disks/external/${device}`
+                        await $`rmdir /disks/external/${device}`
                         log(`Device ${device} has been successfully unmounted`)
                     }
                     // Remove mount point
-                    await $`rm -fr /disks/${device}`
+                    await $`rm -fr /disks/external/${device}`
                 } catch (e) {
                     log(`Error unmounting device ${device}`)
                     log(e)

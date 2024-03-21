@@ -1,5 +1,5 @@
 #!/usr/bin/env zx
-import { $, question, chalk, cd } from 'zx';
+import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
 import { networkApps, networkDisks } from '../src/data/store.js';
 import { Command, Engine, NetworkData } from '../src/data/dataTypes.js';
@@ -9,6 +9,19 @@ import { Doc, Array, Map } from "yjs"
 import { deepPrint } from '../src/utils/utils.js';
 import { bind } from '../src/valtio-yjs/index.js';
 import { proxy } from 'valtio';
+import pack from '../package.json' assert { type: "json" }
+
+// Check for the help flag and print usage if help is requested
+if (argv.h || argv.help) {
+}
+
+// Check for the version flag and print the version if requested
+if (argv.v || argv.version) {
+    console.log(`Version: ${pack.version}`)
+    process.exit(0)
+}
+
+// 
 
 
 interface VirtualEngine {
@@ -39,11 +52,9 @@ const engines: VirtualEngine[] = [
 
 
 // Example function implementations
-function addDisk(engine: string, disk: string): void {
-    console.log(`Adding disk '${disk}' to engine '${engine}'.`);
-    // We must send a remote command to engine1 to add the disk
-    // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
-
+function createDisk(engine: string, disk: string): void {
+    console.log(`Creating an internal disk '${disk}' for engine '${engine}'.`);
+    sendCommand(engine, `createDisk ${disk}`)  
 }
 
 function startApp(app: string, priority: number): void {
@@ -111,7 +122,7 @@ const connect = (network, ip4, port) => {
     })
 }
 
-connect('LAN', 'localhost', 1234)
+connect('Self', '127.0.0.1', 1234)
 
 const lsEngines = () => {
     console.log('Engines:')
@@ -189,8 +200,8 @@ const commands: Command[] = [
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
     {
-        name: "addDisk",
-        execute: addDisk,
+        name: "createDisk",
+        execute: createDisk,
         args: [{ type: "string" }, { type: "string" }],
     },
     {

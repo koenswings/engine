@@ -36,7 +36,7 @@ const convertToType = (str: string, descriptor: ArgumentDescriptor): any => {
 }
 
 
-export const handleCommand = (commands: Command[], input: string) => {
+export const handleCommand = async (commands: Command[], input: string) => {
     const [commandName, ...stringArgs] = input.split(" ").map(arg => arg.trim()).filter(arg => arg.length > 0);
     const command = commands.find(cmd => cmd.name === commandName);
 
@@ -53,7 +53,7 @@ export const handleCommand = (commands: Command[], input: string) => {
 
         if (args.length < command.args.length) throw new Error("Insufficient arguments");
 
-        command.execute(...args);
+        await command.execute(...args);
     } catch (error) {
         console.error(`Error: ${error.message}`);
     }
