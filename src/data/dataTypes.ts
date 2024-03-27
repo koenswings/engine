@@ -130,6 +130,7 @@ export interface App {
   instanceOf: AppMaster;
   name: string;
   status: Status;
+  port: number;
   dockerMetrics: DockerMetrics;
   dockerLogs: DockerLogs;
   dockerEvents: DockerEvents;

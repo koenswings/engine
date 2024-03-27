@@ -11,6 +11,11 @@ import { bind } from '../src/valtio-yjs/index.js';
 import { proxy } from 'valtio';
 import pack from '../package.json' assert { type: "json" }
 
+
+// **********************
+// Command-line arguments
+// **********************
+
 // Check for the help flag and print usage if help is requested
 if (argv.h || argv.help) {
 }
@@ -21,80 +26,30 @@ if (argv.v || argv.version) {
     process.exit(0)
 }
 
-// 
+// **********************
+// Doc inspections
+// **********************
 
-
-interface VirtualEngine {
-    name: string;
-    port: number;
-    status: string;
+const lsEngines = () => {
+    console.log('Engines:')
+    console.log(deepPrint(networkData.engines, 3))
 }
 
-const engines: VirtualEngine[] = [
-    // {
-    //     name: "engine1",
-    //     port: 3001,
-    //     status: "running"
-    // },
-    // {
-    //     name: "engine2",
-    //     port: 3002,
-    //     status: "running"
-    // },
-    // {
-    //     name: "engine3",
-    //     port: 3003,
-    //     status: "stopped"
-    // }
-  ]
-  
-  
-
-
-// Example function implementations
-function createDisk(engine: string, disk: string): void {
-    console.log(`Creating an internal disk '${disk}' for engine '${engine}'.`);
-    sendCommand(engine, `createDisk ${disk}`)  
+const lsDisks = () => {
+    console.log('Disks:')
+    const disks = networkDisks(networkData)
+    console.log(deepPrint(disks, 2))
 }
 
-function startApp(app: string, priority: number): void {
-    console.log(`Starting application '${app}' with priority ${priority}.`);
+const lsApps = () => {
+    console.log('Apps:')
+    const disks = networkApps(networkData)
+    console.log(deepPrint(disks, 2))
 }
 
-function addNetwork(engine: string, face: string, ip: string, netmask: string): void {
-    console.log(`Adding network interface '${face}' with IP '${ip}' and netmask '${netmask}' to engine '${engine}'.`);
-}
-
-// Create additional engines for testing
-export const addEngine = async (engine: string, port:number) => {
-    console.log(`Adding engine '${engine}'.`)
-    // Compose up the engine
-    try {
-        cd('..')
-        // Build the engine
-        await $`docker build --target base -t ${engine} .`
-        // Run the engine
-        await $`docker run -p ${port}:1234 -d --name ${engine} ${engine}`
-        // Add the engine to the list
-        engines.push({
-            name: engine,
-            port: port,
-            status: "running"
-        })
-    } catch (e) {
-        console.log(chalk.red('Error adding engine'));
-        console.error(e);
-    } 
-  }
-
-
-function processCoordinates(coords: { x: number; y: number }): void {
-    console.log(`Processing coordinates: x=${coords.x}, y=${coords.y}`);
-}
-
-function processMixedData(data: { id: number; name: string }): void {
-    console.log(`Processing data: id=${data.id}, name=${data.name}`);
-}
+// ************************
+// Connection to an engine
+// ************************
 
 let networkDoc: Doc
 let networkData: NetworkData
@@ -122,26 +77,16 @@ const connect = (network, ip4, port) => {
     })
 }
 
+// By default connect to the local engine
 connect('Self', '127.0.0.1', 1234)
 
-const lsEngines = () => {
-    console.log('Engines:')
-    console.log(deepPrint(networkData.engines, 3))
-}
 
-const lsDisks = () => {
-    console.log('Disks:')
-    const disks = networkDisks(networkData)
-    console.log(deepPrint(disks, 2))
-}
+// **********************
+// Remote Commands
+// **********************
 
-const lsApps = () => {
-    console.log('Apps:')
-    const disks = networkApps(networkData)
-    console.log(deepPrint(disks, 2))
-}
+// Network Management
 
-// `monitorNetwork engine1 eth0 class2c`
 const attachNetwork = (engineName: string, iface: string, network: string) => {
     console.log(`Instructing engine ${engineName} to monitor network ${network} via interface ${iface}`)
     // We must send a remote command to engine1 to monitor the network
@@ -155,6 +100,98 @@ const detachNetwork = (engineName: string, iface: string, network: string) => {
     sendCommand(engineName, `detachNetwork ${iface} ${network}`)
 }
 
+// Disk Management
+
+function createDisk(engine: string, disk: string): void {
+    console.log(`Creating a fixed disk '${disk}' for engine '${engine}'.`);
+    sendCommand(engine, `createDisk ${disk}`)  
+}
+
+// App Management
+
+const createApp =  (engineName: string, instanceName: string, typeName:string, diskName:string, version:string) => {
+    console.log(`Creating a '${typeName}' app named '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
+    // We must send a remote command to engine1 to add the app
+    sendCommand(engineName, `createApp ${instanceName} ${typeName} ${diskName} ${version}`)
+
+}
+
+function startApp(app: string, priority: number): void {
+    console.log(`Starting application '${app}' with priority ${priority}.`);
+}
+
+
+
+// Demo commands
+
+
+// function processCoordinates(coords: { x: number; y: number }): void {
+//     console.log(`Processing coordinates: x=${coords.x}, y=${coords.y}`);
+// }
+
+// function processMixedData(data: { id: number; name: string }): void {
+//     console.log(`Processing data: id=${data.id}, name=${data.name}`);
+// }
+
+
+
+
+
+
+// ************************
+// Virtual Engines
+// ************************
+
+interface VirtualEngine {
+    name: string;
+    port: number;
+    status: string;
+}
+
+const engines: VirtualEngine[] = [
+    // {
+    //     name: "engine1",
+    //     port: 3001,
+    //     status: "running"
+    // },
+    // {
+    //     name: "engine2",
+    //     port: 3002,
+    //     status: "running"
+    // },
+    // {
+    //     name: "engine3",
+    //     port: 3003,
+    //     status: "stopped"
+    // }
+  ]
+  
+// Create additional engines for testing
+export const addEngine = async (engine: string, port:number) => {
+    console.log(`Adding engine '${engine}'.`)
+    // Compose up the engine
+    try {
+        cd('..')
+        // Build the engine
+        await $`docker build --target base -t ${engine} .`
+        // Run the engine
+        await $`docker run -p ${port}:1234 -d --name ${engine} ${engine}`
+        // Add the engine to the list
+        engines.push({
+            name: engine,
+            port: port,
+            status: "running"
+        })
+    } catch (e) {
+        console.log(chalk.red('Error adding engine'));
+        console.error(e);
+    } 
+  }
+
+// ************************
+// Remote Command Execution
+// ************************
+
 const sendCommand = (engineName: string, command: string) => {
     console.log(`Sending command '${command}' to engine ${engineName}`)
     // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
@@ -164,7 +201,6 @@ const sendCommand = (engineName: string, command: string) => {
         engine.commands.push(command)
     }
 }
-
 
 
 // Command registry with an example of the new object command
@@ -205,46 +241,46 @@ const commands: Command[] = [
         args: [{ type: "string" }, { type: "string" }],
     },
     {
+        name: "createApp",
+        execute: createApp,
+        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" },  { type: "string" }],
+    },
+    {
         name: "startApp",
         execute: startApp,
         args: [{ type: "string" }, { type: "number" }],
-    },
-    {
-        name: "addNetwork",
-        execute: addNetwork,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
     },
     {
         name: "addEngine",
         execute: addEngine,
         args: [{ type: "string" }],
     },
-    {
-        name: "processCoordinates",
-        execute: processCoordinates,
-        args: [
-            {
-                type: "object",
-                objectSpec: {
-                    x: { type: 'number' },
-                    y: { type: 'number' }
-                }
-            }
-        ],
-    },
-    {
-        name: "processMixedData",
-        execute: processMixedData,
-        args: [
-            {
-                type: "object",
-                objectSpec: {
-                    id: { type: 'number' },
-                    name: { type: 'string' }
-                }
-            }
-        ],
-    },
+    // {
+    //     name: "processCoordinates",
+    //     execute: processCoordinates,
+    //     args: [
+    //         {
+    //             type: "object",
+    //             objectSpec: {
+    //                 x: { type: 'number' },
+    //                 y: { type: 'number' }
+    //             }
+    //         }
+    //     ],
+    // },
+    // {
+    //     name: "processMixedData",
+    //     execute: processMixedData,
+    //     args: [
+    //         {
+    //             type: "object",
+    //             objectSpec: {
+    //                 id: { type: 'number' },
+    //                 name: { type: 'string' }
+    //             }
+    //         }
+    //     ],
+    // },
 ];
 
 

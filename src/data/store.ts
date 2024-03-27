@@ -229,6 +229,7 @@ export const addDisk = (device) => {
       instanceOf: appMaster,
       name: `${appMaster.name}${Math.floor(Math.random() * 5)}`,
       status: 'Running' as Status,
+      port: Math.floor(Math.random() * 1000) + 3000,
       dockerMetrics: {
         memory: os.totalmem().toString(),
         cpu: os.loadavg().toString(),

@@ -81,8 +81,9 @@ interface Defaults {
 // Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
 let defaults: Defaults
 try {
-  const file = fs.readFileSync('./build_image_assets/build_image_defaults.yaml', 'utf8')
-  const readDefaults = YAML.parse(file)
+  const file = await $`cat ./build_image_assets/build_image_defaults.yaml`
+  //const file = fs.readFileSync('./build_image_assets/build_image_defaults.yaml', 'utf8')
+  const readDefaults = YAML.parse(file.stdout)
   console.log(readDefaults)
   console.log(typeof readDefaults)
   defaults = readDefaults as Defaults
@@ -476,17 +477,17 @@ const buildDockerInfrastructure = async () => {
 // Write a function to build the Apps Infrastructure
 const buildAppsInfrastructure = async () => {
 // Create the /apps, /apps/catalog, and /apps/instances directories 
-  console.log(chalk.blue('Creating the /apps, /apps/catalog, and /apps/instances directories'))
+  console.log(chalk.blue('Creating the /services, /apps, and /instances directories'))
   try {
+      await createDir('/services')
       await createDir('/apps')
-      await createDir('/apps/catalog')
-      await createDir('/apps/instances')
+      await createDir('/instances')
   } catch (e) {
-    console.log(chalk.red('Error creating the /apps, /apps/catalog, and /apps/instances directories'));
+    console.log(chalk.red('Error creating the /services, /apps, and /instances directories'));
     console.error(e);
     process.exit(1);
   }   
-  console.log(chalk.green('The /apps, /apps/catalog, and /apps/instances directories created'));
+  console.log(chalk.green('The /services, /apps, and /instances directories have been created'));
 }
 
 // Write a function to install gh
