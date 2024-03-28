@@ -19,7 +19,7 @@ if (argv.h || argv.help) {
   console.log(`Usage: build_service.ts [options] <serviceRef> [<serviceRef> ...]` )
   console.log(`with ` )
   console.log(`  <serviceRef> = <serviceName>:<serviceTag>`)
-  console.log(`  <serviceTag = <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | dev`)
+  console.log(`  <serviceTag = <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | latest_dev`)
   console.log(`  <ourVersion> = <major>.<minor>`)
   console.log(`  <major> = <number>`)
   console.log(`  <minor> = <number>`)
@@ -97,8 +97,8 @@ for (let service of services) {
 
     try {
         // Parse the service reference into its components
-        const {serviceTag, serviceName, major, minor} = parseServiceReference(service)
-        const reponame = "serv-" + serviceName
+        const {serviceName, serviceTag, latest_dev} = parseServiceReference(service)
+        const reponame = "service-" + serviceName
         
         // Create the temporary directory
         await $`mkdir ${tmpDir}`
@@ -107,7 +107,11 @@ for (let service of services) {
         cd(tmpDir)
 
         // Clone the repo
-        await $`git clone -b ${serviceTag} https://github.com/${gitAccount}/${reponame}.git`
+        if (latest_dev) {
+          await $`git clone https://github.com/${gitAccount}/${reponame}.git`
+        } else {
+          await $`git clone -b ${serviceTag} https://github.com/${gitAccount}/${reponame}.git`
+        }
 
         // Change directory to the repo
         cd(reponame)
@@ -116,9 +120,6 @@ for (let service of services) {
         await $`docker buildx create --name multiarch --driver docker-container --use`
         await $`docker buildx build --push --platform ${platform} -t ${user}/${service} .`
         await $`docker buildx rm multiarch`
-
-        // Execute the docker command to push the service
-        //await $`docker push ${user}/${service}`
 
         // Remove the temporary directory
         // await $`rm -rf /tmp/${service}`
@@ -134,75 +135,54 @@ for (let service of services) {
 
 function parseServiceReference(serviceRef:string) {
   const serviceSplit = serviceRef.split(":")
-  assert(serviceSplit.length == 2, `Error: Service ${serviceRef} reference must be in the form <serviceName>:<tag>`)
+  assert(serviceSplit.length == 2, `Error: Service ${serviceRef} reference must be in the form <serviceName>:<serviceTag>`)
   const serviceName = serviceSplit[0]
   const serviceTag = serviceSplit[1]
   const serviceTagSplit = serviceTag.split("-")
+
+  // Process stable tags (latest or latest_dev)
   if (serviceTagSplit.length == 1) {
-    // We have a stable tag
-    assert((serviceTagSplit[0] == "latest" || serviceTagSplit[0] == "dev"), `Error: Service tag ${serviceTag} must be in the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | dev`)
+    assert((serviceTagSplit[0] == "latest" || serviceTagSplit[0] == "latest_dev"), `Error: Service tag ${serviceTag} must be in the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | dev`)
     if (serviceTagSplit[0] == "latest") {
       return {
         serviceName: serviceName,
         serviceTag: serviceTag,
-        major: "0",
-        minor: "0",
-        appVersion: "",
+        major: "?",
+        minor: "?",
+        appVersion: "?",
         latest: true,
-        dev: false
+        latest_dev: false
         }
     } else {
       return {
         serviceName: serviceName,
         serviceTag: serviceTag,
-        major: "0",
-        minor: "0",
-        appVersion: "",
+        major: "?",
+        minor: "?",
+        appVersion: "?",
         latest: false,
-        dev: true
+        latest_dev: true
       }
     }
-   } else {
-    // We have an unstable tag
-    assert(serviceTagSplit.length >= 2, `Error: Service tag ${serviceTag} must be in the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | dev`)
-    const ourVersion = serviceTagSplit[0]
-    const appVersion = serviceTagSplit[1]
-    const ourVersionSplit = ourVersion.split(".")
-    assert(ourVersionSplit.length == 2, `Error: Our version ${ourVersion} must be in the form <major>.<minor>`)
-    const [major, minor] = ourVersionSplit
-    if ((serviceTagSplit.length == 3) && (serviceTagSplit[2] == "dev")) {
-      return {
-        serviceName: serviceName,
-        serviceTag: serviceTag,
-        major: major,
-        minor: minor,
-        appVersion: appVersion,
-        latest: false,
-        dev: true
-      }
-    }
-    if ((serviceTagSplit.length == 3) && (serviceTagSplit[2] == "latest")) {
-      return {
-        serviceName: serviceName,
-        serviceTag: serviceTag,
-        major: major,
-        minor: minor,
-        appVersion: appVersion,
-        latest: true,
-        dev: false
-      }
-    }
-    return {
-      serviceName: serviceName,
-      serviceTag: serviceTag,
-      major: major,
-      minor: minor,
-      appVersion: appVersion,
-      latest: false,
-      dev: false
-    }
+   } 
+
+  // We have an unstable tag of the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev
+  const ourVersion = serviceTagSplit[0]
+  const appVersion = serviceTagSplit[1]
+  const ourVersionSplit = ourVersion.split(".")
+  assert(ourVersionSplit.length == 2, `Error: Our version ${ourVersion} must be in the form <major>.<minor>`)
+  const [major, minor] = ourVersionSplit
+  return {
+    serviceName: serviceName,
+    serviceTag: serviceTag,
+    major: major,
+    minor: minor,
+    appVersion: appVersion,
+    latest: false,
+    latest_dev: false
   }
 }
+
 
 
 function exitWithError(errorMessage) {

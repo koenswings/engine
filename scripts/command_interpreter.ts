@@ -1,7 +1,7 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
-import { networkApps, networkDisks } from '../src/data/store.js';
+import { networkApps, networkDisks, networkInstances } from '../src/data/store.js';
 import { Command, Engine, NetworkData } from '../src/data/dataTypes.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { WebsocketProvider } from '../src/y-websocket/y-websocket.js';
@@ -44,6 +44,12 @@ const lsDisks = () => {
 const lsApps = () => {
     console.log('Apps:')
     const disks = networkApps(networkData)
+    console.log(deepPrint(disks, 2))
+}
+
+const lsInstances = () => {
+    console.log('Instances:')
+    const disks = networkInstances(networkData)
     console.log(deepPrint(disks, 2))
 }
 
@@ -102,25 +108,29 @@ const detachNetwork = (engineName: string, iface: string, network: string) => {
 
 // Disk Management
 
-function createDisk(engine: string, disk: string): void {
-    console.log(`Creating a fixed disk '${disk}' for engine '${engine}'.`);
-    sendCommand(engine, `createDisk ${disk}`)  
-}
+// function createDisk(engine: string, disk: string): void {
+//     console.log(`Creating a fixed disk '${disk}' for engine '${engine}'.`);
+//     sendCommand(engine, `createDisk ${disk}`)  
+// }
 
 // App Management
 
-const createApp =  (engineName: string, instanceName: string, typeName:string, diskName:string, version:string) => {
-    console.log(`Creating a '${typeName}' app named '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
+const createApp =  (engineName: string, instanceName: string, typeName:string, version:string, diskName:string) => {
+    console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
     // We must send a remote command to engine1 to add the app
-    sendCommand(engineName, `createApp ${instanceName} ${typeName} ${diskName} ${version}`)
+    sendCommand(engineName, `createApp ${instanceName} ${typeName} ${version} ${diskName}`)
 
 }
 
-function startApp(app: string, priority: number): void {
-    console.log(`Starting application '${app}' with priority ${priority}.`);
+const runApp = (engineName: string, instanceName: string, diskName: string) => {
+    console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
+    sendCommand(engineName, `runpp ${instanceName}`)
 }
 
-
+const stopApp = (engineName: string, instanceName: string, diskName: string) => {
+    console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
+    sendCommand(engineName, `stopApp ${instanceName}`)
+}
 
 // Demo commands
 
@@ -226,6 +236,11 @@ const commands: Command[] = [
         args: []
     },
     {
+        name: "instances",
+        execute: lsInstances,
+        args: []
+    },
+    {
         name: "attachNetwork",
         execute: attachNetwork,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
@@ -235,20 +250,25 @@ const commands: Command[] = [
         execute: detachNetwork,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
-    {
-        name: "createDisk",
-        execute: createDisk,
-        args: [{ type: "string" }, { type: "string" }],
-    },
+    // {
+    //     name: "createDisk",
+    //     execute: createDisk,
+    //     args: [{ type: "string" }, { type: "string" }],
+    // },
     {
         name: "createApp",
         execute: createApp,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" },  { type: "string" }],
     },
     {
-        name: "startApp",
-        execute: startApp,
-        args: [{ type: "string" }, { type: "number" }],
+        name: "runApp",
+        execute: runApp,
+        args: [{ type: "string" }, { type: "string" },  { type: "string" }],
+    },
+    {
+        name: "stopApp",
+        execute: stopApp,
+        args: [{ type: "string" }, { type: "string" },  { type: "string" }],
     },
     {
         name: "addEngine",

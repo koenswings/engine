@@ -2,7 +2,7 @@ import chokidar from 'chokidar'
 import { log } from '../utils/utils.js'
 import { $ } from 'zx'
 import { Disk } from '../data/dataTypes.js'
-import { addDisk, getDisk, removeDisk, getEngine} from '../data/store.js'
+import { addDisk, getDisk, removeDisk, getEngine, getDiskOnDevice} from '../data/store.js'
 import { get } from 'http'
 
 
@@ -40,7 +40,17 @@ export const enableUsbDeviceMonitor = () => {
                         await $`mount /dev/${device} /disks/${device}`
                         log(`Device ${device} has been successfully mounted`)
                     }
-                    addDisk(device)
+
+                    // Check if the disk has a file DISKNAME in the root location of the disk and if so, read the disk name from the file
+                    // if (await $`test -f /disks/${device}/DISKNAME`.then(() => true).catch(() => false)) {
+                    if (true) {
+                        const diskName = await $`cat /disks/${device}/DISKNAME`.stdout
+                        log(`Disk name ${diskName} found on device ${device}`)
+                        // Add the disk to the store
+                        addDisk(device, diskName)
+                    } else {
+                        log('Not a valid disk')
+                    }                    
                 } catch (e) {
                     log(`Error mounting device ${device}`)
                     log(e)
@@ -58,7 +68,7 @@ export const enableUsbDeviceMonitor = () => {
             if (device.match(/^sd[a-z]2$/m)) {
                 log(`USB device ${device} has been removed`)
                 // Remove the disk from the store
-                const disk = getDisk(device)
+                const disk = getDiskOnDevice(device)
                 if (disk) {
                     removeDisk(disk)
                     log(`Disk ${device} removed from store`)

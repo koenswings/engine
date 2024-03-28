@@ -59,7 +59,6 @@ const generateRandomArrayModification = (apps: Array<object>) => {
 }
 
 export const changeTest = () => {
-    ++getEngine().version.minor
-    getEngine().version.major = getEngine().version.major + 1
-    console.log(`CHANGING ENGINE VERSION TO ${getEngine().version.major}.${getEngine().version.minor}`)
+    ++getEngine().lastBooted
+    console.log(`CHANGING ENGINE LASTBOOTED TO ${getEngine().lastBooted}`)
 }

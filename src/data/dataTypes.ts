@@ -65,19 +65,12 @@ type DiskType = 'Apps' | 'Backup';
 
 type URL = string;
 
-export interface Version {
-  major: number;
-  minor: number;
-}
+// export interface Version {
+//   major: number;
+//   minor: number;
+// }
 
-
-export interface AppMaster {
-  name: string;
-  version: Version;
-  category: AppCategory;
-  description: string;
-  icon: URL;
-}
+type Version = string; // Can be major.minor or a commit hash
 
 export interface DockerMetrics {
   cpu: string;
@@ -115,6 +108,7 @@ export interface Engine {
 
 export interface Disk {
   name: string;
+  device: string;
   type: DiskType;
   created: number; // We must use a timestamp number as Date objects are not supported in YJS
   lastDocked: number; // We must use a timestamp number as Date objects are not supported in YJS
@@ -122,12 +116,23 @@ export interface Disk {
   upgradable: boolean;
   //engine: Engine;   
   apps: App[];     
+  instances: Instance[];     
+}
+
+export interface App {
+  name: string;
+  version: Version;
+  title: string;
+  description: string;
+  url: URL
+  category: AppCategory;
+  icon: URL;
+  author: string;
 }
 
 
-
-export interface App {
-  instanceOf: AppMaster;
+export interface Instance {
+  instanceOf: string;   // Reference by name since we can store the AppMaster object only once in Yjs
   name: string;
   status: Status;
   port: number;

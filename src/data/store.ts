@@ -1,6 +1,6 @@
 //import { Doc } from 'yjs'
-import { Network, NetworkInterface, NetworkData, Disk, App, Engine, Status, Command, RunningServers, Listener } from "./dataTypes.js"
-import { appMasters } from "./data.js"
+import { Network, NetworkInterface, NetworkData, Disk, App, Engine, Status, Command, RunningServers, Listener, Instance } from "./dataTypes.js"
+// import { appMasters } from "./data.js"
 import { os } from "zx"
 import { proxy, subscribe, ref, snapshot } from 'valtio'
 import { subscribeKey, watch } from 'valtio/utils'
@@ -28,10 +28,7 @@ const networks: Network[] = []
 // The local Engine object running on port 1234
 const localEngine = {
   hostName: os.hostname(),
-  version: {
-    major: 1,
-    minor: 0
-  },
+  version: "1.0",
   hostOS: os.type(),
   status: 'Running' as Status,
   dockerMetrics: {
@@ -200,20 +197,22 @@ export const getNetworkNames = () => {
 }
 
 // Create similar operations for the disks
-export const addDisk = (device) => {
-  log(`Initialising disk ${device}`)
+export const addDisk = (device, diskName) => {
+  log(`Initialising disk ${diskName} on device ${device}`)
   const disk: Disk = {
-    name: device,
+    name: diskName,
+    device: device,
     type: 'Apps',
     created: new Date().getTime(),
     lastDocked: new Date().getTime(),
     removable: false,
     upgradable: false,
-    apps: []
+    apps: [],
+    instances: []
   }
   // Add the disk to the local engine
   getEngine().disks.push(disk)
-  log(`Disk ${device} pushed to local engine`)
+  log(`Disk ${diskName} pushed to local engine`)
 
 
   // Temporary code simulating an analysis of the apps found on the disk
@@ -222,36 +221,37 @@ export const addDisk = (device) => {
   // Each generated app is an instance of one of the appMasters from the imported appMasters array random appMaster
   // Each app has a name that is the same as its appMaster name but with a random number between 1 and 5 appended to it
   // Also generate theAppMaster objects from which the instances are created
-  const appCount = Math.floor(Math.random() * 3) + 1
-  for (let i = 0; i < appCount; i++) {
-    const appMaster = appMasters[Math.floor(Math.random() * appMasters.length)]
-    const app = {
-      instanceOf: appMaster,
-      name: `${appMaster.name}${Math.floor(Math.random() * 5)}`,
-      status: 'Running' as Status,
-      port: Math.floor(Math.random() * 1000) + 3000,
-      dockerMetrics: {
-        memory: os.totalmem().toString(),
-        cpu: os.loadavg().toString(),
-        network: "",
-        disk: ""
-      },
-      dockerLogs: { logs: [] },
-      dockerEvents: { events: [] },
-      created: new Date().getTime(),
-      lastBackedUp: new Date().getTime(),
-      lastStarted: new Date().getTime(),
-      upgradable: false,
-      backUpEnabled: false
-    }
-    // Add the app to the disk
-    addApp(disk, app)
-  }
+  // const appCount = Math.floor(Math.random() * 3) + 1
+  // for (let i = 0; i < appCount; i++) {
+  //   const appMaster = appMasters[Math.floor(Math.random() * appMasters.length)]
+  //   const app = {
+  //     instanceOf: appMaster,
+  //     name: `${appMaster.name}${Math.floor(Math.random() * 5)}`,
+  //     status: 'Running' as Status,
+  //     port: Math.floor(Math.random() * 1000) + 3000,
+  //     dockerMetrics: {
+  //       memory: os.totalmem().toString(),
+  //       cpu: os.loadavg().toString(),
+  //       network: "",
+  //       disk: ""
+  //     },
+  //     dockerLogs: { logs: [] },
+  //     dockerEvents: { events: [] },
+  //     created: new Date().getTime(),
+  //     lastBackedUp: new Date().getTime(),
+  //     lastStarted: new Date().getTime(),
+  //     upgradable: false,
+  //     backUpEnabled: false
+  //   }
+  //   // Add the app to the disk
+  //   addApp(disk, app)
+  //}
   return disk
 }
 
-export const addApp = (disk: Disk, app: App) => {
+export const addInstance = (disk: Disk, app: App, instance: Instance) => {
   disk.apps.push(app)
+  disk.instances.push(instance)
 }
 
 
@@ -262,6 +262,12 @@ export const removeDisk = (disk: Disk) => {
   }
 }
 
+// Get the disk object for a given device on the local engine
+export const getDiskOnDevice = (device: string) => {
+  return getEngine().disks.find(disk => disk.device === device)
+}
+
+// Get the disk object for a given name on the local engine
 export const getDisk = (name: string) => {
   return getEngine().disks.find(disk => disk.name === name)
 }
@@ -294,6 +300,22 @@ export const networkApps = (network: NetworkData) => {
   return network.engines.reduce(
     (acc, engine) => {
       return acc.concat(engineApps(engine))
+    },
+    [])
+}
+
+export const engineInstances = (engine: Engine) => {
+  return engine.disks.reduce(
+    (acc, disk) => {
+      return acc.concat(disk.instances)
+    },
+    [])
+}
+
+export const networkInstances = (network: NetworkData) => {
+  return network.engines.reduce(
+    (acc, engine) => {
+      return acc.concat(engineInstances(engine))
     },
     [])
 }
