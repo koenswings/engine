@@ -1,8 +1,8 @@
 import chokidar from 'chokidar'
 import { log } from '../utils/utils.js'
-import { $ } from 'zx'
+import { $, YAML } from 'zx'
 import { Disk } from '../data/dataTypes.js'
-import { addDisk, getDisk, removeDisk, getEngine, getDiskOnDevice} from '../data/store.js'
+import { addAppDisk, getDisk, removeDisk, getEngine, getDiskOnDevice} from '../data/store.js'
 import { get } from 'http'
 
 
@@ -41,15 +41,19 @@ export const enableUsbDeviceMonitor = () => {
                         log(`Device ${device} has been successfully mounted`)
                     }
 
-                    // Check if the disk has a file DISKNAME in the root location of the disk and if so, read the disk name from the file
-                    // if (await $`test -f /disks/${device}/DISKNAME`.then(() => true).catch(() => false)) {
-                    if (true) {
-                        const diskName = await $`cat /disks/${device}/DISKNAME`.stdout
-                        log(`Disk name ${diskName} found on device ${device}`)
+                    // Check if the disk has a file APPDISK.yaml in the root location of the disk
+                    // If so, read the YAML content from the file and parse it into the object diskMetadata
+                    if (await $`test -f /disks/${device}/APPDISK.yaml`.then(() => true).catch(() => false)) {
+                        const appDiskContent = (await $`cat /disks/${device}/APPDISK.yaml`).stdout.trim()
+                        const diskMetadata = YAML.parse(appDiskContent)
+                        const diskName = diskMetadata.name
+                        const diskCreated = diskMetadata.created as number
+                        const diskCreatedTime = new Date(diskCreated)
+                        log(`App Disk name ${diskName} created on ${diskCreatedTime} found on device ${device}`)
                         // Add the disk to the store
-                        addDisk(device, diskName)
+                        addAppDisk(device, diskName, diskCreated)
                     } else {
-                        log('Not a valid disk')
+                        log('Not an app disk')
                     }                    
                 } catch (e) {
                     log(`Error mounting device ${device}`)

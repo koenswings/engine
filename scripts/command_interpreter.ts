@@ -115,21 +115,26 @@ const detachNetwork = (engineName: string, iface: string, network: string) => {
 
 // App Management
 
-const createApp =  (engineName: string, instanceName: string, typeName:string, version:string, diskName:string) => {
+const createInstance =  (engineName: string, instanceName: string, typeName:string, version:string, diskName:string) => {
     console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
-    // We must send a remote command to engine1 to add the app
-    sendCommand(engineName, `createApp ${instanceName} ${typeName} ${version} ${diskName}`)
-
+    // We must send a remote command to engine1 to create the Instance
+    sendCommand(engineName, `createInstance ${instanceName} ${typeName} ${version} ${diskName}`)
 }
 
-const runApp = (engineName: string, instanceName: string, diskName: string) => {
+const startInstance =  (engineName: string, instanceName: string, diskName:string) => {
+    console.log(`Starting instance '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
+    // We must send a remote command to engine1 to start the Instance
+    sendCommand(engineName, `startInstance ${instanceName} ${diskName}`)
+}
+
+const runInstance = (engineName: string, instanceName: string, diskName: string) => {
     console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
-    sendCommand(engineName, `runpp ${instanceName}`)
+    sendCommand(engineName, `runInstance ${instanceName} ${diskName}`)
 }
 
-const stopApp = (engineName: string, instanceName: string, diskName: string) => {
+const stopInstance = (engineName: string, instanceName: string, diskName: string) => {
     console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
-    sendCommand(engineName, `stopApp ${instanceName}`)
+    sendCommand(engineName, `stopInstance ${instanceName} ${diskName}`)
 }
 
 // Demo commands
@@ -256,18 +261,23 @@ const commands: Command[] = [
     //     args: [{ type: "string" }, { type: "string" }],
     // },
     {
-        name: "createApp",
-        execute: createApp,
+        name: "createInstance",
+        execute: createInstance,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" },  { type: "string" }],
     },
     {
-        name: "runApp",
-        execute: runApp,
+        name: "startInstance",
+        execute: startInstance,
         args: [{ type: "string" }, { type: "string" },  { type: "string" }],
     },
     {
-        name: "stopApp",
-        execute: stopApp,
+        name: "runInstance",
+        execute: runInstance,
+        args: [{ type: "string" }, { type: "string" },  { type: "string" }],
+    },
+    {
+        name: "stopInstance",
+        execute: stopInstance,
         args: [{ type: "string" }, { type: "string" },  { type: "string" }],
     },
     {

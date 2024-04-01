@@ -1,20 +1,21 @@
 //import { Doc } from 'yjs'
 import { Network, NetworkInterface, NetworkData, Disk, App, Engine, Status, Command, RunningServers, Listener, Instance } from "./dataTypes.js"
 // import { appMasters } from "./data.js"
-import { os } from "zx"
 import { proxy, subscribe, ref, snapshot } from 'valtio'
 import { subscribeKey, watch } from 'valtio/utils'
 import { bind } from '../valtio-yjs/index.js'
 import { deepPrint, log } from "../utils/utils.js"
 import { Doc, Array, Map } from "yjs"
 import { WebsocketProvider } from '../y-websocket/y-websocket.js'
-import { $, chalk, cd } from 'zx'
+import { $, question, chalk, cd, YAML, fs, os } from 'zx';
+
 import lodash from 'lodash'
 
 import { Console } from "console"
 import { enableWebSocketMonitor } from "../monitors/webSocketMonitor.js"
 import { enableNetworkDataCommandsMonitor, enableNetworkDataGlobalMonitor } from "../monitors/networkDataMonitor.js"
 import { changeTest, enableTimeMonitor } from "../monitors/timeMonitor.js"
+import { run } from "lib0/testing.js"
 const { cloneDeep } = lodash
 //const { bind } = await import('valtio-yjs')
 
@@ -50,7 +51,7 @@ const $localEngine = proxy<Engine>(localEngine)
 //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
 
-const runningServers:RunningServers = {}
+const runningServers: RunningServers = {}
 
 const listeners: Listener[] = []
 
@@ -65,8 +66,8 @@ export const addNetwork = (ifaceName, networkName, ip4, netmask) => {
   log(`Connecting engine to network ${networkName} over interface ${ifaceName} with IP4 address ${ip4} and netmask ${netmask}`)
 
   // Check if we already have a network with the same name; this means the engine was already connected to the network but over a different interface
-  let network:Network = networks.find(network => network.name === networkName)
-  let networkDoc:Doc, networkData:NetworkData
+  let network: Network = networks.find(network => network.name === networkName)
+  let networkDoc: Doc, networkData: NetworkData
 
   if (network) {
 
@@ -197,13 +198,13 @@ export const getNetworkNames = () => {
 }
 
 // Create similar operations for the disks
-export const addDisk = (device, diskName) => {
-  log(`Initialising disk ${diskName} on device ${device}`)
+export const addAppDisk = async (device, diskName, created) => {
+  log(`Adding app disk ${diskName} on device ${device}`)
   const disk: Disk = {
     name: diskName,
     device: device,
     type: 'Apps',
-    created: new Date().getTime(),
+    created: created,
     lastDocked: new Date().getTime(),
     removable: false,
     upgradable: false,
@@ -214,6 +215,44 @@ export const addDisk = (device, diskName) => {
   getEngine().disks.push(disk)
   log(`Disk ${diskName} pushed to local engine`)
 
+  // Call addApp for each folder found in /disks/diskName/apps
+  const apps = (await $`ls /disks/${device}/apps`).stdout.split('\n')
+  log(`Apps found on disk ${diskName}: ${apps}`)
+  apps.forEach(async appFolder => {
+    if (!(appFolder === "")) {
+      try {
+        // Read the compose.yaml file in the app folder
+        const appComposeFile = await $`cat /disks/${device}/apps/${appFolder}/compose.yaml`
+        const appCompose = YAML.parse(appComposeFile.stdout)
+        const app = {
+          name: appCompose['x-app'].name,
+          version: appCompose['x-app'].version,
+          title: appCompose['x-app'].title,
+          description: appCompose['x-app'].description,
+          url: appCompose['x-app'].url,
+          category: appCompose['x-app'].category,
+          icon: appCompose['x-app'].icon,
+          author: appCompose['x-app'].author
+        }
+        addApp(disk, app)
+      }
+
+      catch (e) {
+        console.log(chalk.red(`Error adding app ${appFolder.slice(0, -1)} on disk ${diskName}`))
+        console.error(e)
+      }
+    }
+  })
+
+  // Call startInstance for each folder found in /instances
+  const instances = (await $`ls /disks/${device}/instances`).stdout.split('\n')
+  log(`Instances found on disk ${diskName}: ${instances}`)
+  instances.forEach(async instanceFolder => {
+    if (!(instanceFolder === "")) {
+      startInstance(instanceFolder, diskName)
+    }
+
+  })
 
   // Temporary code simulating an analysis of the apps found on the disk
 
@@ -249,9 +288,370 @@ export const addDisk = (device, diskName) => {
   return disk
 }
 
-export const addInstance = (disk: Disk, app: App, instance: Instance) => {
-  disk.apps.push(app)
-  disk.instances.push(instance)
+export const createInstance = async (instanceName: string, typeName: string, version: string, diskName: string) => {
+  console.log(`Creating instance '${instanceName}' from version ${version} of app '${typeName}' on disk '${diskName}' of engine '${getEngine().hostName}'.`)
+
+  // CODING STYLE: only use absolute pathnames !
+  // CODING STYLE: use try/catch for error handling
+
+  const disk = getDisk(diskName)
+  let device
+  if (disk) {
+    device = disk.device
+  } else {
+    console.log(chalk.red(`Disk ${diskName} not found on engine ${getEngine().hostName}`))
+    return
+  }
+
+  try {
+
+    // Create the app infrastructure if it does not exist
+    // TODO: This should be done when creating the disk
+    // TODO: Here we should only be checking if it is an apps disk! 
+    await $`mkdir -p /disks/${device}/apps /disks/${device}/services /disks/${device}/instances`
+
+
+    // **************************
+    // STEP 1 - App Type creation
+    // **************************
+
+    // Clone the app from the repository
+    // Remove /tmp/apps/${typeName} if it exists
+    await $`rm -rf /tmp/apps/${typeName}`
+    let appVersion = ""
+    if (version === "latest_dev") {
+      await $`git clone https://github.com/koenswings/app-${typeName} /tmp/apps/${typeName}`
+      // Set appVersion to the latest commit hash
+      const gitLog = await $`cd /tmp/apps/${typeName} && git log -n 1 --pretty=format:%H`
+      appVersion = gitLog.stdout.trim()
+      log(`App version: ${appVersion}`)
+
+    } else {
+      await $`git clone -b ${version} https://github.com/koenswings/app-${typeName} /tmp/apps/${typeName}`
+      appVersion = version
+    }
+
+
+    // Create the app type
+    // Overwrite if it exists
+    // We want to copy the content of a directory and rename the directory at the same time: 
+    //   See https://unix.stackexchange.com/questions/412259/how-can-i-copy-a-directory-and-rename-it-in-the-same-command
+    await $`cp -fr /tmp/apps/${typeName}/. /disks/${device}/apps/${typeName}-${appVersion}/`
+
+
+    // **************************
+    // STEP 2 - App Instance creation
+    // **************************
+
+    // Create the app instance
+    // If there is already a instance with the name instanceName, try instanceName-1, instanceName-2, etc.
+    let instanceNumber = 1
+    let baseInstanceName = instanceName
+    while (true) {
+      try {
+        await $`mkdir /disks/${device}/instances/${instanceName}`
+        break
+      } catch (e) {
+        instanceNumber++
+        instanceName = `${baseInstanceName}-${instanceNumber}`
+      }
+    }
+    // Again use /. to specify the content of the dir, not the dir itself 
+    await $`cp -fr /tmp/apps/${typeName}/. /disks/${device}/instances/${instanceName}/`
+
+    // If the app has an init_data.tar.gz file, unpack it in the app folder
+    if (fs.existsSync(`/disks/${device}/instances/${instanceName}/init_data.tar.gz`)) {
+      await $`tar -xzf /disks/${device}/instances/${instanceName}/init_data.tar.gz -C /disks/${device}/instances/${instanceName}`
+      // Rename the folder init_data to data
+      await $`mv /disks/${device}/instances/${instanceName}/init_data /disks/${device}/instances/${instanceName}/data`
+      // Remove the init_data.tar.gz file
+      await $`rm /disks/${device}/instances/${instanceName}/init_data.tar.gz`
+    }
+
+    // Open the compose.yaml file of the app instance and add the version info to the compose file
+    const composeFile = await $`cat /disks/${device}/instances/${instanceName}/compose.yaml`
+    const compose = YAML.parse(composeFile.stdout)
+    compose['x-app'].version = appVersion
+    const composeYAML = YAML.stringify(compose)
+    await $`echo ${composeYAML} > /disks/${device}/instances/${instanceName}/compose.yaml`
+
+    // Remove the temporary app folder
+    await $`rm -rf /tmp/apps/${typeName}`
+
+    // **************************
+    // STEP 3 - Persist the services
+    // **************************
+
+    // Extract the service images of the services from the compose file, and then pull them and save them in /services
+    const services = compose.services
+    for (const serviceName in services) {
+      const serviceImage = services[serviceName].image
+      // Pull the sercice image
+      await $`docker image pull ${serviceImage}`
+      // Save the sercice image
+      await $`docker save ${serviceImage} > /disks/${device}/services/${serviceImage.replace(/\//g, '_')}.tar`
+    }
+
+
+    console.log(chalk.green(`App ${instanceName} created`))
+  } catch (e) {
+    console.log(chalk.red('Error creating app instance'))
+    console.error(e)
+  }
+}
+
+export const startInstance = async (instanceName: string, diskName: string) => {
+  console.log(`Starting instance '${instanceName}' on disk ${diskName} of engine '${getEngine().hostName}'.`)
+
+  // Check if disk exists
+  const disk = getDisk(diskName)
+  if (!disk) {
+    console.log(chalk.red(`Disk ${diskName} not found on engine ${getEngine().hostName}`))
+    return
+  }
+  const device = disk.device
+
+  // Check if there is a folder called instanceName on /disks/diskName
+  // If not, log an error and return
+  const instanceExists = fs.existsSync(`/disks/${device}/instances/${instanceName}`)
+  if (!instanceExists) {
+    console.log(chalk.red(`Instance ${instanceName} not found on disk ${diskName}`))
+    return
+  }
+
+  try {
+
+    // **************************
+    // STEP 1 - Port generation
+    // **************************
+
+    // Generate a port  number for the app  and assign it to the variable port
+    // Start from port number 3000 and check if the port is already in use by another app
+    // The port is in use by another app if an app can be found in networkdata with the same port
+    let port = 3000
+    const instances = engineInstances(getEngine())
+    while (true) {
+      const instance = instances.find(instance => instance.port == port)
+      if (instance) {
+        port++
+      } else {
+        break
+      }
+    }
+    console.log(`Port: ${port}`)
+
+    // ALternative is to check the system for an occipied port
+    // await $`netstat -tuln | grep ${port}`
+    // But this prevents us from finding apps that are stopped by the user
+    // let port = 3000
+    // let portInUse = true
+    // while (portInUse) {
+    //     try {
+    //         await $`nc -z localhost ${port}`
+    //         port++
+    //     } catch (e) {
+    //         portInUse = false
+    //     }
+    // }
+
+    // Write a .env file in which you define the port variable
+    // Do it
+    await $`echo "port=${port}" > /disks/${device}/instances/${instanceName}/.env`
+
+
+    // **************************
+    // STEP 2 - Preloading of services
+    // **************************
+
+    // Extract the service images of the services from the compose file, and pull them
+    // Open the compose.yaml file of the app instance
+    const composeFile = await $`cat /disks/${device}/instances/${instanceName}/compose.yaml`
+    const compose = YAML.parse(composeFile.stdout)
+    const services = compose.services
+    for (const serviceName in services) {
+      const serviceImage = services[serviceName].image
+      // Load the service image from the saved tar file
+      await $`docker image load < /disks/${device}/services/${serviceImage.replace(/\//g, '_')}.tar`
+    }
+
+    // **************************
+    // STEP 3 - Container creation
+    // **************************
+
+    await $`docker compose -f /disks/${device}/instances/${instanceName}/compose.yaml create`
+
+    // **************************
+    // STEP 4 - Update network data
+    // **************************
+
+    const app: App = {
+      name: compose['x-app'].name,
+      version: compose['x-app'].version,
+      title: compose['x-app'].title,
+      description: compose['x-app'].description,
+      url: compose['x-app'].url,
+      category: compose['x-app'].category,
+      icon: compose['x-app'].icon,
+      author: compose['x-app'].author
+    }
+
+    // Add the app to the local engine
+    const instance: Instance = {
+      instanceOf: app.name,
+      name: instanceName,
+      status: 'Stopped' as Status,
+      port: port,
+      dockerMetrics: {
+        memory: os.totalmem().toString(),
+        cpu: os.loadavg().toString(),
+        network: "",
+        disk: ""
+      },
+      dockerLogs: { logs: [] },
+      dockerEvents: { events: [] },
+      created: new Date().getTime(),
+      lastBackedUp: 0,
+      lastStarted: 0,
+      upgradable: false,
+      backUpEnabled: false
+    }
+
+    addApp(disk, app)
+    addInstance(disk, instance)
+
+    // **************************
+    // STEP 5 - run the Instance
+    // **************************
+
+    await runInstance(instanceName, diskName)
+
+    console.log(chalk.green(`App ${instanceName} started`))
+  }
+
+  catch (e) {
+    console.log(chalk.red('Error starting app instance'))
+    console.error(e)
+  }
+}
+
+export const runInstance = async (instanceName: string, diskName: string) => {
+  console.log(`Running instance '${instanceName}' on disk ${diskName} of engine '${getEngine().hostName}'.`)
+
+  // CODING STYLE: only use absolute pathnames !
+  // CODING STYLE: use try/catch for error handling
+
+  // Find out on which disk this app is running by finding the disk object that has this app instance in its instances array
+  // const disk = getEngine().disks.find(disk => disk.instances.find(instance => instance.name === instanceName))
+
+  // Check if disk exists
+  const disk = getDisk(diskName)
+  if (!disk) {
+    console.log(chalk.red(`Disk ${diskName} not found on engine ${getEngine().hostName}`))
+    return
+  }
+  const device = disk.device
+
+  // Check if the instance exists
+  const instance = disk.instances.find(instance => instance.name === instanceName)
+  if (!instance) {
+    const instanceExists = fs.existsSync(`/disks/${device}/instances/${instanceName}`)
+    if (!instanceExists) {  
+      console.log(chalk.red(`Instance ${instanceName} not found on disk ${diskName}`))
+      return
+    } else {
+      console.log(chalk.red(`Instance ${instanceName} on disk ${diskName} has not yet been started`))
+      return
+    }
+  }
+
+  try {
+
+    // Compose up the app
+    await $`docker compose -f /disks/${device}/instances/${instanceName}/compose.yaml up -d`
+
+    // Modify the status of the instance
+    instance.status = 'Running'
+    // Modify the lastStarted time of the instance
+    instance.lastStarted = new Date().getTime()
+    // Modify the dockerMetrics of the instance
+    instance.dockerMetrics = {
+      memory: os.totalmem().toString(),
+      cpu: os.loadavg().toString(),
+      network: "",
+      disk: ""
+    }
+
+    // Modify the dockerLogs of the instance
+    // instance.dockerLogs = { logs: await $`docker logs ${instanceName}` }  // This is not correct, we need to use the right container name
+    // Modify the dockerEvents of the instance
+    // instance.dockerEvents = { events: await $`docker events ${instanceName}` }  // This is not correct, we need to use the right container name
+
+    console.log(chalk.green(`App ${instanceName} running`))
+
+  } catch (e) {
+    
+    console.log(chalk.red('Error running app instance'))
+    console.error(e)
+  
+  }
+}
+
+export const stopInstance = async (instanceName: string, diskName: string) => {
+  console.log(`Stopping app '${instanceName}' on disk '${diskName}' of engine '${getEngine().hostName}'.`)
+
+  // CODING STYLE: only use absolute pathnames !
+  // CODING STYLE: use try/catch for error handling
+
+  // Find out on which disk this app is running by finding the disk object that has this app instance in its instances array
+  // const disk = getEngine().disks.find(disk => disk.instances.find(instance => instance.name === instanceName))
+
+  // Check if disk exists
+  const disk = getDisk(diskName)
+  if (!disk) {
+    console.log(chalk.red(`Disk ${diskName} not found on engine ${getEngine().hostName}`))
+    return
+  }
+  const device = disk.device
+
+  // Check if the instance exists
+  const instance = disk.instances.find(instance => instance.name === instanceName)
+  if (!instance) {
+    console.log(chalk.red(`Instance ${instanceName} not found on disk ${diskName}`))
+    return
+  }
+
+  try {
+    // Compose stop the app
+    // Do it
+    await $`docker compose -f /disks/${device}/instances/${instanceName}/compose.yaml stop`
+    console.log(chalk.green(`App ${instanceName} stopped`))
+  } catch (e) {
+    console.log(chalk.red('Error stopping app instance'))
+    console.error(e)
+  }
+}
+
+
+// Function findApp that searches for an app with the specified name and version on the specified disk
+export const findApp = (disk: Disk, appName: string, version: string) => {
+  return disk.apps.find(app => app.name === appName && app.version === version)
+}
+
+export const findInstance = (disk: Disk, instanceName: string) => {
+  return disk.instances.find(instance => instance.name === instanceName)
+}
+
+
+export const addInstance = (disk: Disk, instance: Instance) => {
+  if (!findInstance(disk, instance.name)) {
+    disk.instances.push(instance)
+  }
+}
+
+export const addApp = (disk: Disk, app: App) => {
+  if (!findApp(disk, app.name, app.version)) {
+    disk.apps.push(app)
+  }
 }
 
 
@@ -331,12 +731,12 @@ export const networkDisks = (networkData: NetworkData) => {
   )
 }
 
-export const addListener = (iface: string, networkName: string, listener: (data: any) => void ) => {
-  listeners[iface+networkName] = listener
+export const addListener = (iface: string, networkName: string, listener: (data: any) => void) => {
+  listeners[iface + networkName] = listener
 }
 
 export const removeListener = (iface: string, networkName: string) => {
-  delete listeners[iface+networkName]
+  delete listeners[iface + networkName]
 }
 
 export const getListeners = () => {
@@ -344,8 +744,8 @@ export const getListeners = () => {
 }
 
 export const getListener = (iface: string, networkName: string) => {
-  if (listeners.hasOwnProperty(iface+networkName)) {
-    return listeners[iface+networkName]
+  if (listeners.hasOwnProperty(iface + networkName)) {
+    return listeners[iface + networkName]
   } else {
     return null
   }
@@ -355,7 +755,7 @@ export const getNetworkInterface = (iface: string, networkName: string) => {
   return getEngine().networkInterfaces.find((netiface) => netiface.iface === iface && netiface.network === networkName)
 }
 
-export const removeNetworkInterface = (networkInterface:NetworkInterface) => {
+export const removeNetworkInterface = (networkInterface: NetworkInterface) => {
   const iface = networkInterface.iface
   const networkName = networkInterface.network
   // Remove the network interface from the localEngine
@@ -364,8 +764,8 @@ export const removeNetworkInterface = (networkInterface:NetworkInterface) => {
 
   // If the localEngine no longer has network interfaces connected to the Network, remove the network 
   if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
-      log(`Removing network ${networkName} from localEngine`)
-      removeNetwork(getNetwork(networkName))
+    log(`Removing network ${networkName} from localEngine`)
+    removeNetwork(getNetwork(networkName))
   }
 }
 
