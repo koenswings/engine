@@ -62,8 +62,10 @@ const listeners: Listener[] = []
 
 
 
-export const addNetwork = (ifaceName, networkName, ip4, netmask) => {
+export const connectNetwork = (ifaceName, networkName, ip4, netmask) => {
   log(`Connecting engine to network ${networkName} over interface ${ifaceName} with IP4 address ${ip4} and netmask ${netmask}`)
+
+  const ifaceId = `${networkName}-on-${ifaceName}`
 
   // Check if we already have a network with the same name; this means the engine was already connected to the network but over a different interface
   let network: Network = networks.find(network => network.name === networkName)
@@ -108,15 +110,24 @@ export const addNetwork = (ifaceName, networkName, ip4, netmask) => {
     // And add it to the networks array
     networks.push(network)
 
-
     // Add subscriptions
-
     enableNetworkDataGlobalMonitor(networkData, networkName)
 
     //enableNetworkDataCommandsMonitor(networkData, networkName)
-
     log(`Network ${network.name} initialised and added to the store`)
   }
+
+  // Create a NetworkInterface
+  const networkInterface = {
+    id: ifaceId,            // eg Class2C-on-eth0
+    network: networkName,
+    iface: ifaceName,
+    ip4: ip4,
+    netmask: netmask,
+  }
+  // And add it to the local engine
+  getEngine().networkInterfaces.push(networkInterface)
+  log(`Network Interface ${networkName} via ${ifaceName} added to local engine`)
 
   // Enable the Yjs WebSocket service for this interface if it is not already enabled
   if (!runningServers.hasOwnProperty(ip4)) {
@@ -125,53 +136,97 @@ export const addNetwork = (ifaceName, networkName, ip4, netmask) => {
   } else {
     log(`WebSocket server already running on ${ip4}`)
   }
+
   const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, networkName, networkDoc)
   // Add the wsProvider to the wsProviders object of the network
-  network.wsProviders[ifaceName] = wsProvider
+  network.wsProviders[`${ip4}:1234-on-${ifaceName}`] = wsProvider
   wsProvider.on('status', (event: { status: any; }) => {
     if (event.status === 'connected') {
-      log(`${event.status} on ws://${ip4}:1234`) // logs "connected" or "disconnected"
+      log(`${event.status} to ${ip4}:1234-on-${ifaceId}`) 
     } else if (event.status === 'disconnected') {
-      log(`${event.status} from ws://${ip4}:1234`) // logs "connected" or "disconnected"
+      log(`${event.status} from ${ip4}:1234-on-${ifaceId}`) 
+    } else if (event.status === 'reconnection-failure-3') {
+      log(`Reconnection to ${ip4}:1234-on-${ifaceId} failed 3 times.`)
+      network.wsProviders[`${ip4}:1234-on-${ifaceName}`].destroy()
+      delete network.wsProviders[`${ip4}:1234-on-${ifaceName}`]
+      // If we loose the connection with the local engine, remove the network interface
+      log(`Removing network interface networkId from localEngine`)
+      getEngine().networkInterfaces = getEngine().networkInterfaces.filter((netiface) => !(netiface.id == networkInterface.id))
+      // If the localEngine no longer has network interfaces connected to the Network, remove the Network 
+      if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
+        log(`Removing network ${network.name} from the store`)
+        log(`Unbinding network ${network.name}`)
+        network.unbind()
+        log(`Destroying network ${network.name}`)
+        network.doc.destroy()
+        log(`Removing network ${network.name} from the networks array`)
+        const index = networks.indexOf(network)
+        if (index > -1) {
+          networks.splice(index, 1)
+        }
+      }
     } else {
-      log(`Unknown status ${event.status} from ws://${ip4}:1234`)
+      log(`Unhandled status ${event.status} for ${ifaceId}`)
     }
   })
   log(`Interface ${ifaceName}: Created an Yjs websocket client connection on adddress ws://${ip4}:1234 with room name ${networkName}`)
 
-  // Create a NetworkInterface
-  const networkInterface = {
-    network: networkName,
-    iface: ifaceName,
-    ip4: ip4,
-    netmask: netmask,
-    //wsProvider: wsProvider
-  }
-  // And add it to the local engine
-  getEngine().networkInterfaces.push(networkInterface)
-  log(`Network Interface ${networkName} via ${ifaceName} added to local engine`)
-  //log(`Engine: ${deepPrint(getEngine(), 2)}`)
 
 
-
-  // Enable random array population for the apps array
-  // enableRandomArrayPopulation(apps)
-
-
+  // Now monitor this network for additonal engines
+  // monitorForOtherEngines(iface, networkName)
 }
 
-export const removeNetwork = (network: Network) => {
-  log(`Removing network ${network.name} from the store`)
-  log(`Unbinding network ${network.name}`)
-  network.unbind()
-  log(`Destroying network ${network.name}`)
-  network.doc.destroy()
-  log(`Destroying wsProviders for network ${network.name}`)
-  Object.keys(network.wsProviders).forEach(iface => network.wsProviders[iface].destroy())
-  log(`Removing network ${network.name} from the networks array`)
-  const index = networks.indexOf(network)
-  if (index > -1) {
-    networks.splice(index, 1)
+export const addRemoteEngine = (device, networkName:string, ifaceName:string) => {
+  // All we need to do is to look up the right network and then link it to the websocket server so that it snc with that engine
+  // Find the network with the name networkName
+  const network = getNetwork(networkName)
+  const wsProvider = new WebsocketProvider(`ws://${device.address}:1234`, networkName, network.doc)
+  // Add the wsProvider to the wsProviders object of the network
+  network.wsProviders[`${device.address}:1234-on-${ifaceName}`] = wsProvider
+  wsProvider.on('status', (event: { status: any; }) => {
+    if (event.status === 'connected') {
+      log(`${event.status} to ${device.address}:1234-on-${ifaceName}`) // logs "connected" or "disconnected"
+    } else if (event.status === 'disconnected') {
+      log(`${event.status} from ${device.address}:1234-on-${ifaceName}`) // logs "connected" or "disconnected"
+    } else if (event.status === 'reconnection-failure-3') {
+      log(`Reconnection to ${device.address}:1234-on-${ifaceName} failed 3 times.`)
+      network.wsProviders[`${device.address}:1234-on-${ifaceName}`].destroy()
+      delete network.wsProviders[`${device.address}:1234-on-${ifaceName}`]
+    } else {
+      log(`Unhandled status ${event.status} for ${ifaceName}`)
+    }
+  })
+}
+
+export const disconnectNetwork = (networkInterface: NetworkInterface) => {
+  const iface = networkInterface.iface
+  const networkName = networkInterface.network
+  const networkInterfaceId = networkInterface.id
+  log(`Disconnecting engine from network ${networkName} via interface ${iface}`)
+  const network = getNetwork(networkName)
+
+  // Remove the network interface from the localEngine
+  log(`Removing network interface networkId from localEngine`)
+  getEngine().networkInterfaces = getEngine().networkInterfaces.filter((netiface) => !(netiface.id == networkInterfaceId))
+
+  // Disconnect from the interface
+  log(`Disconnecting from ${networkInterfaceId}`)
+  network.wsProviders[iface].destroy()
+  delete network.wsProviders[iface]
+
+  // If the localEngine no longer has network interfaces connected to the Network, remove the Network 
+  if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
+    log(`Removing network ${network.name} from the store`)
+    log(`Unbinding network ${network.name}`)
+    network.unbind()
+    log(`Destroying network ${network.name}`)
+    network.doc.destroy()
+    log(`Removing network ${network.name} from the networks array`)
+    const index = networks.indexOf(network)
+    if (index > -1) {
+      networks.splice(index, 1)
+    }
   }
 }
 
@@ -755,19 +810,9 @@ export const getNetworkInterface = (iface: string, networkName: string) => {
   return getEngine().networkInterfaces.find((netiface) => netiface.iface === iface && netiface.network === networkName)
 }
 
-export const removeNetworkInterface = (networkInterface: NetworkInterface) => {
-  const iface = networkInterface.iface
-  const networkName = networkInterface.network
-  // Remove the network interface from the localEngine
-  log(`Removing network interface ${iface}/${networkName} from localEngine`)
-  getEngine().networkInterfaces = getEngine().networkInterfaces.filter((netiface) => !(netiface.iface == iface && netiface.network == networkName))
 
-  // If the localEngine no longer has network interfaces connected to the Network, remove the network 
-  if (getEngine().networkInterfaces.filter((netiface) => netiface.network === networkName).length === 0) {
-    log(`Removing network ${networkName} from localEngine`)
-    removeNetwork(getNetwork(networkName))
-  }
-}
+
+
 
 
 

@@ -1,9 +1,9 @@
 import os from 'os'
-import { monitorNetwork } from './monitors/networkMonitor.js'
+import { enableNetworkMonitor } from './monitors/networkMonitor.js'
 import { enableUsbDeviceMonitor } from './monitors/usbDeviceMonitor.js'
 import { enableTimeMonitor, generateRandomArrayPopulationCallback,  } from './monitors/timeMonitor.js'
 import { enableEngineCommandsMonitor } from "./monitors/commandsMonitor.js"
-import { enableEngineGlobalMonitor } from "./monitors/engineMonitor.js"
+import { enableLocalEngineGlobalMonitor } from "./monitors/localEngineMonitor.js"
 import { changeTest } from "./monitors/timeMonitor.js"
 
 import { sleep } from 'zx'
@@ -25,15 +25,15 @@ console.log(`Temp Directory: ${os.tmpdir()}`)
 console.log(`Endianness: ${os.endianness()}`)
 console.log(`Network Hostname: ${os.hostname()}`)
 
-enableEngineGlobalMonitor()
+enableLocalEngineGlobalMonitor()
 enableEngineCommandsMonitor()
 
 console.log('STARTING MONITOR OF ETH0')
-monitorNetwork('eth0', 'LAN')
+enableNetworkMonitor('eth0', 'LAN')
 console.log('SLEEPING')
 await sleep(5000)
 console.log('STARTING MONITOR OF LO')
-monitorNetwork('lo', 'Self')
+enableNetworkMonitor('lo', 'Self')
 console.log('SLEEPING')
 await sleep(5000)
 console.log('STARTING MONITOR OF USB0')

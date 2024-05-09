@@ -173,7 +173,11 @@ const setupWS = (provider) => {
           status: 'disconnected'
         }])
       } else {
+        // KSW: Proposed change to emit reconnection-failure event
         provider.wsUnsuccessfulReconnects++
+        provider.emit('status', [{
+          status: `reconnection-failure-${provider.wsUnsuccessfulReconnects}`,
+        }])
       }
       // Start with no reconnect timeout and increase timeout by
       // using exponential backoff starting with 100ms

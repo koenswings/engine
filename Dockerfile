@@ -31,6 +31,9 @@ RUN apt-get install -y vim iputils-ping tcpdump iproute2 net-tools
 # Install usbutils for lsusb, and udev for triggering events
 RUN apt-get install -y usbutils udev
 
+# Install the avahi dns_sd compat library and its header files 
+RUN apt-get install -y libavahi-compat-libdnssd-dev
+
 # Initialise pnpm 
 # All packages will be added to /pnpm, outside the /app folder
 ENV SHELL bash

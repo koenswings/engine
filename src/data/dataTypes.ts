@@ -150,8 +150,8 @@ export interface Instance {
 type NetworkID = string;
 
 export interface NetworkInterface {
-  // Primary key is the network + iface since we can have multiple interfaces on the same network and multiple networks on the same interface
-  network: string;  // Reference by name since we do not want to expose Yjs details to the proxy
+  id: string;       // == network + iface since we can have multiple interfaces to the same network and multiple networks on the same interface
+  network: string;  // The network to which this interface connects  Reference by name since we do not want to expose Yjs details to the proxy
   iface: string
   ip4: string;
   netmask: string;
@@ -159,15 +159,15 @@ export interface NetworkInterface {
 
 // The root level Network object which is NOT proxied  
 export interface Network {
-   name: string;    // The unique identifier of the Network
-  // iface: string
-  // ip4: string;
-  // netmask: string;
+  name: string;    // The unique identifier of the Network
   doc: Doc;
   data: NetworkData;       // The Valtio-yjs proxy object through which we capture Yjs changes
   yData: any;              // The correspond YMap object
   unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
-  // Add a wsProviders object that has a key for each interface and a value that points to the wsProvider object of that interface
+
+  // A map of interface-ipaddress to WebsocketProvider objects
+  // Lists all the websocket providers for the network (so all the engines to which the doc of the Network syncs to)
+  // The key is the ip address of the engine and we also append the interface name over which this connection is made
   wsProviders: {[key: string]: WebsocketProvider}
 }
 

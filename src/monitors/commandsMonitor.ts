@@ -3,16 +3,43 @@ import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
 import { handleCommand } from '../utils/commandHandler.js'
 import { App, Instance, Command, Status } from '../data/dataTypes.js'
-import { monitorNetwork, unmonitorNetwork } from './networkMonitor.js'
+import { enableNetworkMonitor, disableNetworkMonitor } from './networkMonitor.js'
 
+// Write with comments a summary of all commands that can be executed on the engine and the expected arguments
+// Do it in the following format:
+// create an instance of an app
+// createInstance instanceName typeName version diskName
+//
+// start an instance of an app
+// startInstance instanceName typeName
+// 
+// run an instance of an app
+// runInstance instanceName typeName
+//
+// stop an instance of an app
+// stopInstance instanceName typeName
+//
+// add a disk to the engine
+// addDisk diskName diskType
+//
+// start an app
+// startApp appName port
+//
+// add a network to the engine
+// addNetwork networkName iface ip subnet
+//
+// add an engine to the network
+// addEngine engineName
+//
+// attach a network to an interface
+// attachNetwork iface networkName
+//
+// detach a network from an interface
+// detachNetwork iface networkName
+//
+// create an internal disk
+// createDisk diskName
 
-const attachNetwork = (iface: string, networkName: string) => {
-    monitorNetwork(iface, networkName)
-}
-
-const detachNetwork = (iface: string, networkName: string) => {
-    unmonitorNetwork(iface, networkName)
-}
 
 // const createDisk = async (disk: string) => {
 //     log(`Creating an internal disk ${disk} on engine ${getEngine().hostName}`)
@@ -39,12 +66,12 @@ const detachNetwork = (iface: string, networkName: string) => {
 const commands: Command[] = [
     {
         name: "attachNetwork",
-        execute: attachNetwork,
+        execute: enableNetworkMonitor,
         args: [{ type: "string" }, { type: "string" }],
     },
     {
         name: "detachNetwork",
-        execute: detachNetwork,
+        execute: disableNetworkMonitor,
         args: [{ type: "string" }, { type: "string" }],
     },
     // {

@@ -1,6 +1,7 @@
 import { $, ssh, argv, cd, chalk, fs, question } from 'zx'
 import pack from '../package.json' assert { type: "json" }
 import YAML from 'yaml'
+import { generateHostName } from '../src/utils/utils.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project
@@ -64,7 +65,6 @@ interface Defaults {
     user: string,
     machine: string,
     password: string,
-    hostname: string,
     language: string,
     keyboard: string,
     timezone: string,
@@ -94,11 +94,13 @@ try {
 }
 console.log(chalk.green('Defaults read'));
 
+
+
 // Now override the default configuration using the command line
 const user = argv.u || argv.user || defaults.user
 const host = argv.m || argv.machine || defaults.machine
 const password = argv.p || argv.password || defaults.password
-const hostname = argv.h || argv.hostname || defaults.hostname
+const hostname = argv.h || argv.hostname || generateHostName()
 const language = argv.l || argv.language || defaults.language
 const keyboard = argv.k || argv.keyboard || defaults.keyboard
 const timezone = argv.t || argv.timezone || defaults.timezone
@@ -133,7 +135,7 @@ if (argv.h || argv.help) {
   console.log(`  -m, --machine <string>  the remote host to connect to (default: raspberrypi.local)`)
   console.log(`  -u, --user <string>     the user to use to connect to the remote host (default: ${defaults.user})`)
   console.log(`  -p, --password <string> the password to use to connect to the remote host (default: ${defaults.password})`)
-  console.log(`  -h, --hostname <string> the hostname to set on the remote host (default: ${defaults.hostname})`)
+  console.log(`  -h, --hostname <string> the hostname to set on the remote host (default: a name that is generated)`)
   console.log(`  -l, --language <string> the language to set on the remote host (default: ${defaults.language})`)
   console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote host (default: ${defaults.keyboard})`)
   console.log(`  -t, --timezone <string> the timezone to set on the remote host (default: ${defaults.timezone})`)
@@ -327,7 +329,7 @@ const installTemperature = async () => {
 
 // Put the set hostname code inside build() in a named async function
 const setHostname = async () => {
-    console.log(chalk.blue('Setting hostname...'));
+    console.log(chalk.blue(`Setting hostname to ${hostname}`));
     try {
       await $$`sudo hostnamectl set-hostname ${hostname}`;
     }   catch (e) {

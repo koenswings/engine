@@ -1,7 +1,6 @@
 user: pi
 machine: raspberrypi.local
 password: raspberry
-hostname: raspberrypi
 language: en_ZW.UTF-8
 keyboard: us
 timezone: Europe/Brussels

@@ -14,7 +14,6 @@ interface Defaults {
     user: string,
     machine: string,
     password: string,
-    hostname: string,
     language: string,
     keyboard: string,
     timezone: string,
@@ -46,7 +45,7 @@ console.log(chalk.green('Defaults read'));
 const user = argv.u || argv.user || defaults.user
 const host = argv.m || argv.machine || defaults.machine
 const password = argv.p || argv.password || defaults.password
-const hostname = argv.h || argv.hostname || defaults.hostname
+const hostname = argv.h || argv.hostname 
 const language = argv.l || argv.language || defaults.language
 const keyboard = argv.k || argv.keyboard || defaults.keyboard
 const timezone = argv.t || argv.timezone || defaults.timezone

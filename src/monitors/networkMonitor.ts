@@ -1,7 +1,10 @@
 import net_listner from 'network-interfaces-listener'
-import os from 'os'
+import os, { hostname } from 'os'
+import mdns from 'mdns'
 
-import { addNetwork, removeNetwork, getEngine, getNetwork, addListener, removeListener, getListener, getListeners, removeNetworkInterface, getNetworkInterface} from '../data/store.js'
+
+
+import { connectNetwork, getEngine, getNetwork, addListener, removeListener, getListener, getListeners, disconnectNetwork, getNetworkInterface} from '../data/store.js'
 import { Network, Engine, Disk, NetworkData} from '../data/dataTypes.js'
 
 
@@ -48,7 +51,7 @@ import { remove } from 'lib0/dom.js'
 
 // }
 
-export const monitorNetwork = (iface:string, networkName:string) => {
+export const enableNetworkMonitor = (iface:string, networkName:string) => {
     // Monitor the interface for changes
     // Create a dedicated handler for the specified interface and vlan
     const onNetworkChange = (data) => {
@@ -63,7 +66,7 @@ export const monitorNetwork = (iface:string, networkName:string) => {
             // This is a message that the network interface is not active
             // If the local engine already has a connection to this network, remove it
             if (networkInterface) {
-                removeNetworkInterface(networkInterface)
+                disconnectNetwork(networkInterface)
             }
             return
         }
@@ -87,7 +90,7 @@ export const monitorNetwork = (iface:string, networkName:string) => {
                 
                 // This interface has lost its connection to the network
                 // Remove the network interface from the localEngine
-                removeNetworkInterface(networkInterface)
+                disconnectNetwork(networkInterface)
                 return
 
             }
@@ -96,7 +99,7 @@ export const monitorNetwork = (iface:string, networkName:string) => {
 
                 // Add the network interface to the localEngine
                 log(`Adding network interface ${iface} with IP4 address ${ip4} and netmask ${netmask} to network ${networkName}`)
-                addNetwork(iface, networkName, ip4, netmask)
+                connectNetwork(iface, networkName, ip4, netmask)
                 return
 
             }
@@ -149,12 +152,13 @@ export const monitorNetwork = (iface:string, networkName:string) => {
 }
 
 
-export const unmonitorNetwork = (iface:string, networkName:string) => {
-
-    // Remove the network interface from the localEngine
+export const disableNetworkMonitor = (iface:string, networkName:string) => {
+    log(`Unmonitoring network ${networkName} via interface ${iface}`)
+    
+    // Disconnect the engine from the specified network over the specified interface
     const networkInterface = getNetworkInterface(iface, networkName)
     if (networkInterface) {
-        removeNetworkInterface(networkInterface)
+        disconnectNetwork(networkInterface)
     } else {
         console.error(`No network interface found for interface ${iface} on network ${networkName}`)
     }
@@ -169,3 +173,6 @@ export const unmonitorNetwork = (iface:string, networkName:string) => {
         console.error(`No listener found for interface ${iface} on network ${networkName}`)
     }
 }
+
+
+

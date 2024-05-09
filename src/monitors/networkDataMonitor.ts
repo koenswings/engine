@@ -1,6 +1,4 @@
-import { handleCommand } from '../utils/commandHandler.js'
-import { Command, ArgumentDescriptor, NetworkData } from '../data/dataTypes.js'
-import { monitorNetwork } from './networkMonitor.js'
+import { NetworkData } from '../data/dataTypes.js'
 import { getEngine } from '../data/store.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
