@@ -1,8 +1,9 @@
 import mDnsSd from 'node-dns-sd'
 import events from 'events'   // See https://nodejs.org/api/events.html#events 
 import { log } from '../utils/utils.js';
-import { getEngine, networkDisks } from '../data/store.js'
+import { getEngine, getNetwork, getNetworksForInterface, networkDisks } from '../data/store.js'
 import Netmask from 'netmask'
+import { chalk } from 'zx';
 
 
 
@@ -59,21 +60,30 @@ const discoverEngines = () => {
         printDeviceList(device_list)
         device_list.forEach((device) => {
             if (!engines.find((engine) => engine.address === device.address)) {
-                log(`Adding engine ${device.familyName} to the list of engines`)
+                log(chalk.bgMagenta(`Adding engine ${device.familyName} to the list of engines`))
                 engines.push({address: device.address, familyName: device.familyName})
                 printDevice(device)
-                // Loop over all network interfaces and 
-                // find all the interfaces that link to a LAN on which the ip address of the remote engine is in the address range of that LAN
-                // For each such interface, emit an event to indicate that a new engine has been discovered on that network
-                // The event name should be 'new_engine_on_<networkName>_on_<ifaceName>'
-                // The event should be emitted with the device object as the argument
-                // The event should be emitted using the engineMonitor object
-                const networks = getEngine().networkInterfaces.filter((networkInterface) => {
-                    //const block = new Netmask(networkInterface.ip4 + '/' + networkInterface.netmask)
-                    const block = new Netmask(networkInterface.netmask)
+
+                // Find all interfaces of the local engine that have a netmask that contains the ip address of the remote engine
+                // This can be more than one interface: 
+                //    for example when the local engine is connected to a wlan that is bridged to the eth0 LAN
+                //    in that case engine has two IP addresses on the same LAN
+
+                const ifaces = Object.keys(getEngine().interfaces).filter((iface) => {
+                    const block = new Netmask(getEngine().interfaces[iface].netmask)
                     return block.contains(device.address)
                 })
+                log(chalk.bgMagenta(`Engine ${device.familyName} found on interfaces ${ifaces}`))
+
+                // Now find all networks that have connections over this interface
+                let networks = []
+                ifaces.forEach((iface) => {
+                    networks = networks.concat(getNetworksForInterface(iface))
+                })
+                log(chalk.bgMagenta(`Engine ${device.familyName} found on networks ${networks.map((network) => network.name)}`))    
+
                 networks.forEach((network) => {
+                    log(chalk.bgMagenta(`Emitting: new_engine_on_${network.network}_on_${network.iface}`))
                     engineMonitor.emit(`new_engine_on_${network.network}_on_${network.iface}`, device)
                 })
             }
@@ -94,7 +104,8 @@ const discoverEngines = () => {
         });
 }   
 
-const removeEngine = (device) => {
+const removeEngine = (deviceFamilyname) => {
+    const device = engines.find((engine) => engine.familyName === deviceFamilyname)
     engines.splice(engines.indexOf(device), 1)
     log(`Engine ${device.familyName} no longer found`)
     printDeviceList(engines)

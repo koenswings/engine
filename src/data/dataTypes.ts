@@ -59,6 +59,8 @@ import { WebsocketProvider } from '../y-websocket/y-websocket.js'
 type AppCategory = 'Productivity' | 'Utilities' | 'Games';
 
 export type Status = 'Running' | 'Paused' | 'Error';
+export type ConnectionStatus = 'Connected' | 'Disconnected';
+
 
 type DiskType = 'Apps' | 'Backup';
 
@@ -96,13 +98,13 @@ export interface Engine {
   hostName: string;
   version: Version;
   hostOS: string;
-  status: Status;
   dockerMetrics: DockerMetrics;
   dockerLogs: DockerLogs;
   dockerEvents: DockerEvents;
   lastBooted: number; // We must use a timestamp number as Date objects are not supported in YJS
   disks: Disk[],
-  networkInterfaces: NetworkInterface[];
+  //networkInterfaces: NetworkInterface[];
+  interfaces: {[key: string]: Interface} // The key is the interface name and the value is the Interface object
   commands: Command[];
  }
 
@@ -149,13 +151,19 @@ export interface Instance {
 
 type NetworkID = string;
 
-export interface NetworkInterface {
-  id: string;       // == network + iface since we can have multiple interfaces to the same network and multiple networks on the same interface
-  network: string;  // The network to which this interface connects  Reference by name since we do not want to expose Yjs details to the proxy
-  iface: string
+// We give an engine an Interface once it has an IP address on that interface
+export interface Interface {
+  name: string
   ip4: string;
   netmask: string;
 }
+
+
+// type Connection = [key: string]: WebsocketProvider // The key is the ip address of the engine
+
+// Create a type called Connection which is an object that has ip addresses as keys and WebsocketProvider objects as values
+export type Connections = {[key: string]: WebsocketProvider}
+
 
 // The root level Network object which is NOT proxied  
 export interface Network {
@@ -165,10 +173,9 @@ export interface Network {
   yData: any;              // The correspond YMap object
   unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
 
-  // A map of interface-ipaddress to WebsocketProvider objects
-  // Lists all the websocket providers for the network (so all the engines to which the doc of the Network syncs to)
-  // The key is the ip address of the engine and we also append the interface name over which this connection is made
-  wsProviders: {[key: string]: WebsocketProvider}
+  // All connected engines sorted per interface
+  connections: {[key: string]: Connections}
+
 }
 
 export type Listener = {[key: string]: (data: any) => void}  // The key is the interface name and the value is the listener function
@@ -176,9 +183,10 @@ export type Listener = {[key: string]: (data: any) => void}  // The key is the i
 // Define an object that stores all running servers on the local engine
 // It should have the ip address as a key and a truth value to indicate if the server is running
 // Add a type definition for this object
-export type RunningServers = {
-  [ip: string]: boolean
-}
+// UPDATE001: Uncomment the following code in case we want to only open sockets on the interfaces that we monitor
+// export type RunningServers = {
+//   [ip: string]: boolean
+// }
 
 // export interface NetworkData {
 //   engines: Engine[] 

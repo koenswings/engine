@@ -30,6 +30,11 @@ if (argv.v || argv.version) {
 // Doc inspections
 // **********************
 
+const ls = () => {
+    console.log('NetworkData on this engine:')
+    console.log(deepPrint(networkData, 4))
+}
+
 const lsEngines = () => {
     console.log('Engines:')
     console.log(deepPrint(networkData.engines, 3))
@@ -93,17 +98,17 @@ connect('Self', '127.0.0.1', 1234)
 
 // Network Management
 
-const attachNetwork = (engineName: string, iface: string, network: string) => {
-    console.log(`Instructing engine ${engineName} to monitor network ${network} via interface ${iface}`)
+const enableInterfaceMonitor = (engineName: string, iface: string, network: string) => {
+    console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${network}`)
     // We must send a remote command to engine1 to monitor the network
-    sendCommand(engineName, `attachNetwork ${iface} ${network}`)
+    sendCommand(engineName, `enableInterfaceMonitor ${iface} ${network}`)
 }
 
 
-const detachNetwork = (engineName: string, iface: string, network: string) => {
-    console.log(`Instructing engine ${engineName} to unmonitor network ${network} via interface ${iface}`)
+const disableInterfaceMonitor = (engineName: string, iface: string, network: string) => {
+    console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${network}`)
     // We must send a remote command to engine1 to monitor the network
-    sendCommand(engineName, `detachNetwork ${iface} ${network}`)
+    sendCommand(engineName, `disableInterfaceMonitor ${iface} ${network}`)
 }
 
 // Disk Management
@@ -226,6 +231,11 @@ const commands: Command[] = [
         args: [{ type: "string" }, { type: "string" }, { type: "number" }],
     },
     {
+        name: "ls",
+        execute: ls,
+        args: []
+    },
+    {
         name: "engines",
         execute: lsEngines,
         args: []
@@ -246,13 +256,13 @@ const commands: Command[] = [
         args: []
     },
     {
-        name: "attachNetwork",
-        execute: attachNetwork,
+        name: "enableInterfaceMonitor",
+        execute: enableInterfaceMonitor,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
     {
-        name: "detachNetwork",
-        execute: detachNetwork,
+        name: "disableInterfaceMonitor",
+        execute: disableInterfaceMonitor,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
     // {

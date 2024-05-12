@@ -2,9 +2,12 @@ import ciao from '@homebridge/ciao'
 import { addRemoteEngine, getEngine, getNetwork } from '../data/store.js';
 import { engineMonitor } from './mdnsMonitor.js';
 import { log } from '../utils/utils.js';
+import { chalk } from 'zx';
 
-export const enableEngineMonitor = (networkName: string, ifaceName: string) => {
-    // Advertise the engine on the network using mdns using the following service name: engineName._engine._tcp
+export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
+    log(`Monitoring interface ${ifaceName} for other engines that are on network ${networkName}`)
+
+    // Advertise the local engine on the network using mdns using the following service name: engineName._engine._tcp
     const engine = getEngine()
     const engineName = engine.hostName
     const engineVersion = engine.version
@@ -40,16 +43,17 @@ export const enableEngineMonitor = (networkName: string, ifaceName: string) => {
     })
 
     service.advertise().then(() => {
-    // stuff you do when the service is published
-    console.log("Service is published :)");
+        // stuff you do when the service is published
+        console.log("Service is published :)");
     });
 
+    // Register a callback on the mdnsMonitor for new engines on this interface and network
     engineMonitor.on(`new_engine_on_${networkName}_on_${ifaceName}`, (device) => {
-        log(`Engine ${device.familyName} discovered on the network`)
+        log(chalk.bgMagenta(`Engine ${device.familyName} discovered on the network`))
         addRemoteEngine(device, networkName, ifaceName)
     })
 
 }
 
-export const unmonitorNetwork = (network: string) => {
+export const disableEngineMonitor = (ifaceName: string, networkName: string) => {
 }

@@ -1,0 +1,4 @@
+startupCommands:
+  - enableInterfaceMonitor eth0 applan
+  - enableInterfaceMonitor wlan0 applan
+

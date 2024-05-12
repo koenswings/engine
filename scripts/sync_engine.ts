@@ -9,6 +9,20 @@ if (argv.v || argv.version) {
   process.exit(0);
 }
 
+// Add commandline option to print the help of the script
+if (argv.h || argv.help) {
+  console.log(`
+  Usage: $0 [options]
+  
+  Options:
+    -u, --user <user>            Username to use for SSH connection
+    -m, --machine <machine>      Machine to connect to
+    -v, --version                Print the version
+    -h, --help                   Print the help
+  `);
+  process.exit(0);
+}
+
 // Please define a TypeScript type for the object read from the YAML file
 interface Defaults {
     user: string,

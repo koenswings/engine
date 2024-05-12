@@ -1,9 +1,7 @@
-import { createInstance, startInstance, runInstance, stopInstance, getEngine,  } from '../data/store.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
-import { handleCommand } from '../utils/commandHandler.js'
-import { App, Instance, Command, Status } from '../data/dataTypes.js'
-import { enableNetworkMonitor, disableNetworkMonitor } from './networkMonitor.js'
+import { commands, handleCommand } from '../utils/commandHandler.js'
+import { getEngine } from '../data/store.js'
 
 // Write with comments a summary of all commands that can be executed on the engine and the expected arguments
 // Do it in the following format:
@@ -58,68 +56,6 @@ import { enableNetworkMonitor, disableNetworkMonitor } from './networkMonitor.js
 //         console.error(e)
 //     }
 // }
-
-
-
-
-// Command registry with an example of the new object command
-const commands: Command[] = [
-    {
-        name: "attachNetwork",
-        execute: enableNetworkMonitor,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    {
-        name: "detachNetwork",
-        execute: disableNetworkMonitor,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    // {
-    //     name: "createDisk",
-    //     execute: createDisk,
-    //     args: [{ type: "string" }],
-    // },
-    {
-        name: "createInstance",
-        execute: createInstance,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
-    },
-    {
-        name: "startInstance",
-        execute: startInstance,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    {
-        name: "runInstance",
-        execute: runInstance,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    {
-        name: "stopInstance",
-        execute: stopInstance,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    // {
-    //     name: "addDisk",
-    //     execute: addDisk,
-    //     args: [{ type: "string" }, { type: "string" }],
-    // },
-    // {
-    //     name: "startApp",
-    //     execute: startApp,
-    //     args: [{ type: "string" }, { type: "number" }],
-    // },
-    // {
-    //     name: "addNetwork",
-    //     execute: addNetwork,
-    //     args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
-    // },
-    // {
-    //     name: "addEngine",
-    //     execute: addEngine,
-    //     args: [{ type: "string" }],
-    // },
-];
 
 export const enableEngineCommandsMonitor = () => {
     // Monitor our local engine for commands to be executed
