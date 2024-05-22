@@ -1,0 +1,39 @@
+# This file must be used to start the engine tests. 
+services:
+  engine:
+    # Infinite loop to keep the container running - use when you don't have a server running
+    # entrypoint:
+    # - sleep
+    # - infinity
+    build: 
+      context: .
+      target: base
+    init: true
+    restart: always
+
+    # Configuration to enable the ability to mount USB devices
+    privileged: true 
+    # devices:
+    #   - "/dev/bus/usb:/dev/bus/usb"
+      #- "/dev/usb:/dev/usb"
+      #- "/dev:/dev"
+    # cap_add:
+    #   - SYS_ADMIN
+
+    # A real engine must run in host mode in order to detect connects and disconnects to the nework interfaces of the host
+    network_mode: "host"        
+
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - type: bind
+        source: .
+        target: /engine
+      - type: bind  # Required to see newly added USB devices
+        source: /dev
+        target: /dev
+    
+    # Run pnpm test on start
+    command: bash -c "cd /engine && npm config set prefer-offline=true && pnpm run install_packages && pnpm test" 
+

@@ -1,4 +1,4 @@
-import { NetworkData } from '../data/dataTypes.js'
+import { Network, NetworkData } from '../data/dataTypes.js'
 import { getEngine } from '../data/store.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
@@ -20,7 +20,9 @@ export const enableNetworkDataCommandsMonitor = (networkData:NetworkData, networ
 
 
 
-export const enableNetworkDataGlobalMonitor = (networkData:NetworkData, networkName:string) => {
+export const enableNetworkDataGlobalMonitor = (network:Network) => {
+  const networkName = network.name
+  const networkData = network.data
     // TEMPORARY for testing: Monitor networkData for changes propagate by Yjs 
     subscribe(networkData, (value) => {
         log(`NETWORKDATA GLOBAL MONITOR: Network ${networkName}: Network data was modified as follows: ${deepPrint(value)}`)

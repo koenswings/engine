@@ -8,7 +8,10 @@ services:
       context: .
       target: base
     init: true
+    # The engine on a dev machine is restricted: it can't mount USB devices (is not privileged) and can't run in host mode
+    # privileged: true
     # network_mode: "host"     
+    
     # Disabling ports on the development machine for safety - Use a test machine (compose-test.yaml) instead
     # ports:
     #   - "1234:1234"  # Yjs websocket

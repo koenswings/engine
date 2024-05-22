@@ -1,4 +1,4 @@
-# This file is used by Docker Dev Environment to create the dev container
+# This file must be used to start the engine in a development environment. 
 services:
   engine:
     # Infinite loop to keep the container running - use when you don't have a server running
@@ -20,11 +20,9 @@ services:
     # cap_add:
     #   - SYS_ADMIN
 
-    # The test machine must run in host mode in order to detect connects and disconnects to the nework interfaces of the host
+    # A real engine must run in host mode in order to detect connects and disconnects to the nework interfaces of the host
     network_mode: "host"        
-    # ports:
-    #   - "1234:1234"  # Yjs websocket
-    #   - "22:5123"    # SSH
+
     volumes:
       - type: bind
         source: /var/run/docker.sock
@@ -35,5 +33,7 @@ services:
       - type: bind  # Required to see newly added USB devices
         source: /dev
         target: /dev
-    command: bash -c "cd /engine && npm config set prefer-offline=true && pnpm run install_packages && pnpm run dev" 
+
+    # Run pnpm dev on start
+    command: bash -c "cd /engine && npm config set prefer-offline=true && pnpm install_packages && pnpm dev" 
 

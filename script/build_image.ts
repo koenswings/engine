@@ -2,6 +2,8 @@ import { $, ssh, argv, cd, chalk, fs, question } from 'zx'
 import pack from '../package.json' assert { type: "json" }
 import YAML from 'yaml'
 import { generateHostName } from '../src/utils/utils.js'
+//import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
+import { readConfig } from '../src/utils/readConfig.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project
@@ -18,87 +20,16 @@ import { generateHostName } from '../src/utils/utils.js'
 // - ensure boot.out does not grow indefinitely
 // - Use the YAML lib from zx
 // - Remove the syncAssets function and start with cloning the repo
-// - Add firewall rules to give network access to the gadget when it is connected to a host
+// - Add firewall rules to give network access to the gadget when it is connected to a machine
 // - The Argon install script is ececuted from /usr/local/bin. It should be executed from the engine folder like all other install scripts
 
 
-// ********************************************************************************************************************
-// Read the defaults from the YAML file and override the default configuration using the command line
-// ********************************************************************************************************************
 
-// This is the list of configuration parameters for this script
-// - the remote host to connect to
-// - the user to use to connect to the remote host
-// - the password to use to connect to the remote host
-// - the hostname to set on the remote host
-// - the language to set on the remote host
-// - the keyboard layout to set on the remote host
-// - the timezone to set on the remote host
-// - wether to upadate the system
-// - wether to upgrade the system 
-// - whether to switch off HDMI power
-// - wether to install temperature measurement
-// - whether to install the Argon fan script
-// - wether to install Zerotier
-// - wether to install RaspAP
-// The parameters must be read from the command line
-// The defaults for these parameters (in case no value is provided on the commandline) must be read from a YAML file
-
-// Please provide a sample YAML file here in comments
-// user: pi
-// machine: raspberrypi.local
-// password: raspberry
-// hostname: raspberrypi
-// language: en_GB.UTF-8
-// keyboard: us
-// timezone: Europe/Brussels
-// update: true
-// upgrade: true
-// hdmi: false
-// temperature: true
-// argon: true
-// zerotier: true
-// raspap: true
-
-// Please define a TypeScript type for the object read from the YAML file
-interface Defaults {
-    user: string,
-    machine: string,
-    password: string,
-    language: string,
-    keyboard: string,
-    timezone: string,
-    update: boolean,
-    upgrade: boolean,
-    hdmi: boolean,
-    temperature: boolean,
-    argon: boolean,
-    zerotier: boolean,
-    raspap: boolean,
-    gadget: boolean
-}
-
-// Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
-let defaults: Defaults
-try {
-  const file = await $`cat ./build_image_assets/build_image_defaults.yaml`
-  //const file = fs.readFileSync('./build_image_assets/build_image_defaults.yaml', 'utf8')
-  const readDefaults = YAML.parse(file.stdout)
-  console.log(readDefaults)
-  console.log(typeof readDefaults)
-  defaults = readDefaults as Defaults
-} catch (e) {
-  console.log(chalk.red('Error reading defaults'));
-  console.error(e);
-  process.exit(1);
-}
-console.log(chalk.green('Defaults read'));
-
-
+const { defaults } = await readConfig('../config.yaml')
 
 // Now override the default configuration using the command line
 const user = argv.u || argv.user || defaults.user
-const host = argv.m || argv.machine || defaults.machine
+const machine = argv.m || argv.machine || defaults.machine
 const password = argv.p || argv.password || defaults.password
 const hostname = argv.h || argv.hostname || generateHostName()
 const language = argv.l || argv.language || defaults.language
@@ -132,13 +63,13 @@ if (argv.h || argv.help) {
   console.log(`Options:`)
   console.log(`  -h, --help              display help for command`)  
   console.log(`  -v, --version           output the version number`)
-  console.log(`  -m, --machine <string>  the remote host to connect to (default: raspberrypi.local)`)
-  console.log(`  -u, --user <string>     the user to use to connect to the remote host (default: ${defaults.user})`)
-  console.log(`  -p, --password <string> the password to use to connect to the remote host (default: ${defaults.password})`)
-  console.log(`  -h, --hostname <string> the hostname to set on the remote host (default: a name that is generated)`)
-  console.log(`  -l, --language <string> the language to set on the remote host (default: ${defaults.language})`)
-  console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote host (default: ${defaults.keyboard})`)
-  console.log(`  -t, --timezone <string> the timezone to set on the remote host (default: ${defaults.timezone})`)
+  console.log(`  -m, --machine <string>  the remote machine to connect to (default: raspberrypi.local)`)
+  console.log(`  -u, --user <string>     the user to use to connect to the remote machine (default: ${defaults.user})`)
+  console.log(`  -p, --password <string> the password to use to connect to the remote machine (default: ${defaults.password})`)
+  console.log(`  -h, --hostname <string> the hostname to set on the remote machine (default: a name that is generated)`)
+  console.log(`  -l, --language <string> the language to set on the remote machine (default: ${defaults.language})`)
+  console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote machine (default: ${defaults.keyboard})`)
+  console.log(`  -t, --timezone <string> the timezone to set on the remote machine (default: ${defaults.timezone})`)
   console.log(`  --update                wether to update the system (default: ${defaults.update})`)
   console.log(`  --upgrade               wether to upgrade the system (default: ${defaults.upgrade})`)
   console.log(`  --hdmi                  whether to switch off HDMI power (default: ${defaults.hdmi})`)
@@ -157,14 +88,14 @@ if (argv.h || argv.help) {
 
 // Globals
 let githubToken = ""
-const $$ = ssh(`${user}@${host}`)
+const $$ = ssh(`${user}@${machine}`)
 const enginePath = "/home/pi/engine"
 const engineParentPath = enginePath.substring(0, enginePath.lastIndexOf("/"))
 
 
-// Sync the assets folder to the remote host
+// Sync the assets folder to the remote machine
 const syncEngine = async () => {
-    console.log(chalk.blue('Syncing the engine to the remote host'));
+    console.log(chalk.blue('Syncing the engine to the remote machine'));
     try {
         // Check if the gh_token.txt file exists in the build_image_assets folder
         // If it does not exist, ask the user to provide the GitHub token and write it to the file
@@ -176,12 +107,12 @@ const syncEngine = async () => {
             githubToken = fs.readFileSync('./build_image_assets/gh_token.txt', 'utf8');
             // console.log(`The GitHub token is: ${githubToken}`);
         }
-        //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${host}:~/build_image_assets`;
-        //await $`rsync -av build_image_assets/ ${user}@${host}:~/build_image_assets`;
+        //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
+        //await $`rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
         // Call the sync_engine script
-        await $`./sync_engine --user ${user} --host ${host}`;
+        await $`./sync_engine --user ${user} --host ${machine}`;
     } catch (e) {   
-        console.log(chalk.red('Failed to sync the engine to the remote host'));
+        console.log(chalk.red('Failed to sync the engine to the remote machine'));
         console.error(e);
         process.exit(1);
     }
@@ -191,19 +122,19 @@ const syncEngine = async () => {
 const copyAsset = async (asset: string, destination: string, executable: boolean = false, chmod: string | null = "0644", chown: string | null = "0:0") => {
     console.log(chalk.blue(`Copying asset ${asset} to ${destination}`));
     try {
-        //await $$`sshpass -p ${password} ssh ${user}@${host} "sudo cp ${enginePath}/scripts/build_image_assets/${asset} ${destination}"`;
+        //await $$`sshpass -p ${password} ssh ${user}@${machine} "sudo cp ${enginePath}/scripts/build_image_assets/${asset} ${destination}"`;
         await $$`sudo cp ${enginePath}/scripts/build_image_assets/${asset} ${destination}`;
         console.log(chalk.blue(`chmod to ${chmod} of ${destination}/${asset}`));
         // 644 means that the owner can read and write, and everyone else can read
-        //await $`sshpass -p ${password} ssh ${user}@${host} "sudo chmod ${chmod} ${destination}/${asset}"`;
+        //await $`sshpass -p ${password} ssh ${user}@${machine} "sudo chmod ${chmod} ${destination}/${asset}"`;
         await $$`sudo chmod ${chmod} ${destination}/${asset}`;
         console.log(chalk.blue(`chown to ${chown} of ${destination}/${asset}`));
         // 0:0 means that the owner and group are both root
-        //await $`sshpass -p ${password} ssh ${user}@${host} "sudo chown ${chown} ${destination}/${asset}"`;
+        //await $`sshpass -p ${password} ssh ${user}@${machine} "sudo chown ${chown} ${destination}/${asset}"`;
         await $$`sudo chown ${chown} ${destination}/${asset}`;
         console.log(chalk.blue(`Setting executable to ${executable} of ${destination}/${asset}`));
         if (executable) {
-            //await $`sshpass -p ${password} ssh  ${user}@${host} "sudo chmod +x ${destination}/${asset}"`;
+            //await $`sshpass -p ${password} ssh  ${user}@${machine} "sudo chmod +x ${destination}/${asset}"`;
             await $$`sudo chmod +x ${destination}/${asset}`;
         }
     } catch (e) {
@@ -653,7 +584,7 @@ const build = async () => {
         await upgradeSystem()
     }
     
-    // Sync the engine to the remote host
+    // Sync the engine to the remote machine
     await syncEngine()
 
     // Set the hostname

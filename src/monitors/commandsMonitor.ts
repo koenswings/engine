@@ -1,7 +1,8 @@
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
-import { commands, handleCommand } from '../utils/commandHandler.js'
+import { handleCommand } from '../utils/commandHandler.js'
 import { getEngine } from '../data/store.js'
+import { engineCommands } from '../utils/engineCommands.js'
 
 // Write with comments a summary of all commands that can be executed on the engine and the expected arguments
 // Do it in the following format:
@@ -65,7 +66,7 @@ export const enableEngineCommandsMonitor = () => {
         // Extract the command from the value and execute it
         const command = value[0][2] as string
         log(`Executing command: ${command}`)
-        await handleCommand(commands, command)
+        await handleCommand(engineCommands, command)
     })
     log(`Added COMMANDS MONITOR for engine ${localEngine.hostName}`)
 }

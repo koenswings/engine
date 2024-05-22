@@ -1,5 +1,5 @@
 //import { Doc } from 'yjs'
-import { Network, NetworkData, Disk, App, Engine, Status, Command, Listener, Instance, Interface, ConnectionStatus } from "./dataTypes.js"
+import { Network, NetworkData, Disk, App, Engine, Status, Listeners, Instance, Interface, ConnectionStatus } from "./dataTypes.js"
 // UPDATE001: Uncomment the following code in case we want to only open sockets on the interfaces that we monitor
 // import { RunningServers } from "./dataTypes.js"
 
@@ -16,7 +16,7 @@ import lodash from 'lodash'
 
 import { Console } from "console"
 import { enableWebSocketMonitor } from "../monitors/webSocketMonitor.js"
-import { enableNetworkDataCommandsMonitor, enableNetworkDataGlobalMonitor } from "../monitors/networkDataMonitor.js"
+import { enableNetworkDataCommandsMonitor, enableNetworkDataGlobalMonitor } from "../monitors/appnetDataMonitor.js"
 import { changeTest, enableTimeMonitor } from "../monitors/timeMonitor.js"
 import { run } from "lib0/testing.js"
 import { enableEngineMonitor } from "../monitors/remoteEngineMonitor.js"
@@ -47,8 +47,45 @@ const localEngine = {
   lastBooted: new Date().getTime(),
   interfaces: {} as {[key: string]: Interface},
   disks: [] as Disk[],
-  commands: [] as Command[]
+  commands: [] as string[]
 }
+
+// const engine = new Engine(os.hostname(), "1.0", os.type(), {}, { logs: [] }, { events: [] }, new Date().getTime(), {} as {[key: string]: Interface}, [] as Disk[], [] as Command[])
+// const localEngine: Engine = new Engine()
+// localEngine.hostName = os.hostname()
+// localEngine.version = "1.0"
+// localEngine.hostOS = os.type()
+// localEngine.dockerMetrics = {
+//   memory: os.totalmem().toString(),
+//   cpu: os.loadavg().toString(),
+//   network: "",
+//   disk: ""
+// }
+// localEngine.dockerLogs = { logs: [] }
+// localEngine.dockerEvents = { events: [] }
+// localEngine.lastBooted = new Date().getTime()
+// localEngine.interfaces = {} as {[key: string]: Interface}
+// localEngine.disks = [] as Disk[]
+// localEngine.commands = [] as string[]
+
+
+// const localEngine = new Engine(os.hostname(),
+//     "1.0",
+//     os.type(),
+//     {
+//         memory: os.totalmem().toString(),
+//         cpu: os.loadavg().toString(),
+//         network: "",
+//         disk: ""
+//       },
+//     { logs: [] },
+//     { events: [] },
+//     new Date().getTime(),
+//     {} as {[key: string]: Interface},
+//     [] as Disk[],
+//     [] as Command[]
+// )
+
 
 // This engine object is proxied with Valtio
 const $localEngine = proxy<Engine>(localEngine)
@@ -56,8 +93,6 @@ const $localEngine = proxy<Engine>(localEngine)
 
 // UPDATE001: Decomment the following code in case we want to only open sockets on the interfaces that we monitor
 // const runningServers: RunningServers = {}
-
-const listeners: Listener[] = []
 
 
 // **********
@@ -74,11 +109,11 @@ export const addNetwork = (networkName: string) => {
 
   // Now add the proxied engine object to the networkData
   // Valtio supports nesting of proxied objects 
-  const networkData = proxy<NetworkData>({});
+  const networkData = proxy<NetworkData>({engines:[]}) 
   networkData.engines = [getEngine()]
 
   // Bind the Valtio proxy to the Yjs object
-  const unbind = bind(networkData, yNetworkData);
+  const unbind = bind(networkData as Record<string, any>, yNetworkData);
   //log(`Interface ${ifaceName}: Created a Valtio-yjs proxy for networkData`)
 
   // Create a Network object
@@ -88,17 +123,21 @@ export const addNetwork = (networkName: string) => {
     data: networkData,
     yData: yNetworkData,
     unbind: unbind,
-    connections: {}
+    connections: {},
+    listeners: {}
   }
 
   // And add it to the networks array
   networks.push(network)
+  
 
   // Add subscriptions
-  enableNetworkDataGlobalMonitor(networkData, networkName)
+  enableNetworkDataGlobalMonitor(network)
 
   //enableNetworkDataCommandsMonitor(networkData, networkName)
   log(`Network ${network.name} initialised and added to the store`)
+  //log(deepPrint(networks, 2))
+  //log(deepPrint(getNetworks(), 2))
 
   return network
 }
@@ -108,12 +147,11 @@ export const findNetwork = (networkName: string) => {
 }
 
 
-export const connectNetwork = (networkName, ifaceName, ip4, netmask) => {
-  log(`Connecting network ${networkName} to engines on interface ${ifaceName}.`)
+export const connectNetwork = (network:Network, ifaceName:string, ip4:string, netmask:string) => {
+  log(`Connecting network ${network.name} to engines on interface ${ifaceName}.`)
   log(`Local engine has IP4 address ${ip4} on this interface.`)
   log(`The LAN on this interface has a netmask of ${netmask}`)
 
-  const network = findNetwork(networkName)
   const networkDoc = network.doc
 
   // Create an Interface
@@ -136,7 +174,7 @@ export const connectNetwork = (networkName, ifaceName, ip4, netmask) => {
   //   log(`WebSocket server already running on ${ip4}`)
   // }
 
-  const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, networkName, networkDoc)
+  const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, network.name, networkDoc)
   // Add the wsProvider to the wsProviders object of the network
   // network.wsProviders[`${ip4}:1234-on-${ifaceName}`] = wsProvider
   if (!network.connections[ifaceName]) {
@@ -158,10 +196,10 @@ export const connectNetwork = (networkName, ifaceName, ip4, netmask) => {
       log(`Unhandled status ${event.status} for ${ifaceName}`)
     }
   })
-  log(`Interface ${ifaceName}: Created an Yjs websocket client connection on adddress ws://${ip4}:1234 with room name ${networkName}`)
+  log(`Interface ${ifaceName}: Created an Yjs websocket client connection on adddress ws://${ip4}:1234 with room name ${network.name}`)
 
   // Now monitor this interface for additonal engines that are on the network
-  enableEngineMonitor(ifaceName, networkName)
+  enableEngineMonitor(ifaceName, network.name)
 }
 
 // export const OLDconnectNetwork = (ifaceName, networkName, ip4, netmask) => {
@@ -239,11 +277,10 @@ export const connectNetwork = (networkName, ifaceName, ip4, netmask) => {
 //   // monitorForOtherEngines(iface, networkName)
 // }
 
-export const addRemoteEngine = (device, networkName:string, ifaceName:string) => {
+export const addRemoteEngine = (network:Network, device, ifaceName:string) => {
   // All we need to do is to look up the right network and then link it to the websocket server so that it snc with that engine
   // Find the network with the name networkName
-  const network = getNetwork(networkName)
-  const wsProvider = new WebsocketProvider(`ws://${device.address}:1234`, networkName, network.doc)
+  const wsProvider = new WebsocketProvider(`ws://${device.address}:1234`, network.name, network.doc)
   // Add the wsProvider to the wsProviders object of the network
   if (!network.connections[ifaceName]) {
     network.connections[ifaceName] = {}
@@ -287,14 +324,11 @@ export const addRemoteEngine = (device, networkName:string, ifaceName:string) =>
 //   })
 // }
 
-export const disconnectNetwork = (networkName:string, ifaceName:string) => {
-  log(`Disconnecting network ${networkName} from all engines on interface ${ifaceName}`)
+export const disconnectNetwork = (network:Network, ifaceName:string) => {
+  log(`Disconnecting network ${network.name} from all engines on interface ${ifaceName}`)
   // Remove the interface from the localEngine
   log(`Removing interface ${ifaceName} from localEngine`)
   delete getEngine().interfaces[ifaceName]
-
-  // Find the network with the name networkName
-  const network = getNetwork(networkName)
   
   // Destroy all connections made over this interface
   const ips = network.connections[`${ifaceName}`]
@@ -383,6 +417,17 @@ export const addAppDisk = async (device, diskName, created) => {
     apps: [],
     instances: []
   }
+  // Class variation
+  // const disk: Disk = new Disk ()
+  // disk.name = diskName
+  // disk.device = device
+  // disk.type = 'Apps'
+  // disk.created = created
+  // disk.lastDocked = new Date().getTime()
+  // disk.removable = false
+  // disk.upgradable = false
+  // disk.apps = []
+  // disk.instances = []
   // Add the disk to the local engine
   getEngine().disks.push(disk)
   log(`Disk ${diskName} pushed to local engine`)
@@ -396,7 +441,7 @@ export const addAppDisk = async (device, diskName, created) => {
         // Read the compose.yaml file in the app folder
         const appComposeFile = await $`cat /disks/${device}/apps/${appFolder}/compose.yaml`
         const appCompose = YAML.parse(appComposeFile.stdout)
-        const app = {
+        const app:App = {
           name: appCompose['x-app'].name,
           version: appCompose['x-app'].version,
           title: appCompose['x-app'].title,
@@ -406,6 +451,16 @@ export const addAppDisk = async (device, diskName, created) => {
           icon: appCompose['x-app'].icon,
           author: appCompose['x-app'].author
         }
+        // Class variation
+        // const app = new App()
+        // app.name = appCompose['x-app'].name
+        // app.version = appCompose['x-app'].version
+        // app.title = appCompose['x-app'].title
+        // app.description = appCompose['x-app'].description
+        // app.url = appCompose['x-app'].url
+        // app.category = appCompose['x-app'].category
+        // app.icon = appCompose['x-app'].icon
+        // app.author = appCompose['x-app'].author
         addApp(disk, app)
       }
 
@@ -909,21 +964,21 @@ export const networkDisks = (networkData: NetworkData) => {
   )
 }
 
-export const addListener = (iface: string, networkName: string, listener: (data: any) => void) => {
-  listeners[iface + networkName] = listener
+export const addListener = (network: Network, iface: string, listener: (data: any) => void) => {
+  network.listeners[iface] = listener
 }
 
-export const removeListener = (iface: string, networkName: string) => {
-  delete listeners[iface + networkName]
+export const removeListener = (network: Network, iface: string) => {
+  delete network.listeners[iface]
 }
 
-export const getListeners = () => {
-  return listeners
+export const getListeners = (network: Network) => {
+  return network.listeners
 }
 
-export const getListener = (iface: string, networkName: string) => {
-  if (listeners.hasOwnProperty(iface + networkName)) {
-    return listeners[iface + networkName]
+export const getListener = (network: Network, iface: string) => {
+  if (network.listeners.hasOwnProperty(iface)) {
+    return network.listeners[iface]
   } else {
     return null
   }

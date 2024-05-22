@@ -51,7 +51,7 @@ import { remove } from 'lib0/dom.js'
 
 // }
 
-export const enableInterfaceMonitor = (ifaceName:string, networkName:string) => {
+export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
     log(`Monitoring interface ${ifaceName} for connections to engines on network ${networkName}`)
 
@@ -70,7 +70,7 @@ export const enableInterfaceMonitor = (ifaceName:string, networkName:string) => 
         // TODO - We should tolerate data with more than one key
         // Replace Object.keys(data)[0] == 'xxx' with data[xxx]
         if (data.message && data.message === 'Network interface is not active') {
-            disconnectNetwork(networkName, ifaceName)
+            disconnectNetwork(network, ifaceName)
             return
         }
 
@@ -93,14 +93,14 @@ export const enableInterfaceMonitor = (ifaceName:string, networkName:string) => 
 
             if (wasConnected && !nowConnected) {
                 
-                disconnectNetwork(networkName, ifaceName)
+                disconnectNetwork(network, ifaceName)
                 return
             }
 
             if (!wasConnected && nowConnected) {
 
                 // Add the network interface to the localEngine
-                connectNetwork(networkName, ifaceName, ip4, netmask)
+                connectNetwork(network, ifaceName, ip4, netmask)
                 return
 
             }
@@ -143,9 +143,9 @@ export const enableInterfaceMonitor = (ifaceName:string, networkName:string) => 
     // We should store the listener so that we can remove it later
     // We need to remove the listener when we unmonitor the network
     // We can store the listener in the network object
-    addListener(networkName, ifaceName, onNetworkChange)
+    addListener(network, ifaceName, onNetworkChange)
     //network.listeners[iface] = onNetworkChange
-    log(`Adding to Listeners: ${deepPrint(getListeners(), 1)}`)
+    log(`Adding to Listeners: ${deepPrint(getListeners(network), 1)}`)
 
 }
 
@@ -257,16 +257,16 @@ export const enableInterfaceMonitor = (ifaceName:string, networkName:string) => 
 
 
 
-export const disableInterfaceMonitor = (ifaceName:string, networkName:string) => {
+export const disableAppnetMonitor = (networkName:string, ifaceName:string) => {
     log(`Stop monitoring interface ${ifaceName} for connections to engines on network ${networkName}`)
-    
-    disconnectNetwork(networkName, ifaceName)
+    const network = getNetwork(networkName)
+    disconnectNetwork(network, ifaceName)
 
 
     // Remove the listener
     // If there is a key in the listeners object that matches the interface and network, remove the listener 
-    log(`Removing listener for interface ${ifaceName} from network ${networkName} : ${deepPrint(getListeners(), 1)}`)
-    const listener = getListener(ifaceName, networkName)
+    log(`Removing listener for interface ${ifaceName} from network ${networkName} : ${deepPrint(getListeners(network), 1)}`)
+    const listener = getListener(network, ifaceName)
     if (listener) {
         net_listner.removeNetInterfaceListener(listener)
     } else {

@@ -102,10 +102,10 @@ export interface Engine {
   dockerLogs: DockerLogs;
   dockerEvents: DockerEvents;
   lastBooted: number; // We must use a timestamp number as Date objects are not supported in YJS
-  disks: Disk[],
+  disks: Disk[];
   //networkInterfaces: NetworkInterface[];
   interfaces: {[key: string]: Interface} // The key is the interface name and the value is the Interface object
-  commands: Command[];
+  commands: string[];
  }
 
 export interface Disk {
@@ -159,10 +159,16 @@ export interface Interface {
 }
 
 
-// type Connection = [key: string]: WebsocketProvider // The key is the ip address of the engine
+// Create a type called Connections that represents all connections that a Network has
+// The connections are sorted per interface and per ip address of the Engin that the Network is connected to
+// (a Network can be connected to multiple Engines on one Interface)
+export type Connection = WebsocketProvider
+export type Connections = {[key: string]: {[key: string]: Connection}}   // The first key is the interface and the second key is the ip address
 
-// Create a type called Connection which is an object that has ip addresses as keys and WebsocketProvider objects as values
-export type Connections = {[key: string]: WebsocketProvider}
+// Create a type called IfaceListeners that represents all listeners that a Network has 
+// The listeners are sorted per interface name
+export type Listener = (data: any) => void 
+export type Listeners = {[key: string]: Listener}  // The key is the interface name 
 
 
 // The root level Network object which is NOT proxied  
@@ -174,11 +180,10 @@ export interface Network {
   unbind: () => void;      // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
 
   // All connected engines sorted per interface
-  connections: {[key: string]: Connections}
+  connections: Connections;
+  listeners: Listeners;
 
 }
-
-export type Listener = {[key: string]: (data: any) => void}  // The key is the interface name and the value is the listener function
 
 // Define an object that stores all running servers on the local engine
 // It should have the ip address as a key and a truth value to indicate if the server is running
@@ -188,15 +193,18 @@ export type Listener = {[key: string]: (data: any) => void}  // The key is the i
 //   [ip: string]: boolean
 // }
 
-// export interface NetworkData {
-//   engines: Engine[] 
-//   //disks: Disk[];
-//   //apps: App[];
-// }
-// HACK - 
 export interface NetworkData {
-  [key: string]: any;
+  engines: Engine[] 
+  //disks: Disk[];
+  //apps: App[];
 }
+// HACK - 
+// export interface NetworkData {
+//   [key: string]: any;
+// }
+
+
+export type ConnectionResult = { status: string; networkData: NetworkData }
 
 // Generalized argument types
 type ArgumentType = 'string' | 'number' | 'object';
@@ -217,7 +225,7 @@ export interface ArgumentDescriptor {
 }
 
 // Interface for commands
-export interface Command {
+export interface CommandDefinition {
     name: string;
     execute: (...args: any[]) => void;
     args: ArgumentDescriptor[];

@@ -1,104 +1,7 @@
-import { Command, ArgumentDescriptor } from '../data/dataTypes.js';
-import { createInstance, startInstance, runInstance, stopInstance, getEngine,  } from '../data/store.js'
-import { subscribe } from 'valtio'
-import { log, deepPrint } from '../utils/utils.js'
-import { enableInterfaceMonitor, disableInterfaceMonitor } from '../monitors/networkMonitor.js'
-import { $, YAML, chalk } from 'zx';
+import { CommandDefinition, ArgumentDescriptor } from '../data/dataTypes.js';
 
-const storeAndEnableInterfaceMonitor = async (ifaceName: string, networkName: string) => {
-    // Read the config.yaml file, add this command to the startupCOmmands array, and write the file back
-    // Make sure that the same command is only stored once
-    try {
-        const configFile = await $`cat config.yaml`
-        const config = YAML.parse(configFile.stdout)
-        if (!config.startupCommands.includes(`enableInterfaceMonitor ${ifaceName} ${networkName}`)) {
-            config.startupCommands.push(`enableInterfaceMonitor ${ifaceName} ${networkName}`)
-        }
-        await $`echo ${YAML.stringify(config)} > config.yaml`
-    } catch (e) {
-        log(chalk.red(`Error reading config file. This command will not be persisted.`))
-        console.error(e)
-    }
-    
-    // Now call the enableInterfaceMonitor function
-    enableInterfaceMonitor(ifaceName, networkName)
-}
 
-const storeAndDisableInterfaceMonitor = async (ifaceName: string, networkName: string) => {
-    // Read the config.yaml file, remove the corresponding enableInterfaceMonitor command from the startupCOmmands array, and write the file back
-    // Make sure that the same command is only stored once
-    try {
-        const configFile = await $`cat config.yaml`
-        const config = YAML.parse(configFile.stdout)
-        config.startupCommands = config.startupCommands.filter((command) => command !== `enableInterfaceMonitor ${ifaceName} ${networkName}`)
-        await $`echo ${YAML.stringify(config)} > config.yaml`    
-    } catch (e) {
-        log(chalk.red(`Error reading config file. This command will not be persisted.`))
-        console.error(e)
-    }
-    
-    // Now call the enableInterfaceMonitor function
-    disableInterfaceMonitor(ifaceName, networkName)
-}
 
-// Command registry with an example of the new object command
-export const commands: Command[] = [
-    {
-        name: "enableInterfaceMonitor",
-        execute: storeAndEnableInterfaceMonitor,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    {
-        name: "disableInterfaceMonitor",
-        execute: storeAndDisableInterfaceMonitor,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    // {
-    //     name: "createDisk",
-    //     execute: createDisk,
-    //     args: [{ type: "string" }],
-    // },
-    {
-        name: "createInstance",
-        execute: createInstance,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
-    },
-    {
-        name: "startInstance",
-        execute: startInstance,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    {
-        name: "runInstance",
-        execute: runInstance,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    {
-        name: "stopInstance",
-        execute: stopInstance,
-        args: [{ type: "string" }, { type: "string" }],
-    },
-    // {
-    //     name: "addDisk",
-    //     execute: addDisk,
-    //     args: [{ type: "string" }, { type: "string" }],
-    // },
-    // {
-    //     name: "startApp",
-    //     execute: startApp,
-    //     args: [{ type: "string" }, { type: "number" }],
-    // },
-    // {
-    //     name: "addNetwork",
-    //     execute: addNetwork,
-    //     args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
-    // },
-    // {
-    //     name: "addEngine",
-    //     execute: addEngine,
-    //     args: [{ type: "string" }],
-    // },
-];
 
 // convertToType function with support for object fields of different types
 const convertToType = (str: string, descriptor: ArgumentDescriptor): any => {
@@ -136,7 +39,7 @@ const convertToType = (str: string, descriptor: ArgumentDescriptor): any => {
 }
 
 
-export const handleCommand = async (commands: Command[], input: string) => {
+export const handleCommand = async (commands: CommandDefinition[], input: string) => {
     const [commandName, ...stringArgs] = input.split(" ").map(arg => arg.trim()).filter(arg => arg.length > 0);
     const command = commands.find(cmd => cmd.name === commandName);
 

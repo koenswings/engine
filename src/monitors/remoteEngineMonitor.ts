@@ -50,7 +50,10 @@ export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
     // Register a callback on the mdnsMonitor for new engines on this interface and network
     engineMonitor.on(`new_engine_on_${networkName}_on_${ifaceName}`, (device) => {
         log(chalk.bgMagenta(`Engine ${device.familyName} discovered on the network`))
-        addRemoteEngine(device, networkName, ifaceName)
+        const network = getNetwork(networkName)
+        if (network) {
+            addRemoteEngine(network, device, ifaceName)
+        }
     })
 
 }

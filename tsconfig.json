@@ -7,11 +7,12 @@
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "outDir": "./dist",
-    "allowJs": true
+    "allowJs": true,
+    //"esModuleInterop": true,
   },
   "include": [
     "src",
-    "scripts",
-    "tests"  
-  ] 
+    "script",
+    "test"  
+, "scratchpad/readDefaults.ts"  ] 
 }

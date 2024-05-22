@@ -1,4 +1,5 @@
 import util from 'util';
+import { chalk, question } from 'zx';
 
 export const log = console.log.bind(console);
 
@@ -21,11 +22,26 @@ export const deepPrint = (obj, depth=null) => {
     // Alternative: return console.dir(obj, {depth: null, colors: true})
 }
 
+
+// Write a function that tests if a string is a valid IP4 address
+export const isIP4 = (str: string): boolean => {
+  const ip4Regex = /^(\d{1,3}\.){3}\d{1,3}$/
+  return ip4Regex.test(str)
+}
+
+export const isNetmask = isIP4
+
 // Docker-style name generation
 // Inspired by
 // - https://github.com/moby/moby/blob/39f7b2b6d0156811d9683c6cb0743118ae516a11/pkg/namesgenerator/names-generator.go#L852-L863 
 // - https://github.com/subfuzion/docker-namesgenerator/blob/master/namesgenerator.js
 
+export const prompt = (level, message: string) => {
+  // Create level*4 spaces
+  const spaces = ' '.repeat(level * 4)
+  console.log(chalk.green(spaces+message))
+  return question(chalk.bgMagentaBright(spaces+'Press ENTER when ready'))
+}
 
 
 const adjectives = [

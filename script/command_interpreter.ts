@@ -1,16 +1,20 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
-import { networkApps, networkDisks, networkInstances } from '../src/data/store.js';
-import { Command, Engine, NetworkData } from '../src/data/dataTypes.js';
+import { getNetwork, getNetworks, networkApps, networkDisks, networkInstances } from '../src/data/store.js';
+import { CommandDefinition, Engine, NetworkData } from '../src/data/dataTypes.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
-import { WebsocketProvider } from '../src/y-websocket/y-websocket.js';
-import { Doc, Array, Map } from "yjs"
 import { deepPrint } from '../src/utils/utils.js';
-import { bind } from '../src/valtio-yjs/index.js';
-import { proxy } from 'valtio';
-import pack from '../package.json' assert { type: "json" }
 
+import pack from '../package.json' assert { type: "json" }
+//import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
+import { readConfig } from '../src/utils/readConfig.js'
+
+import { connect } from '../src/utils/connect.js';
+
+const { defaults } = await readConfig('../config.yaml')
+const engine = argv.e || argv.engine || defaults.engine
+const network = argv.n || argv.network || defaults.network
 
 // **********************
 // Command-line arguments
@@ -18,6 +22,14 @@ import pack from '../package.json' assert { type: "json" }
 
 // Check for the help flag and print usage if help is requested
 if (argv.h || argv.help) {
+    // We have help, version, engine, network and port options
+    console.log(`Options:`)
+    console.log(`  -h, --help              display help for command`)  
+    console.log(`  -v, --version           output the version number`)
+    console.log(`  -n, --network <string>  the network we want to join (default: ${defaults.network})`)
+    console.log(`  -e, --engine <string>   the engine we want to connect to (default: ${defaults.engine})`)
+    console.log(``)
+    process.exit(0)
 }
 
 // Check for the version flag and print the version if requested
@@ -26,6 +38,66 @@ if (argv.v || argv.version) {
     process.exit(0)
 }
 
+// ************************
+// Connection to an engine
+// ************************
+
+const networkData: NetworkData = (await connect(network, engine, 1234)).networkData
+
+
+
+// ************************
+// Virtual Engines
+// ************************
+
+interface VirtualEngine {
+    name: string;
+    port: number;
+    status: string;
+}
+
+const engines: VirtualEngine[] = [
+    // {
+    //     name: "engine1",
+    //     port: 3001,
+    //     status: "running"
+    // },
+    // {
+    //     name: "engine2",
+    //     port: 3002,
+    //     status: "running"
+    // },
+    // {
+    //     name: "engine3",
+    //     port: 3003,
+    //     status: "stopped"
+    // }
+  ]
+
+  // Create additional engines for testing
+export const addEngine = async (engine: string, port:number) => {
+    console.log(`Adding engine '${engine}'.`)
+    // Compose up the engine
+    try {
+        cd('..')
+        // Build the engine
+        await $`docker build --target base -t ${engine} .`
+        // Run the engine
+        await $`docker run -p ${port}:1234 -d --name ${engine} ${engine}`
+        // Add the engine to the list
+        engines.push({
+            name: engine,
+            port: port,
+            status: "running"
+        })
+    } catch (e) {
+        console.log(chalk.red('Error adding engine'));
+        console.error(e);
+    } 
+  }
+
+
+
 // **********************
 // Doc inspections
 // **********************
@@ -33,6 +105,7 @@ if (argv.v || argv.version) {
 const ls = () => {
     console.log('NetworkData on this engine:')
     console.log(deepPrint(networkData, 4))
+    console.log(deepPrint(getNetworks(), 3))
 }
 
 const lsEngines = () => {
@@ -58,39 +131,6 @@ const lsInstances = () => {
     console.log(deepPrint(disks, 2))
 }
 
-// ************************
-// Connection to an engine
-// ************************
-
-let networkDoc: Doc
-let networkData: NetworkData
-
-const connect = (network, ip4, port) => {
-    console.log(`Connecting to ${network} using the engine at ${ip4}:${port}`)
-    networkDoc = new Doc()
-    const wsProvider = new WebsocketProvider(`ws://${ip4}:1234`, network, networkDoc)
-    wsProvider.on('status', (event: { status: any; }) => {
-        console.log(event.status) // logs "connected" or "disconnected"
-        let unbind: () => void
-        if (event.status === 'connected') {
-            console.log(`Connected to network ${network}`)
-            const yNetworkData = networkDoc.getMap('data')
-            //const engines = yNetworkData.get('engines') as Engine[]
-            //console.log(deepPrint(engines, 1))
-            networkData = proxy<NetworkData>({});
-            // Bind the Valtio proxy to the Yjs object
-            unbind = bind(networkData, yNetworkData);
-        } 
-        if (event.status === 'disconnected') {
-            console.log('Disconnected from network')
-            unbind()
-        }
-    })
-}
-
-// By default connect to the local engine
-connect('Self', '127.0.0.1', 1234)
-
 
 // **********************
 // Remote Commands
@@ -98,14 +138,14 @@ connect('Self', '127.0.0.1', 1234)
 
 // Network Management
 
-const enableInterfaceMonitor = (engineName: string, iface: string, network: string) => {
+const enableAppnetMonitor = (engineName: string, network: string, iface: string) => {
     console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${network}`)
     // We must send a remote command to engine1 to monitor the network
     sendCommand(engineName, `enableInterfaceMonitor ${iface} ${network}`)
 }
 
 
-const disableInterfaceMonitor = (engineName: string, iface: string, network: string) => {
+const disableAppnetMonitor = (engineName: string, network: string, iface: string) => {
     console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${network}`)
     // We must send a remote command to engine1 to monitor the network
     sendCommand(engineName, `disableInterfaceMonitor ${iface} ${network}`)
@@ -154,60 +194,6 @@ const stopInstance = (engineName: string, instanceName: string, diskName: string
 // }
 
 
-
-
-
-
-// ************************
-// Virtual Engines
-// ************************
-
-interface VirtualEngine {
-    name: string;
-    port: number;
-    status: string;
-}
-
-const engines: VirtualEngine[] = [
-    // {
-    //     name: "engine1",
-    //     port: 3001,
-    //     status: "running"
-    // },
-    // {
-    //     name: "engine2",
-    //     port: 3002,
-    //     status: "running"
-    // },
-    // {
-    //     name: "engine3",
-    //     port: 3003,
-    //     status: "stopped"
-    // }
-  ]
-  
-// Create additional engines for testing
-export const addEngine = async (engine: string, port:number) => {
-    console.log(`Adding engine '${engine}'.`)
-    // Compose up the engine
-    try {
-        cd('..')
-        // Build the engine
-        await $`docker build --target base -t ${engine} .`
-        // Run the engine
-        await $`docker run -p ${port}:1234 -d --name ${engine} ${engine}`
-        // Add the engine to the list
-        engines.push({
-            name: engine,
-            port: port,
-            status: "running"
-        })
-    } catch (e) {
-        console.log(chalk.red('Error adding engine'));
-        console.error(e);
-    } 
-  }
-
 // ************************
 // Remote Command Execution
 // ************************
@@ -224,11 +210,11 @@ const sendCommand = (engineName: string, command: string) => {
 
 
 // Command registry with an example of the new object command
-const commands: Command[] = [
+const commands: CommandDefinition[] = [
     {
-        name: "connect",
-        execute: connect,
-        args: [{ type: "string" }, { type: "string" }, { type: "number" }],
+        name: "addEngine",
+        execute: addEngine,
+        args: [{ type: "string" }],
     },
     {
         name: "ls",
@@ -257,12 +243,12 @@ const commands: Command[] = [
     },
     {
         name: "enableInterfaceMonitor",
-        execute: enableInterfaceMonitor,
+        execute: enableAppnetMonitor,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
     {
         name: "disableInterfaceMonitor",
-        execute: disableInterfaceMonitor,
+        execute: disableAppnetMonitor,
         args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
     // {
@@ -290,11 +276,7 @@ const commands: Command[] = [
         execute: stopInstance,
         args: [{ type: "string" }, { type: "string" },  { type: "string" }],
     },
-    {
-        name: "addEngine",
-        execute: addEngine,
-        args: [{ type: "string" }],
-    },
+
     // {
     //     name: "processCoordinates",
     //     execute: processCoordinates,
