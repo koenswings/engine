@@ -4,8 +4,6 @@ startup:
     - enableAppnetMonitor appnet wlan0
     - enableAppnetMonitor appnet lo      // Enable monitoring of the loopback
       interface so that the engine can communicate with itself
-    - enableInterfaceMonitor wlan0 appnet
-    - enableInterfaceMonitor eth0 appnet
 defaults:
   user: pi
   machine: raspberrypi.local
@@ -27,33 +25,33 @@ testSetup:
   appnet: appnet
   interface: eth0
   testDisk1:
-    - name: loving-jennings.local
-    - apps:
-        - name: kolibri
-          version: 1.0-0.15.5-dev
-          title: Kolibri
-          description: >
-            Kolibri is an adaptable set of open solutions specially developed to
-            support learning for the half of the world without Internet access. 
+    name: loving-jennings
+    apps:
+      - name: kolibri
+        version: 1.0-0.15.5-dev
+        title: Kolibri
+        description: >
+          Kolibri is an adaptable set of open solutions specially developed to
+          support learning for the half of the world without Internet access. 
 
-            Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-          url: https://learningequality.org/kolibri/
-          category: education
-          icon: icon.png
-          author: Koen Swings
+          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
+        url: https://learningequality.org/kolibri/
+        category: education
+        icon: icon.png
+        author: Koen Swings
   testDisk2:
-    - name: bold-banzai.local
-    - apps:
-        - name: kolibri
-          version: 1.0-0.15.5-dev
-          title: Kolibri
-          description: >
-            Kolibri is an adaptable set of open solutions specially developed to
-            support learning for the half of the world without Internet access. 
+    name: bold-banzai
+    apps:
+      - name: kolibri
+        version: 1.0-0.15.5-dev
+        title: Kolibri
+        description: >
+          Kolibri is an adaptable set of open solutions specially developed to
+          support learning for the half of the world without Internet access. 
 
-            Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-          url: https://learningequality.org/kolibri/
-          category: education
-          icon: icon.png
-          author: Koen Swings
+          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
+        url: https://learningequality.org/kolibri/
+        category: education
+        icon: icon.png
+        author: Koen Swings
 

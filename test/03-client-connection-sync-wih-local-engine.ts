@@ -1,14 +1,8 @@
-import assert, { doesNotMatch } from 'assert'
 import { chalk, question, sleep } from 'zx'
-import { connect } from '../src/utils/connect.js';
-import { NetworkData } from '../src/data/dataTypes.js';
-import { Defaults, readDefaults } from '../scratchpad/readDefaults.js';
-import { deepPrint, prompt } from '../src/utils/utils.js';
-import { log } from 'console';
 import { expect } from 'chai';
 import { readConfig } from '../src/utils/readConfig.js';
-import { ConnectionResult } from '../src/data/dataTypes.js';
-import { getEngine } from '../src/data/store.js';
+import { NetworkData, ConnectionResult, Network, createNetwork, connectNetwork } from '../src/data/Network.js';
+import { getLocalEngine } from '../src/data/Store.js';
 
 const { testSetup } = await readConfig('config.yaml')
 
@@ -16,8 +10,11 @@ const testNet = testSetup.appnet
 const testInterface = testSetup.interface
 const localEngine = '127.0.0.1'
 
+let network1: Network 
+let networkData1: NetworkData 
 let connection1Promise: Promise<ConnectionResult>
-let networkData1: NetworkData
+
+
 
 // export const connectNetwork = (network:Network, ifaceName:string, ip4:string, netmask:string) => {
 //     log(`Connecting network ${network.name} to engines on interface ${ifaceName}.`)
@@ -74,31 +71,33 @@ let networkData1: NetworkData
 //     enableEngineMonitor(ifaceName, network.name)
 //   }
 
-describe(`The local engine connected via ${localEngine} - `, () => {
+describe(`The local engine connected via ${localEngine} - `, function () {
 
     before(async function () {
         this.timeout(0)
-        connection1Promise = connect(testNet, localEngine, 1234)
-        log(chalk.green(deepPrint(networkData1, 4)))
+        network1 = createNetwork(testNet)
+        networkData1 = network1.data
+        connection1Promise = connectNetwork(network1, localEngine, "lo")
+        //log(chalk.green(deepPrint(networkData1, 4)))
     })
 
-    describe('After a fresh boot - ', () => {
-        it('the test machine must be able to connect with itself over the loopback interface ', async () => {
+    describe('After a fresh boot - ', function () {
+        it('the test machine must be able to connect with itself over the loopback interface ', async function () {
+            expect(network1).to.exist
+            expect(networkData1).to.exist
             expect(connection1Promise).to.exist
             // The promise must resolve to a ConnectionResult
             const connection1 = await connection1Promise
             expect(connection1).to.exist
             expect(connection1.status).to.equal('connected')
-            networkData1 = connection1.networkData
-            expect(networkData1).to.exist
             //console.dir(networkData, {depth: 3, colors: true})
             // JSON.stringify(networkData, null, 2)))   
         })
 
         it('the connection must sync within 5 secs and deliver data for the local machine', async function () {
             this.timeout(0)
-            await sleep(5000)
-            const engine = getEngine()
+            await sleep(7000)
+            const engine = getLocalEngine()
             // networkData1.engines must have an object that is a deep copy of the local engine object
             expect(networkData1.engines).to.have.lengthOf(1)
             expect(networkData1.engines[0]).to.eql(engine)

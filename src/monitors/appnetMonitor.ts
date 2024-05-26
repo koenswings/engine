@@ -1,17 +1,10 @@
 import net_listner from 'network-interfaces-listener'
-import os, { hostname } from 'os'
-import mdns from 'mdns'
-
-
-
-import { connectNetwork, getEngine, getNetwork, addListener, removeListener, getListener, getListeners, disconnectNetwork, findNetwork, addNetwork} from '../data/store.js'
-import { Network, Engine, Disk, NetworkData} from '../data/dataTypes.js'
-
-
+import os from 'os'
+import { addNetwork, findNetworkByName, getLocalEngine } from '../data/Store.js'
+import { createNetwork, connectNetwork, disconnectNetwork, getListenerByIface, addListener, getListeners } from '../data/Network.js'
 import { deepPrint, log } from '../utils/utils.js'
-import { get } from 'http'
-import { add } from 'lib0/math.js'
-import { remove } from 'lib0/dom.js'
+import { addInterface } from '../data/Engine.js'
+import { enableEngineMonitor } from './remoteEngineMonitor.js'
 
 // export const enableNetworkInterfaceMonitor = () => {
 //     // Get a list of all non-virtual interface names
@@ -55,11 +48,18 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
     log(`Monitoring interface ${ifaceName} for connections to engines on network ${networkName}`)
 
+    const localEngine = getLocalEngine()
+
     // Create a network object if it doesn't exist
-    let network = findNetwork(networkName)
+    let network = findNetworkByName(networkName)
     if (!network) {
-        network = addNetwork(networkName)
+        network = createNetwork(networkName)
+        // And add it to the networks array
+        addNetwork(network)
+        // Add local engine
+        network.data.engines.push(localEngine)
     }
+  
 
     // Monitor the interface for changes
     // Create a dedicated handler for the specified interface and vlan
@@ -79,13 +79,13 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
             const ip4 = data[ifaceName].find((address) => address.family === 'IPv4').address
             const netmask = data[ifaceName].find((address) => address.family === 'IPv4').netmask
             const nowConnected:Boolean = ip4 ? true : false
-            const wasConnected:Boolean =  getEngine().interfaces[ifaceName] && getEngine().interfaces[ifaceName].hasOwnProperty('ip4')
+            const wasConnected:Boolean =  localEngine.interfaces[ifaceName] && localEngine.interfaces[ifaceName].hasOwnProperty('ip4')
 
             if (wasConnected && nowConnected) {
 
                 // Update the network interface with the new data
                 log(`Updating interface ${ifaceName} with IP4 address ${ip4} and netmask ${netmask}`)
-                const iface = getEngine().interfaces[ifaceName]
+                const iface = localEngine.interfaces[ifaceName]
                 iface.ip4 = ip4
                 iface.netmask = netmask
                 return 
@@ -99,8 +99,11 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
             if (!wasConnected && nowConnected) {
 
-                // Add the network interface to the localEngine
-                connectNetwork(network, ifaceName, ip4, netmask)
+                addInterface(localEngine, ifaceName, ip4, netmask)
+                log(`Added or updated interface ${ifaceName} on local engine`)
+                connectNetwork(network, ip4, ifaceName)
+                // Now monitor this interface for additonal engines that are on the network
+                enableEngineMonitor(ifaceName, network.name)
                 return
 
             }
@@ -259,14 +262,14 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
 export const disableAppnetMonitor = (networkName:string, ifaceName:string) => {
     log(`Stop monitoring interface ${ifaceName} for connections to engines on network ${networkName}`)
-    const network = getNetwork(networkName)
+    const network = findNetworkByName(networkName)
     disconnectNetwork(network, ifaceName)
 
 
     // Remove the listener
     // If there is a key in the listeners object that matches the interface and network, remove the listener 
     log(`Removing listener for interface ${ifaceName} from network ${networkName} : ${deepPrint(getListeners(network), 1)}`)
-    const listener = getListener(network, ifaceName)
+    const listener = getListenerByIface(network, ifaceName)
     if (listener) {
         net_listner.removeNetInterfaceListener(listener)
     } else {

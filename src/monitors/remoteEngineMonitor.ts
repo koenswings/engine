@@ -1,17 +1,18 @@
 import ciao from '@homebridge/ciao'
-import { addRemoteEngine, getEngine, getNetwork } from '../data/store.js';
 import { engineMonitor } from './mdnsMonitor.js';
 import { log } from '../utils/utils.js';
 import { chalk } from 'zx';
+import { connectNetwork } from '../data/Network.js';
+import { findNetworkByName, getLocalEngine } from '../data/Store.js';
 
 export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
     log(`Monitoring interface ${ifaceName} for other engines that are on network ${networkName}`)
 
     // Advertise the local engine on the network using mdns using the following service name: engineName._engine._tcp
-    const engine = getEngine()
+    const engine = getLocalEngine()
     const engineName = engine.hostName
     const engineVersion = engine.version
-    const network = getNetwork(networkName)
+    const network = findNetworkByName(networkName)
 
     // ********* MDNS Advertisement (error) *********
     // const txtRecord = {
@@ -50,9 +51,9 @@ export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
     // Register a callback on the mdnsMonitor for new engines on this interface and network
     engineMonitor.on(`new_engine_on_${networkName}_on_${ifaceName}`, (device) => {
         log(chalk.bgMagenta(`Engine ${device.familyName} discovered on the network`))
-        const network = getNetwork(networkName)
+        const network = findNetworkByName(networkName)
         if (network) {
-            addRemoteEngine(network, device, ifaceName)
+            connectNetwork(network, device.address, ifaceName)
         }
     })
 

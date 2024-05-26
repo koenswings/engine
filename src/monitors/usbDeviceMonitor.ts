@@ -1,9 +1,9 @@
 import chokidar from 'chokidar'
 import { log } from '../utils/utils.js'
 import { $, YAML } from 'zx'
-import { Disk } from '../data/dataTypes.js'
-import { addAppDisk, getDisk, removeDisk, getEngine, getDiskOnDevice} from '../data/store.js'
-import { get } from 'http'
+import { Disk, createDiskFromFile } from '../data/Disk.js'
+import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
+import { getLocalEngine } from '../data/Store.js'
 
 
 export const enableUsbDeviceMonitor = () => {
@@ -12,6 +12,7 @@ export const enableUsbDeviceMonitor = () => {
     // 2. Monitor /dev/disk/by-label
     // 3. Monitor dmesg
 
+    const localEngine = getLocalEngine()
     const watchDir = '/dev/engine'
     const watcher = chokidar.watch(watchDir, {
         persistent: true,
@@ -51,7 +52,8 @@ export const enableUsbDeviceMonitor = () => {
                         const diskCreatedTime = new Date(diskCreated)
                         log(`App Disk name ${diskName} created on ${diskCreatedTime} found on device ${device}`)
                         // Add the disk to the store
-                        addAppDisk(device, diskName, diskCreated)
+                        const disk:Disk = await createDiskFromFile(device, diskName, diskCreated, 'Apps')
+                        addDisk(localEngine, disk)
                     } else {
                         log('Not an app disk')
                     }                    
@@ -72,9 +74,9 @@ export const enableUsbDeviceMonitor = () => {
             if (device.match(/^sd[a-z]2$/m)) {
                 log(`USB device ${device} has been removed`)
                 // Remove the disk from the store
-                const disk = getDiskOnDevice(device)
+                const disk = findDiskByDevice(localEngine, device)
                 if (disk) {
-                    removeDisk(disk)
+                    removeDisk(localEngine, disk)
                     log(`Disk ${device} removed from store`)
                 }
 

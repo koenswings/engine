@@ -1,9 +1,9 @@
 import mDnsSd from 'node-dns-sd'
 import events from 'events'   // See https://nodejs.org/api/events.html#events 
 import { log } from '../utils/utils.js';
-import { getEngine, getNetwork, getNetworksForInterface, networkDisks } from '../data/store.js'
 import Netmask from 'netmask'
 import { chalk } from 'zx';
+import { filterNetworksByInterface, getLocalEngine } from '../data/Store.js';
 
 
 
@@ -69,8 +69,8 @@ const discoverEngines = () => {
                 //    for example when the local engine is connected to a wlan that is bridged to the eth0 LAN
                 //    in that case engine has two IP addresses on the same LAN
 
-                const ifaces = Object.keys(getEngine().interfaces).filter((iface) => {
-                    const block = new Netmask(getEngine().interfaces[iface].netmask)
+                const ifaces = Object.keys(getLocalEngine().interfaces).filter((iface) => {
+                    const block = new Netmask(getLocalEngine().interfaces[iface].netmask)
                     return block.contains(device.address)
                 })
                 log(chalk.bgMagenta(`Engine ${device.familyName} found on interfaces ${ifaces}`))
@@ -78,7 +78,7 @@ const discoverEngines = () => {
                 // Now find all networks that have connections over this interface
                 let networks = []
                 ifaces.forEach((iface) => {
-                    networks = networks.concat(getNetworksForInterface(iface))
+                    networks = networks.concat(filterNetworksByInterface(iface))
                 })
                 log(chalk.bgMagenta(`Engine ${device.familyName} found on networks ${networks.map((network) => network.name)}`))    
 

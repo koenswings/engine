@@ -1,5 +1,3 @@
-// import { NetworkData } from '../src/data/dataTypes.js';
-// import { readConfig } from '../src/utils/readConfig.js';
 // import { expect } from 'chai';
 
 

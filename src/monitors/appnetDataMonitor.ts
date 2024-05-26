@@ -1,12 +1,12 @@
-import { Network, NetworkData } from '../data/dataTypes.js'
-import { getEngine } from '../data/store.js'
+import { Network, NetworkData } from '../data/Network.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
+import { getLocalEngine } from '../data/Store.js'
 
 export const enableNetworkDataCommandsMonitor = (networkData:NetworkData, networkName:string) => {
     // Monitor our local engine for commands to be executed
     // Find the engine in the networkData.engines array and then subscribe to the commands array
-    const localEngine = networkData.engines.find(engine => engine.hostName === getEngine().hostName)
+    const localEngine = networkData.engines.find(engine => engine.hostName === getLocalEngine().hostName)
     if (localEngine) {
       subscribe(localEngine.commands, (value) => {
         log(`NETWORKDATA ENGINE ${localEngine.hostName} COMMANDS MONITOR: Engine ${localEngine.hostName} commands is modified via network ${networkName}. Commands is now: ${deepPrint(value)}`)

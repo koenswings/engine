@@ -1,5 +1,5 @@
 
-import { getEngine } from '../data/store.js'
+import { getLocalEngine } from '../data/Store.js'
 import { log, contains } from '../utils/utils.js'
 import { Array } from 'yjs'
 
@@ -59,6 +59,6 @@ const generateRandomArrayModification = (apps: Array<object>) => {
 }
 
 export const changeTest = () => {
-    ++getEngine().lastBooted
-    console.log(`CHANGING ENGINE LASTBOOTED TO ${getEngine().lastBooted}`)
+    ++getLocalEngine().lastBooted
+    console.log(`CHANGING ENGINE LASTBOOTED TO ${getLocalEngine().lastBooted}`)
 }

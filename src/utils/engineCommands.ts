@@ -1,11 +1,11 @@
-import { CommandDefinition } from '../data/dataTypes.js';
-import { createInstance, startInstance, runInstance, stopInstance, getEngine,  } from '../data/store.js'
+import { createInstanceFromFile, startInstance, runInstance, stopInstance  } from '../data/Instance.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
 import { enableAppnetMonitor, disableAppnetMonitor } from '../monitors/appnetMonitor.js'
 import { $, YAML, chalk } from 'zx';
 import { read } from 'fs';
 import { readConfig } from './readConfig.js';
+import { CommandDefinition } from '../data/CommandDefinition.js';
 
 const storeAndEnableAppnetMonitor = async (networkName: string, ifaceName: string) => {
     // Read the config.yaml file, add this command to the startupCOmmands array, and write the file back
@@ -14,11 +14,11 @@ const storeAndEnableAppnetMonitor = async (networkName: string, ifaceName: strin
         const { startup, defaults, testSetup } = await readConfig('config.yaml')
         if (!startup.commands) {
             log(chalk.red(`No startup commands found in config file.`))
-            startup.commands = [`enableInterfaceMonitor ${ifaceName} ${networkName}`]
+            startup.commands = [`enableAppnetMonitor ${networkName}  ${ifaceName}`]
         }
-        else if (!startup.commands.includes(`enableInterfaceMonitor ${ifaceName} ${networkName}`)) {
+        else if (!startup.commands.includes(`enableAppnetMonitor ${networkName} ${ifaceName}`)) {
             log(chalk.green(`Storing command in config file.`))
-            startup.commands.push(`enableInterfaceMonitor ${ifaceName} ${networkName}`)
+            startup.commands.push(`enableAppnetMonitor ${networkName} ${ifaceName}`)
         } else {
             log(chalk.red(`Command already stored in config file.`))
         }
@@ -69,8 +69,8 @@ export const engineCommands: CommandDefinition[] = [
     // },
     {
         name: "createInstance",
-        execute: createInstance,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
+        execute: createInstanceFromFile,
+        args: [{ type: "string" }, { type: "string" }, { type: "string" }],
     },
     {
         name: "startInstance",

@@ -1,5 +1,4 @@
-import { CommandDefinition, ArgumentDescriptor } from '../data/dataTypes.js';
-
+import { ArgumentDescriptor, CommandDefinition } from "../data/CommandDefinition.js";
 
 
 

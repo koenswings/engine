@@ -1,6 +1,5 @@
-import { NetworkData, Engine, Disk, App } from '../src/data/dataTypes.js';
+import { getLocalEngine, findNetworkByName,  } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
-import { getEngine, getNetwork, getNetworks } from '../src/data/store.js';
 import { log } from 'console';
 import { readConfig } from '../src/utils/readConfig.js';
 //import { expect } from 'chai';
@@ -15,23 +14,23 @@ const testInterface = testSetup.interface
 describe('The local engine - ', async function () {
 
   it(`must have a Network object with the name ${testNet}`, async function () {
-    const appnet = getNetwork(testNet)
+    const appnet = findNetworkByName(testNet)
     expect(appnet).to.exist
   })
 
   it(`must have a local Engine object`, async function () {
-    const engine = getEngine()
+    const engine = getLocalEngine()
     expect(engine).to.exist
   })
 
   it(`the local Engine object must be part of the Engine array in the NetworkData object of the Network`, async function () {
-    const appnet = getNetwork(testNet)
-    const engine = getEngine()
+    const appnet = findNetworkByName(testNet)
+    const engine = getLocalEngine()
     expect(appnet.data.engines).to.include(engine)
   })
 
   it(`the local Engine object must have the right properties`, async function () {
-    const engine = getEngine()
+    const engine = getLocalEngine()
     // The local engine can be on any third machine so we cannot know the values, only that they should not be empty
     expect(engine.hostName).to.not.be.empty
     expect(engine.version).to.not.be.empty

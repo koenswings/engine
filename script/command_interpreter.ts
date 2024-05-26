@@ -1,8 +1,7 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
-import { getNetwork, getNetworks, networkApps, networkDisks, networkInstances } from '../src/data/store.js';
-import { CommandDefinition, Engine, NetworkData } from '../src/data/dataTypes.js';
+import { Network, NetworkData, connectNetwork, createNetwork, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { deepPrint } from '../src/utils/utils.js';
 
@@ -10,11 +9,13 @@ import pack from '../package.json' assert { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
 import { readConfig } from '../src/utils/readConfig.js'
 
-import { connect } from '../src/utils/connect.js';
+import { getNetworks } from '../src/data/Store.js';
+import { CommandDefinition } from '../src/data/CommandDefinition.js';
+import { create } from 'domain';
 
 const { defaults } = await readConfig('../config.yaml')
-const engine = argv.e || argv.engine || defaults.engine
-const network = argv.n || argv.network || defaults.network
+const engineAddress = argv.e || argv.engine || defaults.engine
+const networkName = argv.n || argv.network || defaults.network
 
 // **********************
 // Command-line arguments
@@ -27,7 +28,7 @@ if (argv.h || argv.help) {
     console.log(`  -h, --help              display help for command`)  
     console.log(`  -v, --version           output the version number`)
     console.log(`  -n, --network <string>  the network we want to join (default: ${defaults.network})`)
-    console.log(`  -e, --engine <string>   the engine we want to connect to (default: ${defaults.engine})`)
+    console.log(`  -e, --engine <string>   the engine (address) we want to connect to (default: ${defaults.engine})`)
     console.log(``)
     process.exit(0)
 }
@@ -42,7 +43,9 @@ if (argv.v || argv.version) {
 // Connection to an engine
 // ************************
 
-const networkData: NetworkData = (await connect(network, engine, 1234)).networkData
+const network: Network = createNetwork(networkName)
+const networkData: NetworkData = network.data
+await connectNetwork(network, engineAddress, "lo")
 
 
 
@@ -115,19 +118,19 @@ const lsEngines = () => {
 
 const lsDisks = () => {
     console.log('Disks:')
-    const disks = networkDisks(networkData)
+    const disks = getNetworkDisks(network)
     console.log(deepPrint(disks, 2))
 }
 
 const lsApps = () => {
     console.log('Apps:')
-    const disks = networkApps(networkData)
+    const disks = getNetworkApps(network)
     console.log(deepPrint(disks, 2))
 }
 
 const lsInstances = () => {
     console.log('Instances:')
-    const disks = networkInstances(networkData)
+    const disks = getNetworkInstances(network)
     console.log(deepPrint(disks, 2))
 }
 
@@ -141,14 +144,14 @@ const lsInstances = () => {
 const enableAppnetMonitor = (engineName: string, network: string, iface: string) => {
     console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${network}`)
     // We must send a remote command to engine1 to monitor the network
-    sendCommand(engineName, `enableInterfaceMonitor ${iface} ${network}`)
+    sendCommand(engineName, `enableAppnetMonitor ${iface} ${network}`)
 }
 
 
 const disableAppnetMonitor = (engineName: string, network: string, iface: string) => {
     console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${network}`)
     // We must send a remote command to engine1 to monitor the network
-    sendCommand(engineName, `disableInterfaceMonitor ${iface} ${network}`)
+    sendCommand(engineName, `disableAppnetMonitor ${iface} ${network}`)
 }
 
 // Disk Management
