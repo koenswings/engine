@@ -23,9 +23,6 @@ dependencies:
   mdns:
     specifier: ^2.7.2
     version: 2.7.2
-  netmask:
-    specifier: ^2.0.2
-    version: 2.0.2
   network-interfaces-listener:
     specifier: ^1.0.1
     version: 1.0.1
@@ -70,6 +67,9 @@ devDependencies:
   '@types/mocha':
     specifier: ^10.0.6
     version: 10.0.6
+  '@types/netmask':
+    specifier: ^2.0.5
+    version: 2.0.5
   '@types/node':
     specifier: ^20.5.7
     version: 20.5.7
@@ -79,6 +79,9 @@ devDependencies:
   mocha:
     specifier: ^10.4.0
     version: 10.4.0
+  netmask:
+    specifier: ^2.0.2
+    version: 2.0.2
   nodemon:
     specifier: ^3.0.1
     version: 3.0.1
@@ -406,6 +409,10 @@ packages:
 
   /@types/mocha@10.0.6:
     resolution: {integrity: sha512-dJvrYWxP/UcXm36Qn36fxhUKu8A/xMRXVT2cliFF1Z7UA9liG5Psj3ezNSZw+5puH2czDXRLcXQxf8JbJt0ejg==}
+    dev: true
+
+  /@types/netmask@2.0.5:
+    resolution: {integrity: sha512-9Q5iw9+pHZBVLDG700dlQSWWHTYvOb8KfPjfQTNckCYky4IyjV2xh81+RgC1CCwqv92bYLpz1cVKyJav0B88uQ==}
     dev: true
 
   /@types/node@18.17.12:
@@ -1093,7 +1100,7 @@ packages:
   /netmask@2.0.2:
     resolution: {integrity: sha512-dBpDMdxv9Irdq66304OLfEmQ9tbNRFnFTuZiLo+bD+r332bBmMJ8GBLXklIXXgxd3+v9+KUnZaUR5PJMa75Gsg==}
     engines: {node: '>= 0.4.0'}
-    dev: false
+    dev: true
 
   /network-interfaces-listener@1.0.1:
     resolution: {integrity: sha512-kVggiNeI8ELVbX01VdB/LzNH5irKlVOLi4gackinbyjPBY1rPcAOiKpb7wT3a95fZByz68onS1hgKC3jyImRZg==}

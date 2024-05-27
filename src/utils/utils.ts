@@ -1,5 +1,5 @@
 import util from 'util';
-import { chalk, question } from 'zx';
+import { $, chalk, question } from 'zx';
 
 export const log = console.log.bind(console);
 
@@ -30,6 +30,53 @@ export const isIP4 = (str: string): boolean => {
 }
 
 export const isNetmask = isIP4
+
+const ip2long = (ip) => {
+  var components;
+
+  if(components = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/))
+  {
+      var iplong = 0;
+      var power  = 1;
+      for(var i=4; i>=1; i-=1)
+      {
+          iplong += power * parseInt(components[i]);
+          power  *= 256;
+      }
+      return iplong;
+  }
+  else return -1;
+};
+
+// THIS FUNCTION IS WRONG
+export const inSubNet = (ip, subnet) => {   
+  var mask, base_ip, long_ip = ip2long(ip);
+  if( (mask = subnet.match(/^(.*?)\/(\d{1,2})$/)) && ((base_ip=ip2long(mask[1])) >= 0) )
+  {
+      var freedom = Math.pow(2, 32 - parseInt(mask[2]));
+      return (long_ip > base_ip) && (long_ip < base_ip + freedom - 1);
+  }
+  else return false;
+}
+
+export const IPnumber = (IPaddress) => {
+  var ip = IPaddress.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if(ip) {
+      return (+ip[1]<<24) + (+ip[2]<<16) + (+ip[3]<<8) + (+ip[4]);
+  }
+  // else ... ?
+  return null;
+}
+
+export const findIp = async (address) => {
+  // Use a shell command to resolve the ip address
+  // REmove the trailing \n from the ip address
+  const testEngine1IP = (await $`ping -c 1 ${address} | grep PING | awk '{print $3}' | tr -d '()'`).stdout.replace(/\n$/, '')
+}
+
+
+// *********************************************
+
 
 // Docker-style name generation
 // Inspired by

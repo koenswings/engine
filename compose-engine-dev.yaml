@@ -11,7 +11,7 @@ services:
     init: true
     restart: always
 
-    # Configuration to anble the ability to mount USB devices
+    # Configuration to enable the ability to mount USB devices
     privileged: true 
     # devices:
     #   - "/dev/bus/usb:/dev/bus/usb"

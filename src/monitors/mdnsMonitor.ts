@@ -1,11 +1,13 @@
 import mDnsSd from 'node-dns-sd'
 import events from 'events'   // See https://nodejs.org/api/events.html#events 
-import { log } from '../utils/utils.js';
-import Netmask from 'netmask'
+import { IPnumber, log } from '../utils/utils.js';
 import { chalk } from 'zx';
 import { filterNetworksByInterface, getLocalEngine } from '../data/Store.js';
+import { inSubNet } from '../utils/utils.js'
+// import { Netmask }  from 'netmask'
 
-
+// log(`***node-dns-sd*** Starting mDnsSd Monitoring`)
+// log(Netmask)
 
 // Create an eventEmitter object that emits events when a new engine is discovered on a specified network
 export const engineMonitor = new events.EventEmitter();
@@ -52,17 +54,18 @@ const discoverEngines = () => {
     // });
 
     // ********* node-dns-sd Discovery *********
-    log(`***node-dns-sd*** Discovering engines `)
+    // log(`***node-dns-sd*** Discovering engines `)
     mDnsSd.discover({
         name: '_engine._tcp.local'
-        }).then((device_list) =>{
+        }).then((deviceList) =>{
         // console.log("***node-dns-sd*** "+deepPrint(device_list, 1));
-        printDeviceList(device_list)
-        device_list.forEach((device) => {
+        console.log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName)}`))
+        deviceList.forEach((device) => {
             if (!engines.find((engine) => engine.address === device.address)) {
-                log(chalk.bgMagenta(`Adding engine ${device.familyName} to the list of engines`))
+                // log(chalk.bgMagenta(`Adding engine ${device.familyName} to the list of engines`))
                 engines.push({address: device.address, familyName: device.familyName})
-                printDevice(device)
+                // console.log(chalk.bgBlackBright(`Adding engine: ${JSON.stringify(device, null, '  ')}`))
+
 
                 // Find all interfaces of the local engine that have a netmask that contains the ip address of the remote engine
                 // This can be more than one interface: 
@@ -70,17 +73,34 @@ const discoverEngines = () => {
                 //    in that case engine has two IP addresses on the same LAN
 
                 const ifaces = Object.keys(getLocalEngine().interfaces).filter((iface) => {
-                    const block = new Netmask(getLocalEngine().interfaces[iface].netmask)
-                    return block.contains(device.address)
+                    const netmask = getLocalEngine().interfaces[iface].netmask
+                    const cidr = getLocalEngine().interfaces[iface].cidr
+                    const onNet = inSubNet(device.address, netmask)
+                    log(`According to onNet, on interface ${iface} , the address ${device.address} is ${onNet ? 'on' : 'not on'} the network ${cidr}`)
+                    const netmaskNumber = IPnumber(netmask)
+                    // Mask the device address
+                    const deviceAddressNumber = IPnumber(device.address)
+                    const netNumber = deviceAddressNumber & netmaskNumber
+                    // Mask the CIDR address
+                    const cidrNumber = IPnumber(cidr)
+                    const netNumber2 = cidrNumber & netmaskNumber
+                    // Compare
+                    const onNet2 = (netNumber === netNumber2)
+                    log(`According to onNet2, on interface ${iface} , the address ${device.address} is ${onNet2 ? 'on' : 'not on'} the network ${cidr}`)
+                    return onNet2
+                    // const block = new Netmask(getLocalEngine().interfaces[iface].netmask)
+                    // return block.contains(device.address)
                 })
-                log(chalk.bgMagenta(`Engine ${device.familyName} found on interfaces ${ifaces}`))
+                log(chalk.bgMagenta(`Adding engine ${printDevice(device)}, found on these interfaces: ${ifaces}`))
 
                 // Now find all networks that have connections over this interface
                 let networks = []
                 ifaces.forEach((iface) => {
-                    networks = networks.concat(filterNetworksByInterface(iface))
+                    const nets = filterNetworksByInterface(iface)
+                    log(`Networks ${nets.map((net) => net.name)} on interface ${iface}`)
+                    networks = networks.concat(nets)
                 })
-                log(chalk.bgMagenta(`Engine ${device.familyName} found on networks ${networks.map((network) => network.name)}`))    
+                log(chalk.bgMagenta(`Engine ${device.modelName} found on networks ${networks.map((network) => network.name)}`))    
 
                 networks.forEach((network) => {
                     log(chalk.bgMagenta(`Emitting: new_engine_on_${network.network}_on_${network.iface}`))
@@ -118,15 +138,16 @@ const printDeviceList = (deviceList) => {
 }
 
 const printDevice = (device) => {
-    console.log(`${device.familyName} ${device.address}`)
+    // console.log(`${device.familyName} ${device.address}`)
+    console.log(chalk.bgBlackBright(`${device.modelName} @ ${device.address}`))
 }
 
 
 export const enableMulticastDNSEngineMonitor = () => {
     // Call discoverEngines every 10 seconds
     setInterval(discoverEngines, 60000)
-
-
+    // Call it for the first time
+    discoverEngines()
 }
 
 

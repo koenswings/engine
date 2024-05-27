@@ -29,9 +29,12 @@ export interface Network {
   
 }
 
-export interface NetworkData {
-    engines: Engine[] 
-}
+// export interface NetworkData {
+//     engines: Engine[] 
+// }
+
+export type NetworkData = Engine[]
+
   // HACK - 
   // export interface NetworkData {
   //   [key: string]: any;
@@ -59,11 +62,18 @@ export const createNetwork = (networkName: string):Network => {
     log(`Created a Yjs document for network ${networkName} with id ${networkDoc.clientID}`)
   
     // Create the YMap for the network data
-    const yNetworkData = networkDoc.getMap('data')
+    const yNetworkData = networkDoc.getArray('data')
+    // onst yEngines = networkDoc.getArray('engines')
+    // Set data.engines to yEngines
+    // yNetworkData.set('engines', yEngines)
+    
+
   
     // Now add the proxied engine object to the networkData
     // Valtio supports nesting of proxied objects 
-    const networkData = proxy<NetworkData>({engines:[]}) 
+    // const networkData = proxy<NetworkData>({engines:[]}) 
+    const networkData = proxy<NetworkData>([]) 
+    // const networkData = proxy<NetworkData>({engines:undefined}) 
   
     // Bind the Valtio proxy to the Yjs object
     const unbind = bind(networkData as Record<string, any>, yNetworkData);
@@ -146,7 +156,7 @@ export const connectNetwork = (network:Network, address:string, ifaceName:string
   }
 
   export const getNetworkApps = (network: Network) => {
-    return network.data.engines.reduce(
+    return network.data.reduce(
       (acc, engine) => {
         return acc.concat(getEngineApps(engine))
       },
@@ -154,7 +164,7 @@ export const connectNetwork = (network:Network, address:string, ifaceName:string
   }
 
   export const getNetworkInstances = (network: Network) => {
-    return network.data.engines.reduce(
+    return network.data.reduce(
       (acc, engine) => {
         return acc.concat(getEngineInstances(engine))
       },
@@ -164,7 +174,7 @@ export const connectNetwork = (network:Network, address:string, ifaceName:string
   export const getNetworkDisks = (network: Network) => {
     // Collect all disks from all networkData.engines
     // Loop over all networkData.engines and collect all disks in one array called disks
-    return network.data.engines.reduce(
+    return network.data.reduce(
       (acc, engine) => {
         return acc.concat(engine.disks)
       },

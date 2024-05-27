@@ -97,7 +97,10 @@ export interface TestSetup {
 
 export interface TestDisk {
   name: string,
-  apps: TestApp[]
+  apps: TestApp[],
+  // Optional properties for version, hostOS
+  version?: string,
+  hostOS?: string
 }
 
 export interface TestApp {

@@ -113,7 +113,7 @@ const ls = () => {
 
 const lsEngines = () => {
     console.log('Engines:')
-    console.log(deepPrint(networkData.engines, 3))
+    console.log(deepPrint(networkData, 3))
 }
 
 const lsDisks = () => {
@@ -204,7 +204,7 @@ const stopInstance = (engineName: string, instanceName: string, diskName: string
 const sendCommand = (engineName: string, command: string) => {
     console.log(`Sending command '${command}' to engine ${engineName}`)
     // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
-    const engine = networkData.engines.find(e => e.hostName === engineName)
+    const engine = networkData.find(e => e.hostName === engineName)
     if (engine) {
         console.log(`Pushing commands to ${engineName}`)
         engine.commands.push(command)

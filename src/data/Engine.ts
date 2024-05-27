@@ -19,9 +19,10 @@ export interface Engine {
 
 // We give an engine an Interface once it has an IP address on that interface
 export interface Interface {
-    name: string
-    ip4: string;
-    netmask: string;
+    name: string,
+    ip4: string,
+    netmask: string,
+    cidr: string
 }
 
 export const addDisk = (engine: Engine, disk: Disk) => {
@@ -40,11 +41,12 @@ export const removeDiskByName = (engine: Engine, diskName: string) => {
     engine.disks = engine.disks.filter(disk => disk.name !== diskName)
 }
 
-export const addInterface = (engine: Engine, ifaceName: string, ip4: string, netmask: string) => {
+export const addInterface = (engine: Engine, ifaceName: string, ip4: string, netmask: string, cidr: string) => {
     const iface = {
         name: ifaceName,
         ip4: ip4,
         netmask: netmask,
+        cidr: cidr
     }
     // And add it to the local engine
     engine.interfaces[ifaceName] = iface}

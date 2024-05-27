@@ -57,7 +57,7 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
         // And add it to the networks array
         addNetwork(network)
         // Add local engine
-        network.data.engines.push(localEngine)
+        network.data.push(localEngine)
     }
   
 
@@ -78,6 +78,7 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
             const ip4 = data[ifaceName].find((address) => address.family === 'IPv4').address
             const netmask = data[ifaceName].find((address) => address.family === 'IPv4').netmask
+            const cidr = data[ifaceName].find((address) => address.family === 'IPv4').cidr
             const nowConnected:Boolean = ip4 ? true : false
             const wasConnected:Boolean =  localEngine.interfaces[ifaceName] && localEngine.interfaces[ifaceName].hasOwnProperty('ip4')
 
@@ -99,7 +100,7 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
             if (!wasConnected && nowConnected) {
 
-                addInterface(localEngine, ifaceName, ip4, netmask)
+                addInterface(localEngine, ifaceName, ip4, netmask, cidr)
                 log(`Added or updated interface ${ifaceName} on local engine`)
                 connectNetwork(network, ip4, ifaceName)
                 // Now monitor this interface for additonal engines that are on the network
