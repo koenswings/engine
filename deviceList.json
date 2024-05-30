@@ -1,0 +1,154 @@
+[
+    {
+      "address": "192.168.0.139",
+      "fqdn": "loving-jennings (2)._engine._tcp.local",
+      "modelName": "loving-jennings (2)",
+      "familyName": null,
+      "service": {
+        "port": 1234,
+        "protocol": "tcp",
+        "type": "engine"
+      },
+      "packet": {
+        "header": {
+          "id": 0,
+          "qr": 1,
+          "op": 0,
+          "aa": 1,
+          "tc": 0,
+          "rd": 0,
+          "ra": 0,
+          "z": 0,
+          "ad": 0,
+          "cd": 0,
+          "rc": 0,
+          "questions": 0,
+          "answers": 1,
+          "authorities": 0,
+          "additionals": 7
+        },
+        "questions": [],
+        "answers": [
+          {
+            "name": "_engine._tcp.local",
+            "type": "PTR",
+            "class": "IN",
+            "flash": false,
+            "ttl": 4500,
+            "rdata": "loving-jennings (2)._engine._tcp.local"
+          }
+        ],
+        "authorities": [],
+        "additionals": [
+          {
+            "name": "loving-jennings (2)._engine._tcp.local",
+            "type": "TXT",
+            "class": "IN",
+            "flash": true,
+            "ttl": 4500,
+            "rdata": {
+              "name": "loving-jennings",
+              "version": "1.0",
+              "network": "appnet"
+            },
+            "rdata_buffer": {
+              "name": {
+                "type": "Buffer",
+                "data": [
+                  108,
+                  111,
+                  118,
+                  105,
+                  110,
+                  103,
+                  45,
+                  106,
+                  101,
+                  110,
+                  110,
+                  105,
+                  110,
+                  103,
+                  115
+                ]
+              },
+              "version": {
+                "type": "Buffer",
+                "data": [
+                  49,
+                  46,
+                  48
+                ]
+              },
+              "network": {
+                "type": "Buffer",
+                "data": [
+                  97,
+                  112,
+                  112,
+                  110,
+                  101,
+                  116
+                ]
+              }
+            }
+          },
+          {
+            "name": "loving-jennings (2)._engine._tcp.local",
+            "type": "SRV",
+            "class": "IN",
+            "flash": true,
+            "ttl": 120,
+            "rdata": {
+              "priority": 0,
+              "weight": 0,
+              "port": 1234,
+              "target": "loving-jennings-(2).local"
+            }
+          },
+          {
+            "name": "loving-jennings-(2).local",
+            "type": "A",
+            "class": "IN",
+            "flash": true,
+            "ttl": 120,
+            "rdata": "192.168.0.139"
+          },
+          {
+            "name": "loving-jennings-(2).local",
+            "type": "AAAA",
+            "class": "IN",
+            "flash": true,
+            "ttl": 120,
+            "rdata": "fe80:0000:0000:0000:bd01:e324:f586:2bf9"
+          },
+          {
+            "name": "loving-jennings-(2).local",
+            "type": "AAAA",
+            "class": "IN",
+            "flash": true,
+            "ttl": 120,
+            "rdata": "2a02:1810:3819:f400:6495:1c70:dca7:508a"
+          },
+          {
+            "name": "loving-jennings (2)._engine._tcp.local",
+            "type": "NSEC",
+            "class": "IN",
+            "flash": true,
+            "ttl": 4500,
+            "rdata": "13 6c 6f 76 69 6e 67 2d 6a 65 6e 6e 69 6e 67 73 20 28 32 29 07 5f 65 6e 67 69 6e 65 04 5f 74 63 70 05 6c 6f 63 61 6c 00 00 05 00 00 80 00 40"
+          },
+          {
+            "name": "loving-jennings-(2).local",
+            "type": "NSEC",
+            "class": "IN",
+            "flash": true,
+            "ttl": 120,
+            "rdata": "13 6c 6f 76 69 6e 67 2d 6a 65 6e 6e 69 6e 67 73 2d 28 32 29 05 6c 6f 63 61 6c 00 00 04 40 00 00 08"
+          }
+        ],
+        "address": "192.168.0.139"
+      }
+    }
+  ]
+  

@@ -12,7 +12,7 @@ if (argv.v || argv.version) {
 // Add commandline option to print the help of the script
 if (argv.h || argv.help) {
   console.log(`
-  Usage: $0 [options]
+  Usage: ./sync-engine.ts [options]
   
   Options:
     -u, --user <user>            Username to use for SSH connection

@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { NetworkData, ConnectionResult, Network, createNetwork, connectNetwork, disconnectNetwork } from '../src/data/Network.js';
+import { NetworkData, ConnectionResult, Network, createNetwork, connectNetwork } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { expect } from 'chai';
@@ -22,11 +22,17 @@ const testEngine2Address = testDisk2.name + ".local"
 
 import { network1 } from './03-test-engine-1.js'
 import { network2 } from './04-test-engine-2.js'
-const networkData1 = network1.data
-const networkData2 = network2.data
+let networkData1 
+let networkData2 
 
 
 describe('Two remote engines - ', () => {
+
+    before(function () {
+        // Networks should have their network data by now
+        networkData1 = network1.data
+        networkData2 = network2.data
+    })
 
     it(`test engine 1 must appear in the network data of test engine 2`, async function () {
         const remoteEngine1 = networkData2.find(eng => eng.hostName === testEngine1Name)
@@ -78,8 +84,8 @@ describe('Two remote engines - ', () => {
 
     after(function () {
         // Close the network
-        disconnectNetwork(network1, testInterface)
-        disconnectNetwork(network2, testInterface)
+        // disconnectNetwork(network1, testInterface)
+        // disconnectNetwork(network2, testInterface)
     })
-    
+
 })

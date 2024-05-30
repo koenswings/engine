@@ -17,7 +17,7 @@ export const contains = (yarray, value) => {
   }
 
 export const deepPrint = (obj, depth=null) => {
-    return util.inspect(obj, {showHidden: false, depth: depth, colors: true})
+    return log(util.inspect(obj, {showHidden: false, depth: depth, colors: true}))
     // Alternative: return JSON.stringify(obj, null, 2)
     // Alternative: return console.dir(obj, {depth: null, colors: true})
 }
@@ -31,9 +31,11 @@ export const isIP4 = (str: string): boolean => {
 
 export const isNetmask = isIP4
 
+// See https://stackoverflow.com/questions/503052/how-to-check-if-ip-is-in-one-of-these-subnets
+
+
 const ip2long = (ip) => {
   var components;
-
   if(components = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/))
   {
       var iplong = 0;
@@ -66,6 +68,11 @@ export const IPnumber = (IPaddress) => {
   }
   // else ... ?
   return null;
+}
+
+export const sameNet = (IP1, IP2, mask) => {
+  log(`${IPnumber(IP1) & IPnumber(mask)} == ${IPnumber(IP2) & IPnumber(mask)}`)
+  return (IPnumber(IP1) & IPnumber(mask)) == (IPnumber(IP2) & IPnumber(mask))
 }
 
 export const findIp = async (address) => {

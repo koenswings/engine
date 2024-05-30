@@ -56,10 +56,17 @@ if (argv.v || argv.version) {
   process.exit(0);
 }
 
+// Add commandline option to read the build mode (dev or prod)
+let productionMode = false
+if (argv.prod) {
+  productionMode = true
+  console.log(`Building a production image`)
+}
+
 // Add commandline option to print the help of the script
 if (argv.h || argv.help) {
   console.log(`Builds a Raspberry Pi image with the specified configuration.`)
-  console.log(`Usage: build_image.ts [options]` )
+  console.log(`Usage: ./build-image.ts [options]` )
   console.log(`Options:`)
   console.log(`  -h, --help              display help for command`)  
   console.log(`  -v, --version           output the version number`)
@@ -70,14 +77,14 @@ if (argv.h || argv.help) {
   console.log(`  -l, --language <string> the language to set on the remote machine (default: ${defaults.language})`)
   console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote machine (default: ${defaults.keyboard})`)
   console.log(`  -t, --timezone <string> the timezone to set on the remote machine (default: ${defaults.timezone})`)
-  console.log(`  --update                wether to update the system (default: ${defaults.update})`)
-  console.log(`  --upgrade               wether to upgrade the system (default: ${defaults.upgrade})`)
+  console.log(`  --update                whether to update the system (default: ${defaults.update})`)
+  console.log(`  --upgrade               whether to upgrade the system (default: ${defaults.upgrade})`)
   console.log(`  --hdmi                  whether to switch off HDMI power (default: ${defaults.hdmi})`)
-  console.log(`  --temperature           wether to install temperature measurement (default: ${defaults.temperature})`)
-  console.log(`  --argon                 wether to install the Argon fan script (default: ${defaults.argon})`)
-  console.log(`  --zerotier              wether to install Zerotier (default: ${defaults.zerotier})`)
-  console.log(`  --raspap                wether to install RaspAP (default: ${defaults.raspap})`)
-  console.log(`  --gadget                wether to run the rpi4-usb script (default: ${defaults.gadget})`)
+  console.log(`  --temperature           whether to install temperature measurement (default: ${defaults.temperature})`)
+  console.log(`  --argon                 whether to install the Argon fan script (default: ${defaults.argon})`)
+  console.log(`  --zerotier              whether to install Zerotier (default: ${defaults.zerotier})`)
+  console.log(`  --raspap                whether to install RaspAP (default: ${defaults.raspap})`)
+  console.log(`  --gadget                whether to run the rpi4-usb script (default: ${defaults.gadget})`)
   console.log(``)
   process.exit(0)
 }
@@ -109,8 +116,11 @@ const syncEngine = async () => {
         }
         //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
         //await $`rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
-        // Call the sync_engine script
-        await $`./sync_engine --user ${user} --host ${machine}`;
+        // Call the sync-engine script
+        await $`./sync-engine --user ${user} --host ${machine}`;
+        // await $`rsync -av --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r --perms --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
+        // await $`rsync -av --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
+        // await $`sudo rsync -v -r --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
     } catch (e) {   
         console.log(chalk.red('Failed to sync the engine to the remote machine'));
         console.error(e);
@@ -122,8 +132,8 @@ const syncEngine = async () => {
 const copyAsset = async (asset: string, destination: string, executable: boolean = false, chmod: string | null = "0644", chown: string | null = "0:0") => {
     console.log(chalk.blue(`Copying asset ${asset} to ${destination}`));
     try {
-        //await $$`sshpass -p ${password} ssh ${user}@${machine} "sudo cp ${enginePath}/scripts/build_image_assets/${asset} ${destination}"`;
-        await $$`sudo cp ${enginePath}/scripts/build_image_assets/${asset} ${destination}`;
+        //await $$`sshpass -p ${password} ssh ${user}@${machine} "sudo cp ${enginePath}/script/build_image_assets/${asset} ${destination}"`;
+        await $$`sudo cp ${enginePath}/script/build_image_assets/${asset} ${destination}`;
         console.log(chalk.blue(`chmod to ${chmod} of ${destination}/${asset}`));
         // 644 means that the owner can read and write, and everyone else can read
         //await $`sshpass -p ${password} ssh ${user}@${machine} "sudo chmod ${chmod} ${destination}/${asset}"`;
@@ -223,7 +233,7 @@ const installCrontabs = async () => {
     // Copy boot.sh to /usr/local/bin
     await copyAsset('boot.sh', '/usr/local/bin', true)
     // Install the crontab defs in the crondefs asset
-    await $$`sudo crontab ${enginePath}/scripts/build_image_assets/crondefs`
+    await $$`sudo crontab ${enginePath}/script/build_image_assets/crondefs`
     // Alternative Copy the crontabs to /etc/cron.d
     // await copyAsset('crondefs', '/etc/cron.d')
   } catch (e) {
@@ -302,8 +312,8 @@ const installDocker = async () => {
   console.log(chalk.blue('Installing Docker'))
   try {
       // Make the script executable
-      await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/install-docker.sh`;
-      await $$`sudo ${enginePath}/scripts/build_image_assets/install-docker.sh`;
+      await $$`sudo chmod +x ${enginePath}/script/build_image_assets/install-docker.sh`;
+      await $$`sudo ${enginePath}/script/build_image_assets/install-docker.sh`;
   } catch (e) {
     console.log(chalk.red('Error installing Docker'));
     console.error(e);
@@ -458,7 +468,7 @@ const cloneRepo = async () => {
   try {
       await $$`git config --global user.email "koen@swings.be"`;
       await $$`git config --global user.name "Koen Swings"`;
-      await $$`gh auth login --with-token < ${enginePath}/scripts/build_image_assets/gh_token.txt`;
+      await $$`gh auth login --with-token < ${enginePath}/script/build_image_assets/gh_token.txt`;
       // If the repo already exists, remove it
       // Use the test function to check if the directory exists
       await $$`if [ -d ${enginePath} ]; then sudo rm -rf ${enginePath}; fi`;
@@ -472,14 +482,18 @@ const cloneRepo = async () => {
   console.log(chalk.green('Engine repo cloned'));
 }
 
-// Write a function to compose up the engine using the compose-test.yml file
-const startEngine = async () => {
+// Write a function to compose up the engine using the correct compose file
+const startEngine = async (productionMode:boolean) => {
   // Build the engine image
-  console.log(chalk.blue('Building the engine image...'));
+  console.log(chalk.blue(`Building a ${productionMode ? "production" : "dev"} mode engine image...`))
   try {
       // Compose build
       // (use sudo because the docker group has not been added yet - requires a reboot)
-      await $$`cd ${enginePath} && sudo docker compose -f compose-test.yaml build`;
+      if (productionMode) {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
+      } else {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
+      }
   } catch (e) {
     console.log(chalk.red('Error building the engine image'));
     console.error(e);
@@ -492,7 +506,11 @@ const startEngine = async () => {
   try {
       // Compose up 
       // (use sudo because the docker group has not been added yet - requires a reboot)
-      await $$`cd ${enginePath} && sudo docker compose -f compose-test.yaml up -d`;
+      if (productionMode) {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
+      } else {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
+      }
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
     console.error(e);
@@ -532,8 +550,8 @@ const usbGadget = async () => {
   console.log(chalk.blue('Running the rpi4-usb script...'));
   try {
       // Make the script executable
-      await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/rpi4-usb.sh`;
-      await $$`sudo ${enginePath}/scripts/build_image_assets/rpi4-usb.sh`;
+      await $$`sudo chmod +x ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
+      await $$`sudo ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
   } catch (e) {
     console.log(chalk.red('Error running the rpi4-usb script'));
     console.error(e);
@@ -548,8 +566,8 @@ const installRaspAP = async () => {
   try {
     const raspap_version = "2.8.5"
     // Make the script executable
-    await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/install-raspap.sh`;
-    await $$`sudo ${enginePath}/scripts/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;  
+    await $$`sudo chmod +x ${enginePath}/script/build_image_assets/install-raspap.sh`;
+    await $$`sudo ${enginePath}/script/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;  
   } catch (e) {
     console.log(chalk.red('Error installing RaspAP'));
     console.error(e);
@@ -563,8 +581,8 @@ const installZerotier = async () => {
   console.log(chalk.blue('Installing Zerotier...'));
   try {
     // Make the script executable
-    await $$`sudo chmod +x ${enginePath}/scripts/build_image_assets/install-zerotier.sh`;
-    await $$`sudo ${enginePath}/scripts/build_image_assets/install-zerotier.sh`;  
+    await $$`sudo chmod +x ${enginePath}/script/build_image_assets/install-zerotier.sh`;
+    await $$`sudo ${enginePath}/script/build_image_assets/install-zerotier.sh`;  
   } catch (e) {
     console.log(chalk.red('Error installing Zerotier'));
     console.error(e);
@@ -660,7 +678,7 @@ const build = async () => {
     // await cloneRepo(releaseSpecified)
 
     // Start the engine
-    await startEngine()
+    await startEngine(productionMode)
 
     // Run the rpi4-usb script
     await usbGadget()
@@ -670,6 +688,6 @@ const build = async () => {
 }
 
 await build()
-console.log(chalk.green('Build completed successfully'));
+console.log(chalk.green(`Build completed successfully. System renamed`));
 process.exit(0);
 

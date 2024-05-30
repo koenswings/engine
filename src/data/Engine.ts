@@ -1,3 +1,4 @@
+import { $ } from 'zx';
 import { log } from '../utils/utils.js';
 import { Version, DockerMetrics, DockerLogs, DockerEvents } from './CommonTypes.js';
 import { Disk } from './Disk.js';
@@ -56,7 +57,9 @@ export const removeInterface = (engine: Engine, iface: Interface) => {
 }
 
 export const removeInterfaceByName = (engine: Engine, ifaceName: string) => {
-    delete engine.interfaces[ifaceName]
+    if (engine.interfaces[ifaceName]) {
+        delete engine.interfaces[ifaceName]
+    }
 }
 
 export const findInterface = (engine: Engine, ifaceName: string) => {
@@ -91,8 +94,8 @@ export const getEngineInstances = (engine: Engine) => {
       [])
 }
 
-
-
-
-
+export const rebootEngine = (engine: Engine) => {
+    log(`Rebooting engine ${engine.hostName}`)
+    $`sudo reboot now`
+}
 

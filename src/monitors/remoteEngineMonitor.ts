@@ -36,10 +36,12 @@ export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
         name: engineName,
         type: 'engine',
         port: 1234, // optional, can also be set via updatePort() before advertising
+        restrictedAddresses: [ifaceName], 
         txt: {
                 name: engineName,
                 version: engineVersion,
-                network: networkName
+                appnet: networkName,
+                iface: ifaceName
             }
     })
 
@@ -49,8 +51,8 @@ export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
     });
 
     // Register a callback on the mdnsMonitor for new engines on this interface and network
-    engineMonitor.on(`new_engine_on_${networkName}_on_${ifaceName}`, (device) => {
-        log(chalk.bgMagenta(`Engine ${device.familyName} discovered on the network`))
+    engineMonitor.on(`new_engine_on_network_${networkName}`, (device) => {
+        log(chalk.bgMagenta(`Engine ${device.modelName} discovered on network ${networkName} via interface ${ifaceName}`))
         const network = findNetworkByName(networkName)
         if (network) {
             connectNetwork(network, device.address, ifaceName)

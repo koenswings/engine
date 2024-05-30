@@ -2,7 +2,7 @@ import { getLocalEngine, findNetworkByName, } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { readConfig } from '../src/utils/readConfig.js';
-import { ConnectionResult, Network, NetworkData, connectNetwork, createNetwork, disconnectNetwork } from '../src/data/Network.js';
+import { ConnectionResult, Network, NetworkData, connectNetwork, createNetwork } from '../src/data/Network.js';
 import { chalk, sleep } from 'zx';
 import { subscribe } from 'valtio';
 //import { expect } from 'chai';
@@ -79,9 +79,17 @@ describe(`The websocket server of the test master - `, function () {
 
   it('must support connections over the loopback interface', async function () {
     this.timeout(0)
+    
+    // Expect the local engine to have an interface called "lo" with ip address 127.0.0.1
+    const engine = getLocalEngine()
+    expect(engine.interfaces).to.have.property("lo")
+    expect(engine.interfaces["lo"].ip4).to.eql(loopBackAddress)
+
+    // Expect the network, networkData and connectionPromise to exist
     expect(network).to.exist
     expect(networkData).to.exist
     expect(connectionPromise).to.exist
+    
     // The promise must resolve to a ConnectionResult
     const connection1 = await connectionPromise
     expect(connection1).to.exist
@@ -149,7 +157,7 @@ describe(`The websocket server of the test master - `, function () {
 
   after(function () {
     // Close the network
-    disconnectNetwork(network, testInterface)
+    // disconnectNetwork(network, testInterface)
   })
 
   //   it(`the local Engine object must have the right properties`, async function () {

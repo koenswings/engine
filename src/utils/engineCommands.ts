@@ -1,11 +1,13 @@
 import { createInstanceFromFile, startInstance, runInstance, stopInstance  } from '../data/Instance.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
-import { enableAppnetMonitor, disableAppnetMonitor } from '../monitors/appnetMonitor.js'
+import { enableAppnetMonitor } from '../monitors/appnetMonitor.js'
 import { $, YAML, chalk } from 'zx';
 import { read } from 'fs';
 import { readConfig } from './readConfig.js';
 import { CommandDefinition } from '../data/CommandDefinition.js';
+import { getLocalEngine } from '../data/Store.js';
+import { rebootEngine } from '../data/Engine.js';
 
 const storeAndEnableAppnetMonitor = async (networkName: string, ifaceName: string) => {
     // Read the config.yaml file, add this command to the startupCOmmands array, and write the file back
@@ -47,7 +49,10 @@ const storeAndDisableAppnetMonitor = async (networkName: string, ifaceName: stri
     }
     
     // Now call the enableInterfaceMonitor function
-    disableAppnetMonitor(networkName, ifaceName)
+    // disableAppnetMonitor(networkName, ifaceName)
+
+    // Now reboot the engine
+    rebootEngine(getLocalEngine())
 }
 
 // Command registry with an example of the new object command

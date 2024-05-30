@@ -60,13 +60,13 @@ export const findNetworkByName = (networkName: string): Network | undefined => {
     return store.networks.find(network => network.name === networkName)
 }
 
-export const filterNetworksByInterface = (ifaceName: string) => {
-    // Find all networks with that have connections for the specified interface
-    return store.networks.filter(network => {
-        // Check if networks.connections[iface] is not an empty object
-        return network.connections[ifaceName] && Object.keys(network.connections[ifaceName]).length > 0
-    })
-}
+// export const filterNetworksByInterface = (ifaceName: string) => {
+//     // Find all networks with that have connections for the specified interface
+//     return store.networks.filter(network => {
+//         // Check if networks.connections[iface] is not an empty object
+//         return network.connections[ifaceName] && Object.keys(network.connections[ifaceName]).length > 0
+//     })
+// }
 
 export const getNetworks = () => {
     return store.networks
