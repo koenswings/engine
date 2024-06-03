@@ -14,5 +14,5 @@
     "src",
     "script",
     "test"  
-, "scratchpad/readDefaults.ts"  ] 
+ ] 
 }

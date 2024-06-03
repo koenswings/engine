@@ -1,11 +1,10 @@
-settings:
-  appnets:
-    - name: appnet
-      id: 1351494052
-  interfaces:
+appnetSetup:
+  - name: appnet
+    interfaces:
       - eth0
       - wlan0
-scriptDefaults:
+    id: 1351494052
+defaults:
   user: pi
   machine: raspberrypi.local
   password: raspberry

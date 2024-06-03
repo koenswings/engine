@@ -16,7 +16,9 @@
     "test3": "mocha --config x.mocharc.json --es-module-specifier-resolution=node --reporter list 'test/*.ts'",
     "test2": "mocha --config x.mocharc.json --import=tsx --reporter list 'test/*.ts'",
     "test1": "mocha --require ts-node/register --extensions ts,tsx --loader ts-node/esm --reporter list 'test/*.ts' --exit",
-    "clean": "tsc --build --clean",
+    "cleanOld": "tsc --build --clean",
+    "clean": "rm -fr dist/*",
+    "build": "pnpm clean && tsc",
     "test": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db mocha --reporter list 'dist/test/*.js' --exit"
   },
   "keywords": [],

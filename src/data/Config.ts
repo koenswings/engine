@@ -1,3 +1,5 @@
+import { assert } from "console"
+import { interfaces } from "mocha"
 import { $, YAML, chalk } from "zx"
 
 // const $$ = $({
@@ -5,6 +7,42 @@ import { $, YAML, chalk } from "zx"
 // })
 
 $.verbose = false
+
+// Startup configuration
+// Sample:
+// startup:
+//   commands:
+//     - enableAppnetMonitor appnet eth0 
+//     - enableAppnetMonitor appnet wlan0
+// export interface Startup {
+//   commands: string[]
+// }
+
+export interface Config {
+  settings: Settings,
+  defaults: ScriptDefaults,
+  testSetup: TestSetup,
+}
+
+export interface Settings {
+  appnets: AppnetConfig[],
+  interfaces: InterfaceName[]
+}
+
+export type InterfaceName = string
+
+export interface AppnetConfig {
+  name: string,
+  id?: number
+}
+
+export type AppnetSetup = AppnetConfig[]
+
+export interface Config {
+  defaults: ScriptDefaults,
+  testSetup: TestSetup,
+  appnetSetup: AppnetSetup
+}
 
 // ********************************************************************************************************************
 // Read the defaults from the YAML file and override the default configuration using the command line
@@ -45,7 +83,7 @@ $.verbose = false
 // raspap: true
 
 // Please define a TypeScript type for the object read from the YAML file
-export interface Defaults {
+export interface ScriptDefaults {
   user: string,
   machine: string,
   password: string,
@@ -119,31 +157,6 @@ export interface TestApp {
   icon: string
 }
 
-
-// Startup configuration
-// Sample:
-// startup:
-//   commands:
-//     - enableAppnetMonitor appnet eth0 
-//     - enableAppnetMonitor appnet wlan0
-// export interface Startup {
-//   commands: string[]
-// }
-
-export interface AppnetConfig {
-  name: string,
-  interfaces: string[]
-  id?: number
-}
-
-export type AppnetSetup = AppnetConfig[]
-
-export interface Config {
-  defaults: Defaults,
-  testSetup: TestSetup,
-  appnetSetup: AppnetSetup
-}
-
 export const getAppnetId = (appnetSetup: AppnetSetup, appnetName: string): number => {
   // Find the id of a given appnet
   const appnetConfig = appnetSetup.find((appnet) => appnet.name === appnetName)
@@ -159,21 +172,13 @@ export const setAppnetId = (appnetSetup: AppnetSetup, appnetName: string, id:num
 
 export const readConfig = async (path: string): Promise<Config> => {
   // Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
-  let defaults: Defaults
-  let testSetup: TestSetup
-  // let startup: Startup
-  let appnetSetup: AppnetSetup
+  let config: Config
   try {
     await $`pwd`
     const configFile = await $`cat ${path}`
-    const config = YAML.parse(configFile.stdout)
-    //console.log(readDefaults)
-    defaults = config.defaults
-    testSetup = config.testSetup
-    //startup = config.startup as Startup
-    appnetSetup = config.appnetSetup
+    config = YAML.parse(configFile.stdout)
     console.log(chalk.green('Config read'));
-    return { appnetSetup: appnetSetup, defaults: defaults, testSetup: testSetup }
+    return config
   } catch (e) {
     console.log(chalk.red('Error reading config!!'));
     console.error(e)
