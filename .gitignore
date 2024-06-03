@@ -5,6 +5,9 @@
 # Scratchpad folder
 scratchpad/
 
+# The Yjs persistent storage folder
+yjs-db
+
 # Github access token
 scripts/build_image_assets/gh_token.txt
 

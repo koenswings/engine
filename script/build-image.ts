@@ -3,7 +3,7 @@ import pack from '../package.json' assert { type: "json" }
 import YAML from 'yaml'
 import { generateHostName } from '../src/utils/utils.js'
 //import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
-import { readConfig } from '../src/utils/readConfig.js'
+import { readConfig } from '../src/data/Config.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project

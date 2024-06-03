@@ -3,7 +3,7 @@ import { NetworkData, ConnectionResult, Network, createNetwork, connectNetwork }
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { expect } from 'chai';
-import { readConfig } from '../src/utils/readConfig.js';
+import { readConfig } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 import { subscribe } from 'valtio';
 
@@ -39,7 +39,7 @@ describe('Test engine 1 - ', () => {
                 process.exit(1)
             }
         })
-        connection1Promise = connectNetwork(network1, testEngine1Address, testInterface)
+        connection1Promise = connectNetwork(network1, testEngine1Address, testInterface, false)
         //console.dir(networkData, {depth: 3, colors: true})
         //log(chalk.green(deepPrint(networkData1, 4)))
         // JSON.stringify(networkData, null, 2)))

@@ -5,7 +5,7 @@ import { chalk } from 'zx';
 import { connectNetwork } from '../data/Network.js';
 import { findNetworkByName, getLocalEngine } from '../data/Store.js';
 
-export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
+export const enableRemoteEngineMonitor = (ifaceName: string, networkName: string) => {
     log(`Monitoring interface ${ifaceName} for other engines that are on network ${networkName}`)
 
     // Advertise the local engine on the network using mdns using the following service name: engineName._engine._tcp
@@ -55,7 +55,7 @@ export const enableEngineMonitor = (ifaceName: string, networkName: string) => {
         log(chalk.bgMagenta(`Engine ${device.modelName} discovered on network ${networkName} via interface ${ifaceName}`))
         const network = findNetworkByName(networkName)
         if (network) {
-            connectNetwork(network, device.address, ifaceName)
+            connectNetwork(network, device.address, ifaceName, false)
         }
     })
 

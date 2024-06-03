@@ -38,7 +38,9 @@ let persistence: { bindState: (arg0: string, arg1: WSSharedDoc) => void; writeSt
 if (typeof persistenceDir === 'string') {
   console.info('Persisting documents to "' + persistenceDir + '"')
   // @ts-ignore
-  const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
+  const leveldb = await import('y-leveldb')  // KSW
+  const LeveldbPersistence = leveldb.LeveldbPersistence  // KSW
+  // const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
   const ldb = new LeveldbPersistence(persistenceDir)
   persistence = {
     provider: ldb,

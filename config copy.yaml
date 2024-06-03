@@ -1,9 +1,3 @@
-appnetSetup:
-  - name: appnet
-    interfaces:
-      - eth0
-      - wlan0
-    id: 1351494052
 defaults:
   user: pi
   machine: raspberrypi.local
@@ -54,4 +48,9 @@ testSetup:
         category: education
         icon: icon.png
         author: Koen Swings
+appnetSetup:
+  - name: appnet
+    interfaces:
+      - eth0
+    id: 3852840043
 

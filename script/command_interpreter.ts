@@ -7,7 +7,7 @@ import { deepPrint } from '../src/utils/utils.js';
 
 import pack from '../package.json' assert { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
-import { readConfig } from '../src/utils/readConfig.js'
+import { readConfig } from '../src/data/Config.js'
 
 import { getNetworks } from '../src/data/Store.js';
 import { CommandDefinition } from '../src/data/CommandDefinition.js';
@@ -45,7 +45,7 @@ if (argv.v || argv.version) {
 
 const network: Network = createNetwork(networkName)
 const networkData: NetworkData = network.data
-await connectNetwork(network, engineAddress, "lo")
+await connectNetwork(network, engineAddress, "lo", true)
 
 
 

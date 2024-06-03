@@ -1,5 +1,6 @@
 import util from 'util';
 import { $, chalk, question } from 'zx';
+import { readConfig, writeConfig } from '../data/Config.js';
 
 export const log = console.log.bind(console);
 
@@ -17,7 +18,7 @@ export const contains = (yarray, value) => {
   }
 
 export const deepPrint = (obj, depth=null) => {
-    return log(util.inspect(obj, {showHidden: false, depth: depth, colors: true}))
+    return util.inspect(obj, {showHidden: false, depth: depth, colors: true})
     // Alternative: return JSON.stringify(obj, null, 2)
     // Alternative: return console.dir(obj, {depth: null, colors: true})
 }
@@ -81,6 +82,22 @@ export const findIp = async (address) => {
   const testEngine1IP = (await $`ping -c 1 ${address} | grep PING | awk '{print $3}' | tr -d '()'`).stdout.replace(/\n$/, '')
 }
 
+export const reset = async ($) => {
+  console.log(chalk.blue('Resetting the local engine'));
+  try {
+      const { appnetSetup, defaults, testSetup } = await readConfig('../config.yaml')
+      console.log(chalk.blue('Removing the yjs database'));
+      await $`rm -rf ../yjs-db`;
+      console.log(chalk.blue('Removing all appnet ids'))
+      appnetSetup.forEach((appnet) => delete appnet.id)
+      console.log(chalk.blue('Updating the config file'));
+      writeConfig({appnetSetup, defaults, testSetup}, '../config.yaml')
+  } catch (e) {   
+      console.log(chalk.red('Failed to sync the engine to the remote machine'));
+      console.error(e);
+      process.exit(1);
+  }
+}
 
 // *********************************************
 

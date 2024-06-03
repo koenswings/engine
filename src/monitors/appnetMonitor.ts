@@ -4,7 +4,12 @@ import { addNetwork, findNetworkByName, getLocalEngine } from '../data/Store.js'
 import { createNetwork, connectNetwork, getListenerByIface, addListener, getListeners } from '../data/Network.js'
 import { deepPrint, log } from '../utils/utils.js'
 import { addInterface, removeInterface, removeInterfaceByName } from '../data/Engine.js'
-import { enableEngineMonitor } from './remoteEngineMonitor.js'
+import { enableRemoteEngineMonitor } from './remoteEngineMonitor.js'
+import { existsSync, write } from 'fs'
+import { $, chalk } from 'zx'
+import { exit } from 'process'
+import { getAppnetId, readConfig, setAppnetId, writeConfig } from '../data/Config.js'
+import { LIBUSB_CAP_HAS_HID_ACCESS } from 'usb/dist/usb/bindings.js'
 
 // export const enableNetworkInterfaceMonitor = () => {
 //     // Get a list of all non-virtual interface names
@@ -44,10 +49,11 @@ import { enableEngineMonitor } from './remoteEngineMonitor.js'
 
 // }
 
-export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
-    log(`Monitoring interface ${ifaceName} for connections to engines on network ${networkName}`)
+export const enableAppnetMonitor = async (networkName:string, ifaceName:string) => {
 
+    log(`Monitoring the connection status of interface ${ifaceName} and enable the discovery of engines on network ${networkName} once the interface has been connected`)
+    const { defaults, testSetup, appnetSetup } = await readConfig('config.yaml')
     const localEngine = getLocalEngine()
 
     // Create a network object if it doesn't exist
@@ -56,9 +62,17 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
         network = createNetwork(networkName)
         // And add it to the networks array
         addNetwork(network)
-        // Add local engine
-        network.data.push(localEngine)
+        const id = getAppnetId(appnetSetup, networkName)
+        log(`Appnet id for network ${networkName} is ${id}`)
+        if ((id === undefined || id === null)) {
+            log(`First time boot. Adding local engine to network ${networkName} and storing the client id`)    
+            network.data.push(localEngine)
+            setAppnetId(appnetSetup, networkName, network.doc.clientID)
+            // Write the updated config file
+            await writeConfig({appnetSetup, defaults, testSetup}, 'config.yaml')
+        }
     }
+
   
 
     // Monitor the interface for changes
@@ -104,9 +118,9 @@ export const enableAppnetMonitor = (networkName:string, ifaceName:string) => {
 
                 addInterface(localEngine, ifaceName, ip4, netmask, cidr)
                 log(`Added or updated interface ${ifaceName} on local engine`)
-                connectNetwork(network, ip4, ifaceName)
+                connectNetwork(network, ip4, ifaceName, true)
                 // Now monitor this interface for additonal engines that are on the network
-                enableEngineMonitor(ifaceName, network.name)
+                enableRemoteEngineMonitor(ifaceName, network.name)
                 return
 
             }

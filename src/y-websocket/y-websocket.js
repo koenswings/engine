@@ -55,6 +55,10 @@ messageHandlers[messageSync] = (
     !provider.synced
   ) {
     provider.synced = true
+    // KSW - Emit the synced event
+    provider.emit('status', [{
+      status: 'synced'
+    }])
   }
 }
 

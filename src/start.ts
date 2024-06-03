@@ -11,7 +11,8 @@ import { $, YAML, chalk, sleep } from 'zx'
 import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
 import { log } from './utils/utils.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
-import { readConfig } from './utils/readConfig.js'
+import { readConfig } from './data/Config.js'
+import { enableAppnetMonitor } from './monitors/appnetMonitor.js'
 
 export const startEngine = async () => {
 
@@ -44,13 +45,12 @@ export const startEngine = async () => {
     console.log(chalk.bgMagenta('STARTING MULTICAST DNS ENGINE MONITOR'))
     enableMulticastDNSEngineMonitor()
 
-
-    const { startup } = await readConfig('config.yaml')
-
-    // Execute each command in the startupCommands array
-    startup.commands.forEach((command) => {
-        log(`Executing command: ${command}`)
-        handleCommand(engineCommands, command)
+    // Enable the monitors for each configured appnet
+    const { appnetSetup } = await readConfig('config.yaml')
+    appnetSetup.forEach((appnet) => {
+        appnet.interfaces.forEach((iface) => {
+            enableAppnetMonitor(appnet.name, iface)
+        })
     })
 
     await sleep(1000)

@@ -62,21 +62,22 @@ const discoverEngines = () => {
         console.log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName+" @ "+device.address)}`))
         deviceList.forEach((device) => {
             if (!engines.find((engine) => engine.address === device.address)) {
-                // log(chalk.bgMagenta(`Adding engine ${device.familyName} to the list of engines`))
-                engines.push({address: device.address, familyName: device.familyName})
-                console.log(chalk.bgBlackBright(`Adding engine: ${deepPrint(device, 2)}`))
-
                 // Now search of a package with type TXT on the list in device.packet.additionals, and return the rdata property
                 // This is the txt record that we added to the service
-                const txtRecord = device.packet.additionals.find((add) => add.type === 'TXT').rdata
-                if (!txtRecord) {
-                    log(`***node-dns-sd*** No TXT record found for engine ${device.modelName}`)
+                const txt = device.packet.additionals.find((add) => ((typeof add == 'object') && add.hasOwnProperty('type') && add.type === 'TXT'));
+
+                if (!txt || !txt.rdata) {
+                    log(chalk.redBright(`************* No TXT record found for engine ${device.modelName}. Not adding it to the list: it must be rediscovered with a valid TXT object`))
                     return
                 } else {
-                    log(`***node-dns-sd*** TXT record found for engine ${device.modelName}: ${deepPrint(txtRecord, 2)}`)
+                    const txtRecord = txt.rdata
+                    log(chalk.bgBlackBright(`TXT record found for engine ${device.modelName}: ${deepPrint(txtRecord, 2)}`))
+                    // log(chalk.bgMagenta(`Adding engine ${device.familyName} to the list of engines`))
+                    log(chalk.bgBlackBright(`Adding engine: ${deepPrint(device, 1)}`))
+                    engines.push({address: device.address, familyName: device.familyName})
                     const appnet = txtRecord.appnet
                     // Emit an event for the network
-                    log(`***node-dns-sd*** Emitting: new_engine_on_network_${appnet}`)
+                    log(chalk.bgBlackBright(`Emitting: new_engine_on_network_${appnet}`))
                     engineMonitor.emit(`new_engine_on_network_${appnet}`, device)
                 }
 

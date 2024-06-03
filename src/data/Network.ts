@@ -5,14 +5,15 @@ import { log } from '../utils/utils.js';
 import { proxy } from 'valtio';
 import { bind } from '../valtio-yjs/index.js';
 import { pEvent } from 'p-event';
+import { getLocalEngine } from './Store.js';
 
 // **********
 // Typedefs
 // **********
 
-export type ConnectionStatus = 'connected' | 'disconnected';
+// export type ConnectionStatus = 'connected' | 'disconnected';
 
-export type ConnectionResult = { status: ConnectionStatus; }
+export type ConnectionResult = { status: any; }
 
 
 // The root level Network object which is NOT proxied  
@@ -96,7 +97,7 @@ export const createNetwork = (networkName: string): Network => {
   return network
 }
 
-export const connectNetwork = (network: Network, address: string, ifaceName: string): Promise<ConnectionResult> => {
+export const connectNetwork = (network: Network, address: string, ifaceName: string, isLocal: boolean): Promise<ConnectionResult> => {
   log(`Connecting network ${network.name} to local or remote engine ${address} via interface ${ifaceName}.`)
 
   const networkDoc = network.doc
@@ -109,6 +110,11 @@ export const connectNetwork = (network: Network, address: string, ifaceName: str
   // } else {
   //   log(`WebSocket server already running on ${ip4}`)
   // }
+
+  if (isLocal) {
+    // Replace address with 127.0.0.1
+    address = '127.0.0.1'
+  }
 
   if (!network.connections.hasOwnProperty(address)) {
     const wsProvider = new WebsocketProvider(`ws://${address}:1234`, network.name, networkDoc)
@@ -130,6 +136,19 @@ export const connectNetwork = (network: Network, address: string, ifaceName: str
         // delete network.connections[ifaceName][`${ip4}:1234`]
         // Lets keep trying till we reboot...
 
+      } else if (event.status === 'synced') {
+        log(`${event.status} with ${address}:1234-on-${ifaceName}`)
+        const localEngineHostName = getLocalEngine().hostName
+        // OBSOLETE - The sync event apparently does not represent a full sync of the networkData
+        // Check if we can find an engine in the networkData with the same localEngineHostName
+        // const localEngine = network.data.find(engine => engine.hostName === localEngineHostName)
+        // if (! localEngine) {
+        //   // Add the local engine to the networkData
+        //   network.data.push(getLocalEngine())
+        //   log(`First-time boot. Added local engine ${localEngineHostName} to networkData`)
+        // } else {
+        //   log(`Local engine ${localEngineHostName} already in networkData`)
+        // }
       } else {
         log(`Unhandled status ${event.status} for ${ifaceName}`)
       }

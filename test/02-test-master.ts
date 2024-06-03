@@ -1,7 +1,7 @@
 import { getLocalEngine, findNetworkByName, } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
-import { readConfig } from '../src/utils/readConfig.js';
+import { readConfig } from '../src/data/Config.js';
 import { ConnectionResult, Network, NetworkData, connectNetwork, createNetwork } from '../src/data/Network.js';
 import { chalk, sleep } from 'zx';
 import { subscribe } from 'valtio';
@@ -73,7 +73,7 @@ describe(`The websocket server of the test master - `, function () {
         process.exit(1)
       }
     })
-    connectionPromise = connectNetwork(network, loopBackAddress, "lo")
+    connectionPromise = connectNetwork(network, loopBackAddress, "lo", true)
     //log(chalk.green(deepPrint(networkData1, 4)))
   })
 

@@ -3,7 +3,7 @@ import { NetworkData, ConnectionResult, Network, createNetwork, connectNetwork }
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { expect } from 'chai';
-import { readConfig } from '../src/utils/readConfig.js';
+import { readConfig } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 
 
