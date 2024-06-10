@@ -1,5 +1,5 @@
 import { $ } from 'zx';
-import { log } from '../utils/utils.js';
+import { log, sameNet } from '../utils/utils.js';
 import { Version, DockerMetrics, DockerLogs, DockerEvents } from './CommonTypes.js';
 import { Disk } from './Disk.js';
 
@@ -14,7 +14,8 @@ export interface Engine {
     lastBooted: number; // We must use a timestamp number as Date objects are not supported in YJS
     disks: Disk[];
     //networkInterfaces: NetworkInterface[];
-    interfaces: {[key: string]: Interface} // The key is the interface name and the value is the Interface object
+    restrictedInterfaces: string[]    
+    connectedInterfaces: {[key: string]: Interface} // The key is the interface name and the value is the Interface object
     commands: string[];
 }
 
@@ -42,28 +43,57 @@ export const removeDiskByName = (engine: Engine, diskName: string) => {
     engine.disks = engine.disks.filter(disk => disk.name !== diskName)
 }
 
-export const addInterface = (engine: Engine, ifaceName: string, ip4: string, netmask: string, cidr: string) => {
+export const addConnectedInterface = (engine: Engine, ifaceName: string, ip4: string, netmask: string, cidr: string) => {
     const iface = {
         name: ifaceName,
         ip4: ip4,
         netmask: netmask,
         cidr: cidr
     }
-    // And add it to the local engine
-    engine.interfaces[ifaceName] = iface}
 
-export const removeInterface = (engine: Engine, iface: Interface) => {
-    delete engine.interfaces[iface.name]
+    // We shouldn't be doing this - 
+    if (!engine.connectedInterfaces) {
+        engine.connectedInterfaces = {}
+    }
+
+    // And add it to the local engine
+    engine.connectedInterfaces[ifaceName] = iface
 }
 
-export const removeInterfaceByName = (engine: Engine, ifaceName: string) => {
-    if (engine.interfaces[ifaceName]) {
-        delete engine.interfaces[ifaceName]
+export const isConnected = (engine: Engine, ifaceName: string) => {
+    return engine.connectedInterfaces && engine.connectedInterfaces[ifaceName] && engine.connectedInterfaces[ifaceName].hasOwnProperty('ip4')
+}
+
+
+export const setRestrictedInterfaces = (engine: Engine, ifaceNames: string[]) => {
+    engine.restrictedInterfaces = ifaceNames
+}
+
+export const removeConnectedInterface = (engine: Engine, iface: Interface) => {
+    delete engine.connectedInterfaces[iface.name]
+}
+
+export const removeConnectedInterfaceByName = (engine: Engine, ifaceName: string) => {
+    if (engine.connectedInterfaces[ifaceName]) {
+        delete engine.connectedInterfaces[ifaceName]
     }
 }
 
-export const findInterface = (engine: Engine, ifaceName: string) => {
-    return engine.interfaces[ifaceName]
+export const findConnectedInterface = (engine: Engine, ifaceName: string) => {
+    return engine.connectedInterfaces[ifaceName]
+}
+
+export const getConnectedInterfaces = (engine: Engine) => {
+    return Object.keys(engine.connectedInterfaces)
+}
+
+export const getInterfacesToRemoteEngine = (engine: Engine, remoteIp: string) => {
+    return Object.keys(engine.connectedInterfaces).filter((iface) => {
+        const netmask = engine.connectedInterfaces[iface].netmask
+        const ip4 = engine.connectedInterfaces[iface].ip4
+        const onNet = sameNet(remoteIp, ip4, netmask)
+        return onNet
+    })
 }
 
 export const getDiskNames = (engine:Engine) => {

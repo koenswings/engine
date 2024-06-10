@@ -2,7 +2,7 @@ import os from 'os'
 import { enableUsbDeviceMonitor } from './monitors/usbDeviceMonitor.js'
 import { enableTimeMonitor, generateRandomArrayPopulationCallback, } from './monitors/timeMonitor.js'
 import { enableEngineCommandsMonitor } from "./monitors/commandsMonitor.js"
-import { enableLocalEngineGlobalMonitor } from "./monitors/localEngineMonitor.js"
+import { enableEngineGlobalMonitor } from "./monitors/engineMonitor.js"
 import { changeTest } from "./monitors/timeMonitor.js"
 import { handleCommand } from './utils/commandHandler.js'
 import { engineCommands } from './utils/engineCommands.js'
@@ -12,7 +12,9 @@ import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
 import { log } from './utils/utils.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
 import { readConfig } from './data/Config.js'
-import { enableAppnetMonitor } from './monitors/appnetMonitor.js'
+import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
+import { addNetwork, getLocalEngine } from './data/Store.js'
+import { config } from './data/Config.js'
 
 export const startEngine = async () => {
 
@@ -33,29 +35,57 @@ export const startEngine = async () => {
     log(`Endianness: ${os.endianness()}`)
     log(`Network Hostname: ${os.hostname()}`)
 
-    // UPDATE001: Comment the following code in case we want to only open sockets on the interfaces that we monitor
-    log('STARTING MONITOR OF WEBSOCKETS')
-    enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+    // Process the config
+    const settings = config.settings
 
+    // Start the websocket servers
+    log('STARTING THE WEBSOCKET SERVERS')
+    if (!settings.interfaces) {
+        // No access control - listen on all interfaces
+        enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+    } else {
+        // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
+        enableWebSocketMonitor('127.0.0.1', '1234')
+    }
 
-    log('STARTING OBJECT MONITORS ON LOCAL ENGINE')
-    enableLocalEngineGlobalMonitor()
-    enableEngineCommandsMonitor()
+    // Create and sync the appnets
+    await sleep(1000)
+    log('CREATING AND SYNCING THE APPNETS')
+    if (settings.appnets) {
+        settings.appnets.forEach(async (appnet) => {
+            await addNetwork(appnet.name)
+        })        
+    } else {
+        await addNetwork("appnet")
+    }
 
-    console.log(chalk.bgMagenta('STARTING MULTICAST DNS ENGINE MONITOR'))
+    // Start the interface monitors
+    await sleep(1000)
+    log('STARTING INTERFACE MONITORS')
+    if (!settings.interfaces) {
+        // No access control - listen on all interfaces
+        enableInterfaceMonitor([])
+    } else {
+        // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
+        enableInterfaceMonitor(settings.interfaces)
+    }
+
+    await sleep(1000)
+    log(chalk.bgMagenta('STARTING MULTICAST DNS ENGINE MONITOR'))
     enableMulticastDNSEngineMonitor()
 
-    // Enable the monitors for each configured appnet
-    const { appnetSetup } = await readConfig('config.yaml')
-    appnetSetup.forEach((appnet) => {
-        appnet.interfaces.forEach((iface) => {
-            enableAppnetMonitor(appnet.name, iface)
-        })
-    })
+    
+    await sleep(1000)
+    log('STARTING OBJECT MONITORS ON LOCAL ENGINE')
+    enableEngineGlobalMonitor(getLocalEngine())
+    enableEngineCommandsMonitor(getLocalEngine())
+
 
     await sleep(1000)
     log('STARTING MONITORING OF USB0')
     enableUsbDeviceMonitor()
+
+
     await sleep(1000)
     log('STARTING CHANGE TEST')
     enableTimeMonitor(300000, changeTest)

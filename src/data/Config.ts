@@ -25,8 +25,9 @@ export interface Config {
 }
 
 export interface Settings {
-  appnets: AppnetConfig[],
-  interfaces: InterfaceName[]
+  localEngineName?: string,
+  appnets?: AppnetConfig[],     // When no appnets are specified, a default will be created called "appnet"
+  interfaces?: InterfaceName[]  // When no interfaces are specified, all interfaces are monitored and there is no interface acces control
 }
 
 export type InterfaceName = string
@@ -197,5 +198,12 @@ export const writeConfig = async (config: Config, path: string) => {
     process.exit(1);
   }
 }
+
+export let config = await readConfig('config.yaml')
+
+// export const updateConfig = async (newConfig: Config) => {
+//   writeConfig(newConfig, 'config.yaml')
+//   config = newConfig
+// }
 
 

@@ -2,7 +2,7 @@ import { getLocalEngine, findNetworkByName, } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { readConfig } from '../src/data/Config.js';
-import { ConnectionResult, Network, NetworkData, connectNetwork, createNetwork } from '../src/data/Network.js';
+import { ConnectionResult, Network, NetworkData, connectEngine, createNetwork } from '../src/data/Network.js';
 import { chalk, sleep } from 'zx';
 import { subscribe } from 'valtio';
 //import { expect } from 'chai';
@@ -46,14 +46,14 @@ describe('The test master (the engine from which these tests are run) - ', async
     expect(engine.hostOS).to.not.be.empty
     expect(engine.lastBooted).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
     // It must have an interface corresponding to the testInterface
-    expect(engine.interfaces).to.have.property(testInterface)
+    expect(engine.connectedInterfaces).to.have.property(testInterface)
     // That interface must have a name that corresponds to testInterface
-    expect(engine.interfaces[testInterface].name).to.eql(testInterface)
+    expect(engine.connectedInterfaces[testInterface].name).to.eql(testInterface)
     // That interface must have a valid ip address and netmask
-    expect(engine.interfaces[testInterface].ip4).to.not.be.empty
-    expect(isIP4(engine.interfaces[testInterface].ip4)).to.be.true
-    expect(engine.interfaces[testInterface].netmask).to.not.be.empty
-    expect(isNetmask(engine.interfaces[testInterface].netmask)).to.be.true
+    expect(engine.connectedInterfaces[testInterface].ip4).to.not.be.empty
+    expect(isIP4(engine.connectedInterfaces[testInterface].ip4)).to.be.true
+    expect(engine.connectedInterfaces[testInterface].netmask).to.not.be.empty
+    expect(isNetmask(engine.connectedInterfaces[testInterface].netmask)).to.be.true
   })
 }) // Local Engine Tests
 
@@ -73,7 +73,7 @@ describe(`The websocket server of the test master - `, function () {
         process.exit(1)
       }
     })
-    connectionPromise = connectNetwork(network, loopBackAddress, "lo", true)
+    connectionPromise = connectEngine(network, loopBackAddress)
     //log(chalk.green(deepPrint(networkData1, 4)))
   })
 
@@ -82,8 +82,8 @@ describe(`The websocket server of the test master - `, function () {
     
     // Expect the local engine to have an interface called "lo" with ip address 127.0.0.1
     const engine = getLocalEngine()
-    expect(engine.interfaces).to.have.property("lo")
-    expect(engine.interfaces["lo"].ip4).to.eql(loopBackAddress)
+    expect(engine.connectedInterfaces).to.have.property("lo")
+    expect(engine.connectedInterfaces["lo"].ip4).to.eql(loopBackAddress)
 
     // Expect the network, networkData and connectionPromise to exist
     expect(network).to.exist

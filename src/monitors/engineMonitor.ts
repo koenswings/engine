@@ -1,12 +1,12 @@
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
 import { getLocalEngine } from '../data/Store.js'
+import { Engine } from '../data/Engine.js'
 
-export const enableLocalEngineGlobalMonitor = () => {
+export const enableEngineGlobalMonitor = (engine: Engine) => {
     // Monitor our local engine for any changes applied from within the engine
-    const localEngine = getLocalEngine()
-    subscribe(localEngine, (value) => {
-        log(`LOCAL ENGINE ${localEngine.hostName} GLOBAL MONITOR: Engine ${localEngine.hostName} is modified as follows: ${deepPrint(value)}`)
+    subscribe(engine, (value) => {
+        log(`ENGINE ${engine.hostName} GLOBAL MONITOR: Engine ${engine.hostName} is modified as follows: ${deepPrint(value)}`)
         //log(`LOCAL ENGINE ${localEngine.hostName} GLOBAL MONITOR: ${value.length} changes`)
         if (value.length > 10) {
             // exit the program
@@ -14,5 +14,5 @@ export const enableLocalEngineGlobalMonitor = () => {
             process.exit(1)
         }
     })
-    log(`Added COMMANDS MONITOR for engine ${localEngine.hostName}`)
+    log(`Added COMMANDS MONITOR for engine ${engine.hostName}`)
 }

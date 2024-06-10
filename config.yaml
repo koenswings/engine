@@ -1,11 +1,11 @@
 settings:
+  localEngineName: dd434e025d20
   appnets:
     - name: appnet
-      id: 1351494052
   interfaces:
-      - eth0
-      - wlan0
-scriptDefaults:
+    - eth0
+    - wlan0
+defaults:
   user: pi
   machine: raspberrypi.local
   password: raspberry

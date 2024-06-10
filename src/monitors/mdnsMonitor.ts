@@ -2,9 +2,11 @@ import mDnsSd from 'node-dns-sd'
 import events from 'events'   // See https://nodejs.org/api/events.html#events 
 import { IPnumber, deepPrint, log, sameNet } from '../utils/utils.js';
 import { chalk } from 'zx';
-import { getLocalEngine } from '../data/Store.js';
-import { inSubNet } from '../utils/utils.js'
-// import { Netmask }  from 'netmask'
+import { findNetworkByName, getLocalEngine } from '../data/Store.js';
+import { config } from '../data/Config.js';
+import { connectEngine } from '../data/Network.js'
+import ciao from '@homebridge/ciao'
+import { getInterfacesToRemoteEngine } from '../data/Engine.js';
 
 // log(`***node-dns-sd*** Starting mDnsSd Monitoring`)
 // log(Netmask)
@@ -162,6 +164,11 @@ const printDevice = (device) => {
 
 
 export const enableMulticastDNSEngineMonitor = () => {
+    const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+    const appnets = config.settings.appnets
+    appnets.forEach((appnet) => {
+        startAdvertising(appnet.name, restrictedInterfaces)
+    })
     // Call discoverEngines every 10 seconds
     setInterval(discoverEngines, 60000)
     // Call it for the first time
@@ -169,4 +176,79 @@ export const enableMulticastDNSEngineMonitor = () => {
 }
 
 
+
+export const startAdvertising = (networkName: string, restrictedInterfaces: string[]) => {
+    const engine = getLocalEngine()
+    const engineName = engine.hostName
+    const engineVersion = engine.version
+    const responder = ciao.getResponder()
+    let service
+
+    // Advertise the local engine on the network using mdns using the following service name: engineName._engine._tcp
+    if (restrictedInterfaces.length === 0) {
+        log(`Advertising on all interfaces  `)
+        service = responder.createService({
+            name: engineName,
+            type: 'engine',
+            port: 1234, // optional, can also be set via updatePort() before advertising
+            txt: {
+                    name: engineName,
+                    version: engineVersion,
+                    appnet: networkName,
+                }
+            })
+    } else {
+        log(`Advertising on the following interfaces: ${restrictedInterfaces}`)
+        service = responder.createService({
+            name: engineName,
+            type: 'engine',
+            port: 1234, // optional, can also be set via updatePort() before advertising
+            restrictedAddresses: restrictedInterfaces, 
+            txt: {
+                    name: engineName,
+                    version: engineVersion,
+                    appnet: networkName,
+                }
+            })
+    }
+
+    service.advertise().then(() => {
+        // stuff you do when the service is published
+        log(`Service published for appnet ${networkName})`);
+    })
+
+    // Register a callback on the mdnsMonitor for new engines on this interface and network
+    engineMonitor.on(`new_engine_on_network_${networkName}`, (device) => {
+        log(chalk.bgMagenta(`Engine ${device.modelName} discovered on network ${networkName}`))
+        const network = findNetworkByName(networkName)
+
+        // Access control
+        const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+        const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(), device.address)
+        // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
+        const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface))
+        const accessGranted = networkInterfaces.length > 0
+
+        // If access is granted, connect the engine
+        if (network && accessGranted) {
+            connectEngine(network, device.address)
+        }
+    })
+
+    // The following comments show or past failed attempts to advertise the engine using the mdns package
+    // ********* MDNS Advertisement (error) *********
+    // const txtRecord = {
+    //     name: engineName,
+    //     version: engineVersion,
+    //     network: networkName
+    // }
+    // // const ad = mdns.createAdvertisement(mdns.tcp('engine'), 1234, { txtRecord: txtRecord})
+    // const service = mdns.tcp('engine')
+    // log(`Service: ${service}`)
+    // const ad = mdns.createAdvertisement(service, 1234)
+    // ad.start()
+    // log(`Engine ${engineName} advertised on network ${networkName}`)
+    // ********* MDNS Advertisement (error) *********
+
+}
 

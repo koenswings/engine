@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { NetworkData, ConnectionResult, Network, createNetwork, connectNetwork } from '../src/data/Network.js';
+import { NetworkData, ConnectionResult, Network, createNetwork, connectEngine } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { expect } from 'chai';

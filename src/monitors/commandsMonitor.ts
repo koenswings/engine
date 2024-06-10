@@ -3,6 +3,7 @@ import { log, deepPrint } from '../utils/utils.js'
 import { handleCommand } from '../utils/commandHandler.js'
 import { engineCommands } from '../utils/engineCommands.js'
 import { getLocalEngine } from '../data/Store.js'
+import { Engine } from '../data/Engine.js'
 
 // Write with comments a summary of all commands that can be executed on the engine and the expected arguments
 // Do it in the following format:
@@ -58,16 +59,29 @@ import { getLocalEngine } from '../data/Store.js'
 //     }
 // }
 
-export const enableEngineCommandsMonitor = () => {
+export const enableEngineCommandsMonitor = (engine: Engine) => {
     // Monitor our local engine for commands to be executed
-    const localEngine = getLocalEngine()
-    subscribe(localEngine.commands, async (value) => {
-        log(`LOCAL ENGINE ${localEngine.hostName} COMMANDS MONITOR: Engine ${localEngine.hostName} commands is modified as follows: ${deepPrint(value)}`)
+    subscribe(engine.commands, async (value) => {
+        log(`ENGINE ${engine.hostName} COMMANDS MONITOR: Engine ${engine.hostName} commands is modified as follows: ${deepPrint(value)}`)
         // Extract the command from the value and execute it
         const command = value[0][2] as string
         log(`Executing command: ${command}`)
         await handleCommand(engineCommands, command)
     })
-    log(`Added COMMANDS MONITOR for engine ${localEngine.hostName}`)
+    log(`Added COMMANDS MONITOR for engine ${engine.hostName}`)
 }
+
+// export const enableEngineCommandsMonitor = (networkData:NetworkData, networkName:string) => {
+//     // Monitor our local engine for commands to be executed
+//     // Find the engine in the networkData.engines array and then subscribe to the commands array
+//     const localEngine = getLocalEngine()
+//     if (localEngine) {
+//       subscribe(localEngine.commands, (value) => {
+//         log(`NETWORKDATA ENGINE ${localEngine.hostName} COMMANDS MONITOR: Engine ${localEngine.hostName} commands is modified via network ${networkName}. Commands is now: ${deepPrint(value)}`)
+//       })
+//       log(`Added COMMANDS MONITOR for engine ${localEngine.hostName} to network ${networkName}`)
+//     } else {
+//       log(`Network ${networkName}: Could not find local engine in networkData.engines`)
+//     }
+// }
 

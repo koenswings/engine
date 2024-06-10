@@ -8,6 +8,7 @@
     "allowSyntheticDefaultImports": true,
     "outDir": "./dist",
     "allowJs": true,
+    //"strictNullChecks": true
     //"esModuleInterop": true,
   },
   "include": [

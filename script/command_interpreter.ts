@@ -1,7 +1,7 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
-import { Network, NetworkData, connectNetwork, createNetwork, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
+import { Network, NetworkData, connectEngine, createNetwork, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { deepPrint } from '../src/utils/utils.js';
 
@@ -45,7 +45,7 @@ if (argv.v || argv.version) {
 
 const network: Network = createNetwork(networkName)
 const networkData: NetworkData = network.data
-await connectNetwork(network, engineAddress, "lo", true)
+await connectEngine(network, engineAddress)
 
 
 

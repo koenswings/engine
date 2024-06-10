@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { NetworkData, ConnectionResult, Network, createNetwork, connectNetwork } from '../src/data/Network.js';
+import { NetworkData, ConnectionResult, Network, createNetwork, connectEngine } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { expect } from 'chai';
@@ -39,7 +39,7 @@ describe('Test engine 1 - ', () => {
                 process.exit(1)
             }
         })
-        connection1Promise = connectNetwork(network1, testEngine1Address, testInterface, false)
+        connection1Promise = connectEngine(network1, testEngine1Address)
         //console.dir(networkData, {depth: 3, colors: true})
         //log(chalk.green(deepPrint(networkData1, 4)))
         // JSON.stringify(networkData, null, 2)))
@@ -136,16 +136,16 @@ describe('Test engine 1 - ', () => {
         }
         expect(remoteEngine.lastBooted).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
         // It must have an interface corresponding to the testInterface
-        expect(remoteEngine.interfaces).to.have.property(testInterface)
+        expect(remoteEngine.connectedInterfaces).to.have.property(testInterface)
         // That interface must have a name that corresponds to testInterface
-        expect(remoteEngine.interfaces[testInterface].name).to.eql(testInterface)
+        expect(remoteEngine.connectedInterfaces[testInterface].name).to.eql(testInterface)
         // That interface must have a valid ip address and netmask
-        expect(remoteEngine.interfaces[testInterface].ip4).to.not.be.empty
-        expect(isIP4(remoteEngine.interfaces[testInterface].ip4)).to.be.true
+        expect(remoteEngine.connectedInterfaces[testInterface].ip4).to.not.be.empty
+        expect(isIP4(remoteEngine.connectedInterfaces[testInterface].ip4)).to.be.true
         // The ip address must correspond to the resolution of testEngine1Address
-        expect(remoteEngine.interfaces[testInterface].ip4).to.eql(findIp(testEngine1Address))
-        expect(remoteEngine.interfaces[testInterface].netmask).to.not.be.empty
-        expect(isNetmask(remoteEngine.interfaces[testInterface].netmask)).to.be.true
+        expect(remoteEngine.connectedInterfaces[testInterface].ip4).to.eql(findIp(testEngine1Address))
+        expect(remoteEngine.connectedInterfaces[testInterface].netmask).to.not.be.empty
+        expect(isNetmask(remoteEngine.connectedInterfaces[testInterface].netmask)).to.be.true
     })
 
     // Lets keep the connection open so that we can import it in test 05

@@ -26,8 +26,6 @@ export interface Network {
 
   // All connected engines sorted per interface
   connections: Connections;
-  listeners: Listeners;
-
 }
 
 // export interface NetworkData {
@@ -48,10 +46,6 @@ export type Connection = WebsocketProvider
 // export type Connections = {[key: string]: {[key: string]: Connection}}   // The first key is the interface and the second key is the ip address
 export type Connections = { [key: string]: Connection }   // key is the ip address
 
-// Create a type called IfaceListeners that represents all listeners that a Network has 
-// The listeners are sorted per interface name
-export type Listener = (data: any) => void
-export type Listeners = { [key: string]: Listener }  // The key is the interface name 
 
 
 // **********
@@ -97,8 +91,8 @@ export const createNetwork = (networkName: string): Network => {
   return network
 }
 
-export const connectNetwork = (network: Network, address: string, ifaceName: string, isLocal: boolean): Promise<ConnectionResult> => {
-  log(`Connecting network ${network.name} to local or remote engine ${address} via interface ${ifaceName}.`)
+export const connectEngine = (network: Network, address: string): Promise<ConnectionResult> => {
+  log(`Connecting network ${network.name} to local or remote engine ${address}`)
 
   const networkDoc = network.doc
 
@@ -111,11 +105,6 @@ export const connectNetwork = (network: Network, address: string, ifaceName: str
   //   log(`WebSocket server already running on ${ip4}`)
   // }
 
-  if (isLocal) {
-    // Replace address with 127.0.0.1
-    address = '127.0.0.1'
-  }
-
   if (!network.connections.hasOwnProperty(address)) {
     const wsProvider = new WebsocketProvider(`ws://${address}:1234`, network.name, networkDoc)
     // Add the wsProvider to the wsProviders object of the network
@@ -127,20 +116,20 @@ export const connectNetwork = (network: Network, address: string, ifaceName: str
     network.connections[`${address}:1234`] = wsProvider
     wsProvider.on('status', (event: ConnectionResult) => {
       if (event.status === 'connected') {
-        log(`${event.status} to ${address}:1234-on-${ifaceName}`)
+        log(`${event.status} to ${address}:1234`)
       } else if (event.status === 'disconnected') {
-        log(`${event.status} from ${address}:1234-on-${ifaceName}`)
+        log(`${event.status} from ${address}:1234`)
       } else if (event.status === 'reconnection-failure-3') {
-        log(`Reconnection to ${address}:1234-on-${ifaceName} failed 3 times.`)
+        log(`Reconnection to ${address}:1234-on failed 3 times.`)
         // network.connections[ifaceName][`${ip4}:1234`].destroy()
         // delete network.connections[ifaceName][`${ip4}:1234`]
         // Lets keep trying till we reboot...
 
       } else if (event.status === 'synced') {
-        log(`${event.status} with ${address}:1234-on-${ifaceName}`)
-        const localEngineHostName = getLocalEngine().hostName
+        log(`${event.status} with ${address}:1234`)
         // OBSOLETE - The sync event apparently does not represent a full sync of the networkData
         // Check if we can find an engine in the networkData with the same localEngineHostName
+        // const localEngineHostName = getLocalEngine().hostName
         // const localEngine = network.data.find(engine => engine.hostName === localEngineHostName)
         // if (! localEngine) {
         //   // Add the local engine to the networkData
@@ -150,14 +139,14 @@ export const connectNetwork = (network: Network, address: string, ifaceName: str
         //   log(`Local engine ${localEngineHostName} already in networkData`)
         // }
       } else {
-        log(`Unhandled status ${event.status} for ${ifaceName}`)
+        log(`Unhandled status ${event.status} for connection to ${address}:1234`)
       }
     })
-    log(`Interface ${ifaceName}: Created an Yjs websocket client connection on adddress ws://${address}:1234 with room name ${network.name}`)
-    return pEvent(wsProvider, 'status', (event: ConnectionResult) => event.status === 'connected')
+    log(`Created an Yjs websocket client connection on adddress ws://${address}:1234 with room name ${network.name}`)
+    return pEvent(wsProvider, 'status', (event: ConnectionResult) => event.status === 'synced')
   } else {
     // Return a resolved promise of ConnectionResult
-    return Promise.resolve({ status: 'connected' })
+    return Promise.resolve({ status: 'synced' })
   }
 }
 
@@ -210,23 +199,3 @@ export const getNetworkDisks = (network: Network) => {
 }
 
 
-export const addListener = (network: Network, iface: string, listener: (data: any) => void) => {
-  network.listeners[iface] = listener
-}
-
-export const removeListener = (network: Network, iface: string) => {
-  delete network.listeners[iface]
-}
-
-export const getListeners = (network: Network) => {
-  // Return an array of all listeners
-  return Object.values(network.listeners)
-}
-
-export const getListenerByIface = (network: Network, iface: string) => {
-  if (network.listeners.hasOwnProperty(iface)) {
-    return network.listeners[iface]
-  } else {
-    return null
-  }
-}

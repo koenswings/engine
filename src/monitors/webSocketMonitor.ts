@@ -8,5 +8,6 @@ export const enableWebSocketMonitor = (host, port) => {
     // const port = '1234'
     const wsServer = yjsWebsocketServer(host, port)
     log(`Serving web socket connections on ws://${host}:${port}`)
+    return wsServer
 }
 

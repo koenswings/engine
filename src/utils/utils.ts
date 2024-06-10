@@ -85,13 +85,15 @@ export const findIp = async (address) => {
 export const reset = async ($) => {
   console.log(chalk.blue('Resetting the local engine'));
   try {
-      const { appnetSetup, defaults, testSetup } = await readConfig('../config.yaml')
+      const config = await readConfig('../config.yaml')
       console.log(chalk.blue('Removing the yjs database'));
       await $`rm -rf ../yjs-db`;
       console.log(chalk.blue('Removing all appnet ids'))
-      appnetSetup.forEach((appnet) => delete appnet.id)
-      console.log(chalk.blue('Updating the config file'));
-      writeConfig({appnetSetup, defaults, testSetup}, '../config.yaml')
+      if (config.settings.appnets) {
+        config.settings.appnets.forEach((appnet) => delete appnet.id)
+        console.log(chalk.blue('Updating the config file'));
+        writeConfig(config, '../config.yaml')
+      }
   } catch (e) {   
       console.log(chalk.red('Failed to sync the engine to the remote machine'));
       console.error(e);
