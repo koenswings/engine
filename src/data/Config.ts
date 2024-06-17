@@ -1,5 +1,3 @@
-import { assert } from "console"
-import { interfaces } from "mocha"
 import { $, YAML, chalk } from "zx"
 
 // const $$ = $({
@@ -38,6 +36,20 @@ export interface AppnetConfig {
 }
 
 export type AppnetSetup = AppnetConfig[]
+
+export const getAppnetId = (config: Config, appnetName: string): number => {
+  // Find the id of a given appnet
+  const appnetConfig = config.settings.appnets.find((appnet) => appnet.name === appnetName)
+  return appnetConfig.id
+}
+
+export const setAppnetId = (config: Config, appnetName: string, id:number) => {
+  // Find the id of a given appnet
+  const appnetConfig = config.settings.appnets.find((appnet) => appnet.name === appnetName)
+  if (appnetConfig) {
+    appnetConfig.id = id
+  } 
+}
 
 export interface Config {
   defaults: ScriptDefaults,
@@ -101,6 +113,7 @@ export interface ScriptDefaults {
   zerotier: boolean,
   raspap: boolean,
   gadget: boolean
+  gitAccount: string
 }
 
 // Test Setup
@@ -158,20 +171,9 @@ export interface TestApp {
   icon: string
 }
 
-export const getAppnetId = (appnetSetup: AppnetSetup, appnetName: string): number => {
-  // Find the id of a given appnet
-  const appnetConfig = appnetSetup.find((appnet) => appnet.name === appnetName)
-  return appnetConfig.id
-}
 
-export const setAppnetId = (appnetSetup: AppnetSetup, appnetName: string, id:number) => {
-  // Find the id of a given appnet
-  const appnetConfig = appnetSetup.find((appnet) => appnet.name === appnetName)
-  appnetConfig.id = id
 
-}
-
-export const readConfig = async (path: string): Promise<Config> => {
+const readConfig = async (path: string): Promise<Config> => {
   // Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
   let config: Config
   try {
@@ -206,4 +208,23 @@ export let config = await readConfig('config.yaml')
 //   config = newConfig
 // }
 
-
+// TODO - Implement some type checking on parsed JSON as discussed in https://dev.to/codeprototype/safely-parsing-json-to-a-typescript-interface-3lkj
+// {
+//   "user": "pi",
+//   "machine": "raspberrypi.local",
+//   "password": "raspberry",
+//   "engine": "127.0.0.1",
+//   "network": "appnet",
+//   "language": "en_ZW.UTF-8",
+//   "keyboard": "us",
+//   "timezone": "Europe/Brussels",
+//   "update": false,
+//   "upgrade": false,
+//   "hdmi": false,
+//   "temperature": true,
+//   "argon": true,
+//   "zerotier": false,
+//   "raspap": false,
+//   "gadget": true,
+//   "gitAccount": "koenswings"
+// }

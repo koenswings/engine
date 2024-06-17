@@ -1,7 +1,7 @@
 import chokidar from 'chokidar'
-import { log } from '../utils/utils.js'
+import { fileExists, log } from '../utils/utils.js'
 import { $, YAML } from 'zx'
-import { Disk, createDiskFromFile } from '../data/Disk.js'
+import { Disk, createDisk, syncDiskWithFile } from '../data/Disk.js'
 import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
 import { getLocalEngine } from '../data/Store.js'
 
@@ -42,17 +42,19 @@ export const enableUsbDeviceMonitor = () => {
                         log(`Device ${device} has been successfully mounted`)
                     }
 
-                    // Check if the disk has a file APPDISK.yaml in the root location of the disk
+                    // Check if the disk has a file META.yaml in the root location of the disk
                     // If so, read the YAML content from the file and parse it into the object diskMetadata
-                    if (await $`test -f /disks/${device}/APPDISK.yaml`.then(() => true).catch(() => false)) {
-                        const appDiskContent = (await $`cat /disks/${device}/APPDISK.yaml`).stdout.trim()
-                        const diskMetadata = YAML.parse(appDiskContent)
+                    // if (await $`test -f /disks/${device}/META.yaml`.then(() => true).catch(() => false)) {
+                    if (await fileExists(`/disks/${device}/META.yaml`)) {
+                        const metaContent = (await $`cat /disks/${device}/META.yaml`).stdout.trim()
+                        const diskMetadata = YAML.parse(metaContent)
                         const diskName = diskMetadata.name
                         const diskCreated = diskMetadata.created as number
                         const diskCreatedTime = new Date(diskCreated)
-                        log(`App Disk name ${diskName} created on ${diskCreatedTime} found on device ${device}`)
+                        log(`Found an appnet disk on device ${device} with name ${diskName} and created on ${diskCreatedTime}`)
                         // Add the disk to the store
-                        const disk:Disk = await createDiskFromFile(device, diskName, diskCreated, 'Apps')
+                        const disk:Disk = createDisk(device, diskName, diskCreated)
+                        await syncDiskWithFile(disk)
                         addDisk(localEngine, disk)
                     } else {
                         log('Not an app disk')
@@ -110,4 +112,8 @@ export const enableUsbDeviceMonitor = () => {
 }
 
 
+
+function createDiskFromFile(device: string, diskName: any, diskCreated: number) {
+    throw new Error('Function not implemented.')
+}
 

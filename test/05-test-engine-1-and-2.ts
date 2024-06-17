@@ -3,11 +3,11 @@ import { NetworkData, ConnectionResult, Network, createNetwork, connectEngine } 
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { expect } from 'chai';
-import { readConfig } from '../src/data/Config.js';
+import { config } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 
 
-const { testSetup } = await readConfig('config.yaml')
+const testSetup  = config.testSetup
 
 const testNet = testSetup.appnet
 const testInterface = testSetup.interface
@@ -77,7 +77,7 @@ describe('Two remote engines - ', () => {
     //     expect(remoteEngine.interfaces[testInterface].ip4).to.not.be.empty
     //     expect(isIP4(remoteEngine.interfaces[testInterface].ip4)).to.be.true
     //     // The ip address must correspond to the resolution of testEngine1Address
-    //     expect(remoteEngine.interfaces[testInterface].ip4).to.eql(findIp(testEngine1Address))
+    //     expect(remoteEngine.interfaces[testInterface].ip4).to.eql(await findIp(testEngine1Address))
     //     expect(remoteEngine.interfaces[testInterface].netmask).to.not.be.empty
     //     expect(isNetmask(remoteEngine.interfaces[testInterface].netmask)).to.be.true
     // })

@@ -1,9 +1,9 @@
 import { $, ssh, argv, cd, chalk, fs, question } from 'zx'
 import pack from '../package.json' assert { type: "json" }
 import YAML from 'yaml'
-import { generateHostName } from '../src/utils/utils.js'
+import { generateHostName } from '../src/utils/nameGenerator.js'
 //import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
-import { readConfig } from '../src/data/Config.js'
+import { config } from '../src/data/Config.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project
@@ -25,7 +25,7 @@ import { readConfig } from '../src/data/Config.js'
 
 
 
-const { defaults } = await readConfig('../config.yaml')
+const defaults  = config.defaults
 
 // Now override the default configuration using the command line
 const user = argv.u || argv.user || defaults.user
@@ -590,6 +590,14 @@ const installZerotier = async () => {
   }
   console.log(chalk.green('Zerotier installed'));
 }
+
+const addMetadata = async () => {
+  const diskMetadata = {
+    name: hostname,
+    created: new Date().getTime()
+  }
+  await $`echo ${YAML.stringify(diskMetadata)} > /META.yaml`
+}
     
 
 const build = async () => {
@@ -682,6 +690,9 @@ const build = async () => {
 
     // Run the rpi4-usb script
     await usbGadget()
+
+    // Add the metadata
+    await addMetadata()
 
     // Reboot the system
     await rebootSystem()

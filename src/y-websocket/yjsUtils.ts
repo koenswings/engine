@@ -18,6 +18,7 @@ import debounce from 'lodash/debounce.js'
 // const callbackHandler = require('./callback.js').callbackHandler
 // const isCallbackSet = require('./callback.js').isCallbackSet
 import { callbackHandler, isCallbackSet } from '../callback.js'
+import { fileExists, log } from '../utils/utils.js'
 
 
 const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
@@ -31,6 +32,10 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 // disable gc when using snapshots!
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const persistenceDir = process.env.YPERSISTENCE
+
+export const firstBoot = !(await fileExists('./yjs-db'))
+log(`First boot: ${firstBoot}`)
+
 /**
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */

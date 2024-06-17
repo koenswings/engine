@@ -11,7 +11,6 @@ import { $, YAML, chalk, sleep } from 'zx'
 import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
 import { log } from './utils/utils.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
-import { readConfig } from './data/Config.js'
 import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
 import { addNetwork, getLocalEngine } from './data/Store.js'
 import { config } from './data/Config.js'
@@ -86,8 +85,9 @@ export const startEngine = async () => {
     enableUsbDeviceMonitor()
 
 
-    await sleep(1000)
+    await sleep(15000)
     log('STARTING CHANGE TEST')
+    changeTest()
     enableTimeMonitor(300000, changeTest)
 
 

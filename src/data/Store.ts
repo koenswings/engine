@@ -6,10 +6,11 @@ import { Disk } from './Disk.js'
 import { proxy } from 'valtio'
 import { enableAppnetDataGlobalMonitor } from '../monitors/appnetDataMonitor.js'
 import { deepPrint, log } from '../utils/utils.js'
-import { getAppnetId, readConfig, setAppnetId, writeConfig } from './Config.js'
+import { firstBoot } from '../y-websocket/yjsUtils.js'
+import { getAppnetId, config, setAppnetId, writeConfig } from './Config.js'
 import { enableWebSocketMonitor } from '../monitors/webSocketMonitor.js'
 import { Server } from 'http'
-import { config } from './Config.js'
+
 
 
 export interface Store {
@@ -49,7 +50,7 @@ export const createLocalEngine = (restrictedInterfaces: string[]) => {
         },
         dockerLogs: { logs: [] },
         dockerEvents: { events: [] },
-        lastBooted: new Date().getTime(),
+        lastBooted: (new Date()).getTime(),
         restrictedInterfaces: restrictedInterfaces,
         connectedInterfaces: {} as { [key: string]: Interface },
         disks: [] as Disk[],
@@ -66,6 +67,9 @@ export const createLocalEngine = (restrictedInterfaces: string[]) => {
 export const getLocalEngine = () => {
     // First check if the hostname has changed
     const localEngineName = os.hostname()
+    if (store.localEngineName !== localEngineName) {
+        store.localEngineName = localEngineName
+    }
     const oldLocalEngineName = config.settings.localEngineName
     // log(`Local engine name: ${localEngineName}`)
     // log(`Old local engine name: ${oldLocalEngineName}`)
@@ -87,8 +91,8 @@ export const getLocalEngine = () => {
                     }
                 })
             })
+            writeConfig(config, 'config.yaml')
         }
-        writeConfig(config, 'config.yaml')
     }
     const engine = store.networks[0].data.find(engine => engine.hostName === store.localEngineName)
     if (engine === undefined) {
@@ -120,20 +124,25 @@ export const getNetworkNames = () => {
 }
 
 export const addNetwork = async (networkName: string):Promise<ConnectionResult> => {
-    const config = await readConfig('config.yaml')
     // Create and initialise a Network object
     const network = createNetwork(networkName)
 
     // Store its client id if this is the first time boot
-    const id = getAppnetId(config.settings.appnets, networkName)
-    if ((id === undefined || id === null)) {
-        log(`First time boot. Adding a new local engine object to network ${networkName} and storing the client id`)    
+    // NOTE: 
+    //   This is a left-over from a previous solution in which we recreated each Network object with the saqme id
+    //   But this is no longer necessary
+    //   So strictly, we only need to store whether we have booted before or not, not the client id
+    //   We still keep it for now, if we ever want to solve issues by persisting the ids of Network objects
+    // const id = getAppnetId(config, networkName)
+    // if ((id === undefined || id === null)) {
+    if (firstBoot) {
+        log(`First time boot. Adding a new local engine object to network ${networkName}`)    
         const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
         const localEngine = createLocalEngine(restrictedInterfaces)
         network.data.push(localEngine)
-        setAppnetId(config.settings.appnets, networkName, network.doc.clientID)
+        // setAppnetId(config, networkName, network.doc.clientID)
         // Write the updated config file
-        await writeConfig(config, 'config.yaml')
+        // await writeConfig(config, 'config.yaml')
     }
 
     // Add subscriptions  

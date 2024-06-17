@@ -7,13 +7,13 @@ import { deepPrint } from '../src/utils/utils.js';
 
 import pack from '../package.json' assert { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
-import { readConfig } from '../src/data/Config.js'
+import { config } from '../src/data/Config.js'
 
 import { getNetworks } from '../src/data/Store.js';
 import { CommandDefinition } from '../src/data/CommandDefinition.js';
 import { create } from 'domain';
 
-const { defaults } = await readConfig('../config.yaml')
+const defaults  = config.defaults
 const engineAddress = argv.e || argv.engine || defaults.engine
 const networkName = argv.n || argv.network || defaults.network
 

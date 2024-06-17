@@ -1,7 +1,8 @@
 import { $ } from 'zx';
-import { log, sameNet } from '../utils/utils.js';
+import { deepPrint, log, sameNet } from '../utils/utils.js';
 import { Version, DockerMetrics, DockerLogs, DockerEvents } from './CommonTypes.js';
 import { Disk } from './Disk.js';
+import { proxy } from 'valtio';
 
 
 export interface Engine {
@@ -28,8 +29,18 @@ export interface Interface {
 }
 
 export const addDisk = (engine: Engine, disk: Disk) => {
-    engine.disks.push(disk)
-    log(`Disk ${disk.name} pushed to engine ${engine.hostName}`)
+    log(`Updating disk ${disk.name} of engine ${engine.hostName}:`)
+
+    // Check if engine already has the disk
+    const existingDisk = engine.disks.find(disk => disk.name === disk.name)
+    if (existingDisk) {
+        log(`Engine ${engine.hostName} already has disk ${disk.name}. Merging the new disk with the existing disk.`)
+        Object.assign(existingDisk, disk)
+    } else {
+        //log(deepPrint(disk))
+        log(`Pushing a new disk ${disk.name} to engine ${engine.hostName}`)
+        engine.disks.push(disk)
+    }
 }
 
 export const removeDisk = (engine: Engine, disk: Disk) => {

@@ -1,6 +1,6 @@
 
 import { getLocalEngine } from '../data/Store.js'
-import { log, contains } from '../utils/utils.js'
+import { log, contains, deepPrint } from '../utils/utils.js'
 import { Array } from 'yjs'
 
 
@@ -59,6 +59,12 @@ const generateRandomArrayModification = (apps: Array<object>) => {
 }
 
 export const changeTest = () => {
-    ++getLocalEngine().lastBooted
-    console.log(`CHANGING ENGINE LASTBOOTED TO ${getLocalEngine().lastBooted}`)
+    const localEngine = getLocalEngine()
+    if (localEngine) {
+        localEngine.lastBooted = localEngine.lastBooted + 1
+        console.log(`CHANGING ENGINE LASTBOOTED TO ${localEngine.lastBooted}`)
+        log(deepPrint(localEngine))
+    } else {
+        log(`CHANGETEST: Engine not yet available ********`)
+    }
 }

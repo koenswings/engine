@@ -6,7 +6,7 @@ import { deepPrint, log } from '../utils/utils.js'
 import { existsSync, write } from 'fs'
 import { $, chalk } from 'zx'
 import { exit } from 'process'
-import { InterfaceName, getAppnetId, readConfig, setAppnetId, writeConfig } from '../data/Config.js'
+import { InterfaceName } from '../data/Config.js'
 import { LIBUSB_CAP_HAS_HID_ACCESS } from 'usb/dist/usb/bindings.js'
 import { enableWebSocketMonitor } from './webSocketMonitor.js'
 import { addConnectedInterface, isConnected, removeConnectedInterfaceByName } from '../data/Engine.js'
@@ -70,15 +70,25 @@ export const enableInterfaceMonitor = async (ifaceNames:InterfaceName[]) => {
 }
 
 const processInterface = (data, ifaceName) => {
+    log (`Processing interface ${ifaceName}`)
     const localEngine = getLocalEngine()
+    // Check if data[ifaceName] is an array
+    if (!Array.isArray(data[ifaceName])) {
+        log(`Data for interface ${ifaceName} is not an array`)
+        return
+    }
+    const ip4Set = data[ifaceName].find((address) => {
+        // Check if address is an object with property family that is 'IPv4'
+        return address.family && address.family === 'IPv4'
+    })
+    if (ip4Set) {
+        const ip4 = ip4Set.address
+        const netmask = ip4Set.netmask
+        const cidr = ip4Set.cidr
+        const nowConnected:Boolean = ip4 ? true : false
+        const wasConnected:Boolean = isConnected(localEngine, ifaceName)
 
-    const ip4 = data[ifaceName].find((address) => address.family === 'IPv4').address
-            const netmask = data[ifaceName].find((address) => address.family === 'IPv4').netmask
-            const cidr = data[ifaceName].find((address) => address.family === 'IPv4').cidr
-            const nowConnected:Boolean = ip4 ? true : false
-            const wasConnected:Boolean = isConnected(localEngine, ifaceName)
-
-            if (wasConnected && nowConnected) {
+        if (wasConnected && nowConnected) {
 
                 const iface = localEngine.connectedInterfaces[ifaceName]
                 const oldIp4 = iface.ip4
@@ -130,5 +140,8 @@ const processInterface = (data, ifaceName) => {
                 return
 
             }
+        } else {
+            log(`Interface ${ifaceName} on local engine has no IP4 address`)
+        }
 }
 

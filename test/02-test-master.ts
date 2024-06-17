@@ -1,14 +1,14 @@
 import { getLocalEngine, findNetworkByName, } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
-import { readConfig } from '../src/data/Config.js';
+import { config } from '../src/data/Config.js';
 import { ConnectionResult, Network, NetworkData, connectEngine, createNetwork } from '../src/data/Network.js';
 import { chalk, sleep } from 'zx';
 import { subscribe } from 'valtio';
 //import { expect } from 'chai';
 const { expect } = await import('chai')
 
-const { testSetup } = await readConfig('config.yaml')
+const testSetup  = config.testSetup
 const testNet = testSetup.appnet
 const testInterface = testSetup.interface
 
@@ -40,6 +40,7 @@ describe('The test master (the engine from which these tests are run) - ', async
 
   it(`the local Engine object must have the right properties`, async function () {
     const engine = getLocalEngine()
+    // log(`Local engine: ${deepPrint(engine)}`)
     // The local engine can be on any third machine so we cannot know the values, only that they should not be empty
     expect(engine.hostName).to.not.be.empty
     expect(engine.version).to.not.be.empty
@@ -93,7 +94,7 @@ describe(`The websocket server of the test master - `, function () {
     // The promise must resolve to a ConnectionResult
     const connection1 = await connectionPromise
     expect(connection1).to.exist
-    expect(connection1.status).to.equal('connected')
+    expect(connection1.status).to.equal('synced')
     //console.dir(networkData, {depth: 3, colors: true})
     // JSON.stringify(networkData, null, 2)))   
   })

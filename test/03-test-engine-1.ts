@@ -3,12 +3,12 @@ import { NetworkData, ConnectionResult, Network, createNetwork, connectEngine } 
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from 'console';
 import { expect } from 'chai';
-import { readConfig } from '../src/data/Config.js';
+import { config } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 import { subscribe } from 'valtio';
 
 
-const { testSetup } = await readConfig('config.yaml')
+const testSetup  = config.testSetup
 
 const testNet = testSetup.appnet
 const testInterface = testSetup.interface
@@ -62,7 +62,7 @@ describe('Test engine 1 - ', () => {
         // The promise must resolve to a ConnectionResult
         const connection1 = await connection1Promise
         expect(connection1).to.exist
-        expect(connection1.status).to.equal('connected')
+        expect(connection1.status).to.equal('synced')
     })
 
     it('the connection must sync within 30 secs and deliver data for the remote engine', async function (done) {
@@ -143,7 +143,7 @@ describe('Test engine 1 - ', () => {
         expect(remoteEngine.connectedInterfaces[testInterface].ip4).to.not.be.empty
         expect(isIP4(remoteEngine.connectedInterfaces[testInterface].ip4)).to.be.true
         // The ip address must correspond to the resolution of testEngine1Address
-        expect(remoteEngine.connectedInterfaces[testInterface].ip4).to.eql(findIp(testEngine1Address))
+        expect(remoteEngine.connectedInterfaces[testInterface].ip4).to.eql(await findIp(testEngine1Address))
         expect(remoteEngine.connectedInterfaces[testInterface].netmask).to.not.be.empty
         expect(isNetmask(remoteEngine.connectedInterfaces[testInterface].netmask)).to.be.true
     })

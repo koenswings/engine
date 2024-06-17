@@ -1,12 +1,11 @@
-import { createInstanceFromFile, startInstance, runInstance, stopInstance  } from '../data/Instance.js'
+import { buildInstance, startInstance, runInstance, stopInstance  } from '../data/Instance.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
 import { $, YAML, chalk } from 'zx';
 import { read, write } from 'fs';
-import { readConfig, writeConfig } from '../data/Config.js';
 import { CommandDefinition } from '../data/CommandDefinition.js';
 import { getLocalEngine } from '../data/Store.js';
-import { rebootEngine } from '../data/Engine.js';
+import { findDiskByName, rebootEngine } from '../data/Engine.js';
 
 // const storeAndEnableAppnetMonitor = async (networkName: string, ifaceName: string) => {
 //     // Read the config.yaml file, add this command to the startupCOmmands array, and write the file back
@@ -66,6 +65,19 @@ import { rebootEngine } from '../data/Engine.js';
 //     rebootEngine(getLocalEngine())
 // }
 
+const buildInstanceOnDisk = async (instance: string, app: string, gitAccount: string, gitTag: string, diskName: string) => {
+    const disk = findDiskByName(getLocalEngine(), diskName)
+    let device
+    if (disk && disk.device) {
+        device = disk.device
+    } else {
+        console.log(chalk.red(`Disk ${diskName} not found on engine ${getLocalEngine().hostName}`))
+        return
+    }
+    buildInstance(instance, app, gitAccount, gitTag, device)
+}
+
+
 // Command registry with an example of the new object command
 export const engineCommands: CommandDefinition[] = [
     // {
@@ -84,9 +96,9 @@ export const engineCommands: CommandDefinition[] = [
     //     args: [{ type: "string" }],
     // },
     {
-        name: "createInstance",
-        execute: createInstanceFromFile,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }],
+        name: "buildInstance",
+        execute: buildInstanceOnDisk,
+        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
     },
     {
         name: "startInstance",
