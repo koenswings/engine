@@ -1,4 +1,5 @@
 import { $, YAML, chalk } from "zx"
+import { log } from "../utils/utils.js"
 
 // const $$ = $({
 //   verbose: false
@@ -180,10 +181,10 @@ const readConfig = async (path: string): Promise<Config> => {
     await $`pwd`
     const configFile = await $`cat ${path}`
     config = YAML.parse(configFile.stdout)
-    console.log(chalk.green('Config read'));
+    // log(chalk.green('Config read'));
     return config
   } catch (e) {
-    console.log(chalk.red('Error reading config!!'));
+    log(chalk.red('Error reading config!!'));
     console.error(e)
     console.trace()
     process.exit(1)
@@ -193,9 +194,9 @@ const readConfig = async (path: string): Promise<Config> => {
 export const writeConfig = async (config: Config, path: string) => {
   try {
     await $`echo ${YAML.stringify(config)} > ${path}`
-    console.log(chalk.green('Config written'));
+    // log(chalk.green('Config written'));
   } catch (e) {
-    console.log(chalk.red('Error writing config'));
+    log(chalk.red('Error writing config'));
     console.error(e);
     process.exit(1);
   }

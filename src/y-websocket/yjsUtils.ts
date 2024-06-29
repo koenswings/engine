@@ -41,7 +41,7 @@ log(`First boot: ${firstBoot}`)
  */
 let persistence: { bindState: (arg0: string, arg1: WSSharedDoc) => void; writeState: (arg0: string, arg1: WSSharedDoc) => Promise<any>; provider: any } | null = null
 if (typeof persistenceDir === 'string') {
-  console.info('Persisting documents to "' + persistenceDir + '"')
+  log('Persisting documents to "' + persistenceDir + '"')
   // @ts-ignore
   const leveldb = await import('y-leveldb')  // KSW
   const LeveldbPersistence = leveldb.LeveldbPersistence  // KSW

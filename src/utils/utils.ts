@@ -2,7 +2,24 @@ import util from 'util';
 import { $, chalk, fs, question } from 'zx';
 import { config, writeConfig } from '../data/Config.js';
 
-export const log = console.log.bind(console);
+// Read verbosityLevel from the environmnet
+export let verbosityLevel = parseInt(process.env.VERBOSITY) || 0
+
+//export const log = console.log.bind(console);
+export const log = (msg:string, level?:number) => {
+  if (!level) {
+    // Set the default log level to 2
+    level = 2
+  }
+  if (verbosityLevel >= level) {
+    console.log(chalk.gray(msg))
+  }
+}
+
+export const setVerbosity = (level:number) => {
+  verbosityLevel = level
+}
+
 
 
 

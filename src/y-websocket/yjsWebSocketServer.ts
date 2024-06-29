@@ -9,6 +9,7 @@ import { setupWSConnection } from './yjsUtils.js'
 
 // const http = require('http')
 import http, { Server } from 'http'
+import { log } from '../utils/utils.js'
 
 export const yjsWebsocketServer = (host:string, port:number):Server => {
   const wss = new WebSocketServer({ noServer: true })
@@ -40,7 +41,7 @@ export const yjsWebsocketServer = (host:string, port:number):Server => {
   })
 
   server.listen(port, host, () => {
-    console.log(`running at ${host} on port ${port}`)
+    log(`running at ${host} on port ${port}`)
   })
   return server
 }

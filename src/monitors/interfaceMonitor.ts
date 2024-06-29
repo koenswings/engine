@@ -27,7 +27,7 @@ export const enableInterfaceMonitor = async (ifaceNames:InterfaceName[]) => {
     const onNetworkChange = (data) => {
 
         const changedInterfaces = Object.keys(data)
-        console.log(`New data for interfaces ${changedInterfaces}: ${JSON.stringify(data)}`)
+        log(`New data for interfaces ${changedInterfaces}: ${JSON.stringify(data)}`)
 
         // TODO - We should tolerate data with more than one key
         // Replace Object.keys(data)[0] == 'xxx' with data[xxx]

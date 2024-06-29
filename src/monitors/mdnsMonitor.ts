@@ -61,7 +61,7 @@ const oldDiscoverEngines = () => {
         name: '_engine._tcp.local'
         }).then((deviceList) =>{
         // console.log("***node-dns-sd*** "+deepPrint(device_list, 1));
-        console.log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName+" @ "+device.address)}`))
+        log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName+" @ "+device.address)}`))
         deviceList.forEach((device) => {
             if (!engines.find((engine) => engine.address === device.address)) {
                 // Now search of a package with type TXT on the list in device.packet.additionals, and return the rdata property
@@ -177,7 +177,7 @@ const discoverEngines = () => {
         name: '_engine._tcp.local'
         }).then((deviceList) =>{
         // console.log("***node-dns-sd*** "+deepPrint(device_list, 1));
-        console.log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName+" @ "+device.address)}`))
+        log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName+" @ "+device.address)}`))
         deviceList.forEach((device) => {
                 // Search of a package with type TXT on the list in device.packet.additionals, and return the rdata property
                 // This is the txt record that we added to the service
