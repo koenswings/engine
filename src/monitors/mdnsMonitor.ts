@@ -27,7 +27,7 @@ const engines:Device[] = []
 // The function should be called from the monitorForOtherEngines function
 // The function should be called every 10 seconds
 // The function should be called with a setInterval
-const discoverEngines = () => {
+const oldDiscoverEngines = () => {
 
     // ********* MDNS Discovery (error) *********
     // Now discover other engines on the same network
@@ -140,6 +140,77 @@ const discoverEngines = () => {
         }).catch((error) => {
         log(`***node-dns-sd*** Error discovering engines`)    
         console.error(error);
+        });
+}   
+
+const discoverEngines = () => {
+
+    // ********* MDNS Discovery (error) *********
+    // Now discover other engines on the same network
+    // const browser = mdns.createBrowser(mdns.tcp('engine', 'api-v1'))
+    // const browser = mdns.createBrowser(mdns.tcp('_googlecast'))
+    // browser.on('serviceUp', function(service) {
+    //      log(`Engine ${service.name} found`)
+    // })
+    // browser.on('serviceDown', function(service) {
+    //      log(`Engine ${service.name} left network`)
+    // })
+    // browser.start()
+
+    // ********* Discovery using node-dns-sd Packet Monitor (error) *********
+    // log(`***node-dns-sd*** Setting a data monitor`)
+    // mDnsSd.ondata = (packet) => {
+    //     console.log("***node-dns-sd*** "+JSON.stringify(packet, null, '  '));
+    // };
+    
+    // log(`***node-dns-sd*** Starting mDnsSd Monitoring`)
+    // mDnsSd.startMonitoring().then(() => {
+    //     console.log('***node-dns-sd*** - mDnsSd Monitoring started.');
+    // }).catch((error) => {
+    //     log(`***node-dns-sd*** Error starting mDnsSd Monitoring`)
+    //     console.error(error);
+    // });
+
+    // ********* node-dns-sd Discovery *********
+    // log(`***node-dns-sd*** Discovering engines `)
+    mDnsSd.discover({
+        name: '_engine._tcp.local'
+        }).then((deviceList) =>{
+        // console.log("***node-dns-sd*** "+deepPrint(device_list, 1));
+        console.log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName+" @ "+device.address)}`))
+        deviceList.forEach((device) => {
+                // Search of a package with type TXT on the list in device.packet.additionals, and return the rdata property
+                // This is the txt record that we added to the service
+                const txt = device.packet.additionals.find((add) => ((typeof add == 'object') && add.hasOwnProperty('type') && add.type === 'TXT'));
+
+                if (!txt || !txt.rdata) {
+                    log(chalk.redBright(`************* No TXT record found for engine ${device.modelName}. Not adding it to the list: it must be rediscovered with a valid TXT object`))
+                } else {
+                    const txtRecord = txt.rdata
+                    //log(chalk.bgBlackBright(`TXT record found for engine ${device.modelName}: ${deepPrint(txtRecord, 2)}`))
+                    // log(chalk.bgMagenta(`Adding engine ${device.familyName} to the list of engines`))
+                    //log(chalk.bgBlackBright(`Adding engine: ${deepPrint(device, 1)}`))
+                    const appnet = txtRecord.appnet
+                    // Emit an event for the network
+                    log(chalk.bgMagenta(`Engine ${device.modelName} is on network ${appnet}`))
+                    const network = findNetworkByName(appnet)
+
+                    // Access control
+                    const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+                    const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(), device.address)
+                    // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
+                    const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface))
+                    const accessGranted = networkInterfaces.length > 0
+
+                    // If access is granted, connect the engine
+                    if (network && accessGranted) {
+                        connectEngine(network, device.address)
+                    }
+                }  
+        })
+        }).catch((error) => {
+            log(`***node-dns-sd*** Error discovering engines`)    
+            console.error(error);
         });
 }   
 

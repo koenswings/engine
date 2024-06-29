@@ -130,7 +130,7 @@ const processInterface = (data, ifaceName) => {
                 // Start the websocket server on this interface
                 // Do not enable the websocket monitor on the localhost as it is already enabled
                 if (ip4 !== '127.0.0.1') {
-                    enableWebSocketMonitor(ip4, '1234') 
+                    // enableWebSocketMonitor(ip4, '1234') 
                     return
                 }
             }

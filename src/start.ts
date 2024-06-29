@@ -44,7 +44,8 @@ export const startEngine = async () => {
         enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
     } else {
         // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
-        enableWebSocketMonitor('127.0.0.1', '1234')
+        enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+        //enableWebSocketMonitor('127.0.0.1', '1234')
     }
 
     // Create and sync the appnets

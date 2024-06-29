@@ -105,7 +105,7 @@ export const connectEngine = (network: Network, address: string): Promise<Connec
   //   log(`WebSocket server already running on ${ip4}`)
   // }
 
-  if (!network.connections.hasOwnProperty(address)) {
+  if (!network.connections.hasOwnProperty(`${address}:1234`)) {
     const wsProvider = new WebsocketProvider(`ws://${address}:1234`, network.name, networkDoc)
     // Add the wsProvider to the wsProviders object of the network
     // network.wsProviders[`${ip4}:1234-on-${ifaceName}`] = wsProvider
