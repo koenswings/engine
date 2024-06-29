@@ -91,7 +91,7 @@ export const createNetwork = (networkName: string): Network => {
   return network
 }
 
-export const connectEngine = (network: Network, address: string): Promise<ConnectionResult> => {
+export const connectEngine = (network: Network, address: string, timeout?:boolean): Promise<ConnectionResult> => {
   log(`Connecting network ${network.name} to local or remote engine ${address}`)
 
   const networkDoc = network.doc
@@ -121,10 +121,11 @@ export const connectEngine = (network: Network, address: string): Promise<Connec
         log(`${event.status} from ${address}:1234`)
       } else if (event.status === 'reconnection-failure-3') {
         log(`Reconnection to ${address}:1234-on failed 3 times.`)
-        // network.connections[ifaceName][`${ip4}:1234`].destroy()
-        // delete network.connections[ifaceName][`${ip4}:1234`]
-        // Lets keep trying till we reboot...
-
+        if (timeout) {
+          log(`Timeout reached. Rebooting the system`)
+          network.connections[`${address}:1234`].destroy()
+          delete network.connections[`${address}:1234`]
+        }
       } else if (event.status === 'synced') {
         log(`${event.status} with ${address}:1234`)
         // OBSOLETE - The sync event apparently does not represent a full sync of the networkData
@@ -143,7 +144,7 @@ export const connectEngine = (network: Network, address: string): Promise<Connec
       }
     })
     log(`Created an Yjs websocket client connection on adddress ws://${address}:1234 with room name ${network.name}`)
-    return pEvent(wsProvider, 'status', (event: ConnectionResult) => event.status === 'synced')
+    return pEvent(wsProvider, 'status', (event: ConnectionResult) => (event.status === 'synced' || event.status === 'disconnected'  || event.status === 'reconnection-failure-3'))
   } else {
     // Return a resolved promise of ConnectionResult
     return Promise.resolve({ status: 'synced' })

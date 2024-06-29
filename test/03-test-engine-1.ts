@@ -39,7 +39,7 @@ describe.skip('Test engine 1 - ', () => {
                 process.exit(1)
             }
         })
-        connection1Promise = connectEngine(network1, testEngine1Address)
+        connection1Promise = connectEngine(network1, testEngine1Address, true)
         //console.dir(networkData, {depth: 3, colors: true})
         //log(chalk.green(deepPrint(networkData1, 4)))
         // JSON.stringify(networkData, null, 2)))

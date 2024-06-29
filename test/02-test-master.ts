@@ -113,7 +113,7 @@ describe(`The websocket server of the test master - `, function () {
         process.exit(1)
       }
     })
-    connectionPromise = connectEngine(network, loopBackAddress)
+    connectionPromise = connectEngine(network, loopBackAddress, true)
     //log(chalk.green(deepPrint(networkData1, 4)))
   })
 
