@@ -99,19 +99,20 @@ export const syncDiskWithFile = async (disk:Disk) => {
     // Call addApp for each folder found in /disks/diskName/apps
     const apps = (await $`ls /disks/${disk.device}/apps`).stdout.split('\n')
     log(`Apps found on disk ${disk.name}: ${apps}`)
-    await apps.forEach(async appFolder => {
+    await Promise.all(apps.map(async (appFolder) => {
         if (!(appFolder === "")) {
             const app: App = await createAppFromFile(appFolder, disk.name, disk.device)
             if (app) {
                 addApp(disk, app)
             }
         }
-    })
+    }))
+    
 
     // Call startInstance for each folder found in /instances
     const instances = (await $`ls /disks/${disk.device}/instances`).stdout.split('\n')
     log(`Instances found on disk ${disk.name}: ${instances}`)
-    await instances.forEach(async instanceFolder => {
+    await Promise.all(instances.map(async (instanceFolder) => {
         if (!(instanceFolder === "")) {
             const instance = await createInstanceFromFile(instanceFolder, disk.name, disk.device)
             // log(`Instance ${instance.name} found on disk ${diskName}`)
@@ -122,7 +123,7 @@ export const syncDiskWithFile = async (disk:Disk) => {
                 await startInstance(instance, disk)
             }
         }
-    })
+    }))
     return disk
 }
 
