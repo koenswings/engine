@@ -1,6 +1,6 @@
 import { getLocalEngine, findNetworkByName, } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
-import { log } from 'console';
+import { log } from '../src/utils/utils.js';
 import { config } from '../src/data/Config.js';
 import { ConnectionResult, Network, NetworkData, connectEngine, createNetwork } from '../src/data/Network.js';
 import { chalk, sleep } from 'zx';
@@ -95,30 +95,26 @@ describe('The test master (the engine from which these tests are run) - ', async
   })
 
 
-}) // Local Engine Tests
-
-describe(`The websocket server of the test master - `, function () {
-
-  before(async function () {
-    network = createNetwork(testNet)
-    networkData = network.data
-    // Subscribe to changes in the networkData1 object and log them
-    // Also protect against too many changes which would overflow stdout
-    subscribe(networkData, (value) => {
-      log(chalk.bgBlackBright("\n" + `Test master monitor: Network data was modified as follows: ${deepPrint(value)}`))
-      //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
-      if (value.length > 10) {
-        // exit the program
-        log(`Too many changes detected, exiting...`)
-        process.exit(1)
-      }
-    })
-    connectionPromise = connectEngine(network, loopBackAddress, true)
-    //log(chalk.green(deepPrint(networkData1, 4)))
-  })
-
   describe('must support connections over the loopback interface', async function () {
-    this.timeout(0)
+
+    before(async function () {
+      network = createNetwork(testNet)
+      networkData = network.data
+      // Subscribe to changes in the networkData1 object and log them
+      // Also protect against too many changes which would overflow stdout
+      subscribe(networkData, (value) => {
+        log(chalk.bgBlackBright("\n" + `Test master monitor: Network data was modified as follows: ${deepPrint(value)}`))
+        //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
+        if (value.length > 10) {
+          // exit the program
+          log(`Too many changes detected, exiting...`)
+          process.exit(1)
+        }
+      })
+      connectionPromise = connectEngine(network, loopBackAddress, true)
+      //log(chalk.green(deepPrint(networkData1, 4)))
+    })
+
 
     // Expect the local engine to have an interface called "lo" with ip address 127.0.0.1
     it(`the local engine must have an interface called "lo"`, async function () {

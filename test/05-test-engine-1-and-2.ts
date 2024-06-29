@@ -1,7 +1,7 @@
 import { $, chalk, question, sleep } from 'zx'
 import { NetworkData, ConnectionResult, Network, createNetwork, connectEngine } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
-import { log } from 'console';
+import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
 import { config } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
