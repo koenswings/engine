@@ -189,7 +189,7 @@ export const startInstance = async (instance: Instance, disk: Disk) => {
     }
     console.log(`Port: ${port}`)
 
-    // ALternative is to check the system for an occipied port
+    // ALternative is to check the system for an occupied port
     // await $`netstat -tuln | grep ${port}`
     // But this prevents us from finding apps that are stopped by the user
     // let port = 3000
@@ -206,7 +206,7 @@ export const startInstance = async (instance: Instance, disk: Disk) => {
     // Write a .env file in which you define the port variable
     // Do it
     await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.name}/.env`
-
+    // Do not set the instance port member here - only set it when running the app
 
     // **************************
     // STEP 2 - Preloading of services
@@ -259,6 +259,24 @@ export const runInstance = async (instance: Instance, disk: Disk) => {
   try {
 
     log(`Running instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine().hostName}'.`)
+
+    // Extract the port number from the .env file containing "port=<portNumber>"
+    const envContent = (await $`cat /disks/${disk.device}/instances/${instance.name}/.env`).stdout
+    // Look for a line with port=<portNumber> and extract the portNumber
+    const ports = envContent.match(/port=(\d+)/)
+    if (ports && ports.length >= 1) {
+      if (ports.length > 1) {
+        log(chalk.yellowBright(`Warning: multiple port numbers found in .env file for instance ${instance.name}. Using the first one.`))
+      }
+      const parsedPort = parseInt(ports[0])
+      // If parsedPort is not NaN, assign it to the instance port
+      if (!isNaN(parsedPort)) {
+        instance.port = parsedPort
+      } else {
+        log(chalk.red(`Error parsing port number from .env file for instance ${instance.name}. Got ${parsedPort}`))
+      }
+    }
+
 
     // Compose up the app
     await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml up -d`
