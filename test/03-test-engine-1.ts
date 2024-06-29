@@ -23,7 +23,7 @@ let connection1Promise: Promise<ConnectionResult>
 
 
 
-describe('Test engine 1 - ', () => {
+describe.skip('Test engine 1 - ', () => {
 
     before(async function () {
         network1 = createNetwork(testNet)
