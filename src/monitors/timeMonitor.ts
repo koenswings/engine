@@ -62,7 +62,7 @@ export const changeTest = () => {
     const localEngine = getLocalEngine()
     if (localEngine) {
         localEngine.lastBooted = localEngine.lastBooted + 1
-        console.log(`CHANGING ENGINE LASTBOOTED TO ${localEngine.lastBooted}`)
+        log(`CHANGING ENGINE LASTBOOTED TO ${localEngine.lastBooted}`)
         log(deepPrint(localEngine))
     } else {
         log(`CHANGETEST: Engine not yet available ********`)
