@@ -92,8 +92,6 @@ export const createNetwork = (networkName: string): Network => {
 }
 
 export const connectEngine = (network: Network, address: string, timeout?:boolean): Promise<ConnectionResult> => {
-  log(`Connecting network ${network.name} to local or remote engine ${address}`)
-
   const networkDoc = network.doc
 
   // UPDATE001: Decomment the following code in case we want to only open sockets on the interfaces that we monitor
@@ -105,6 +103,7 @@ export const connectEngine = (network: Network, address: string, timeout?:boolea
   //   log(`WebSocket server already running on ${ip4}`)
   // }
 
+  log(`Checking connection of ${network.name} with ${address}`)
   if (!network.connections.hasOwnProperty(`${address}:1234`)) {
     const wsProvider = new WebsocketProvider(`ws://${address}:1234`, network.name, networkDoc)
     // Add the wsProvider to the wsProviders object of the network

@@ -129,7 +129,7 @@ export const IPnumber = (IPaddress) => {
 }
 
 export const sameNet = (IP1, IP2, mask) => {
-  log(`${IPnumber(IP1) & IPnumber(mask)} == ${IPnumber(IP2) & IPnumber(mask)}`)
+  //log(`${IPnumber(IP1) & IPnumber(mask)} == ${IPnumber(IP2) & IPnumber(mask)}`)
   return (IPnumber(IP1) & IPnumber(mask)) == (IPnumber(IP2) & IPnumber(mask))
 }
 
