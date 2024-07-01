@@ -30,7 +30,7 @@ testSetup:
     name: loving-jennings
     apps:
       - name: kolibri
-        version: 1.0-0.15.5-dev
+        version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
         description: >
           Kolibri is an adaptable set of open solutions specially developed to

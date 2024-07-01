@@ -21,7 +21,7 @@ export let network1: Network
 let networkData1: NetworkData
 let connection1Promise: Promise<ConnectionResult>
 
-let remoteEngine
+let remoteEngine, disk
 
 describe('Test engine 1: ', () => {
 
@@ -141,7 +141,12 @@ describe('Test engine 1: ', () => {
                 expect(remoteEngine.lastBooted).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
             })
 
-            describe(`with an interface named ${testInterface}`, async function () {
+            it(`with a list of restricted interfaces as described in the config`, async function () {
+                if (!remoteEngine) this.skip()
+                expect(remoteEngine.restrictedInterfaces).to.eql(config.settings.interfaces)
+            })
+
+            describe(`with a connected interface named ${testInterface}: `, async function () {
 
                 it(`that exists`, async function () {
                     remoteEngine = networkData1.find(eng => eng.hostName === testEngine1Name)
@@ -174,13 +179,106 @@ describe('Test engine 1: ', () => {
                     expect(isNetmask(remoteEngine.connectedInterfaces[testInterface].netmask)).to.be.true
                 })
             })
+
+            describe(`with a disk called ${testDisk1.name}: `, async function () {
+                it(`that exists`, async function () {
+                    if (!remoteEngine) this.skip()
+                    disk = remoteEngine.disks.find(disk => disk.name === testDisk1.name)
+                    expect(disk).to.exist
+                })
+
+                it(`that has a device name`, async function () {
+                    if (!remoteEngine || !disk) this.skip()
+                    expect(disk.device).to.exist
+                })
+
+                it(`that has a creation time that is greater than the moment of this coding`, async function () {
+                    if (!remoteEngine || !disk) this.skip()
+                    expect(disk.created).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
+                })
+
+                it(`that has a lastDocked time that is greater than the moment of this coding`, async function () { 
+                    if (!remoteEngine || !disk) this.skip()
+                    expect(disk.lastDocked).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
+                })
+
+                describe(`that has the apps as described in the test setup: `, async function () {
+                    it(`It must have the right amount of apps`, async function () {
+                        if (!remoteEngine || !disk) this.skip()
+                        expect(disk.apps).to.have.lengthOf(testDisk1.apps.length)
+                    })
+
+                    it(`Each app in the test setup must be present in the disk object`, async function () {
+                        if (!remoteEngine || !disk) this.skip()
+                        testDisk1.apps.forEach(app => {
+                            const appInDisk = disk.apps.find(diskApp => diskApp.name === app.name)
+                            expect(appInDisk).to.exist
+                            expect(appInDisk).to.eql(app)
+                        })
+                    })
+
+                    describe(`Each app in the test setup must have a corresponding instance in the disk object: `, async function () {
+                        it(`that exists`, async function () {
+                            if (!remoteEngine || !disk) this.skip()
+                            testDisk1.apps.forEach(app => {
+                                const instance = disk.instances.find(instance => instance.instanceOf === app.name)
+                                expect(instance).to.exist
+                            })
+                        })
+
+                        it(`that has a name that contains the app name`, async function () {
+                            if (!remoteEngine || !disk) this.skip()
+                            testDisk1.apps.forEach(app => {
+                                const instance = disk.instances.find(instance => instance.instanceOf === app.name)
+                                expect(instance.name).to.include(app.name)
+                            })
+                        })
+
+                        it(`that has a status of running`, async function () {
+                            if (!remoteEngine || !disk) this.skip()
+                            testDisk1.apps.forEach(app => {
+                                const instance = disk.instances.find(instance => instance.instanceOf === app.name)
+                                expect(instance.status).to.eql('Running')
+                            })
+                        })
+
+                        it(`that has a creation time that is greater than the moment of this coding`, async function () {
+                            if (!remoteEngine || !disk) this.skip()
+                            testDisk1.apps.forEach(app => {
+                                const instance = disk.instances.find(instance => instance.instanceOf === app.name)
+                                expect(instance.created).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
+                            })
+                        })
+
+                        it(`that has a lastStarted time that is greater than the moment of this coding`, async function () {
+                            if (!remoteEngine || !disk) this.skip()
+                            testDisk1.apps.forEach(app => {
+                                const instance = disk.instances.find(instance => instance.instanceOf === app.name)
+                                expect(instance.lastStarted).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
+                            })
+                        })
+
+                        it(`has a port number that is larger or equal to 3000`, async function () {
+                            if (!remoteEngine || !disk) this.skip()
+                            testDisk1.apps.forEach(app => {
+                                const instance = disk.instances.find(instance => instance.instanceOf === app.name)
+                                expect(instance.port).to.be.greaterThanOrEqual(3000)
+                            })
+                        })
+
+                        it(`has a serviceImages list that is larger or equal to 1`, async function () {
+                            if (!remoteEngine || !disk) this.skip()
+                            testDisk1.apps.forEach(app => {
+                                const instance = disk.instances.find(instance => instance.instanceOf === app.name)
+                                expect(instance.serviceImages).to.have.lengthOf.at.least(1)
+                            })
+                        })
+                    })
+                })
+            })
         })
     })
 
-    describe(`Must run the apps as described in the test setup `, () => {
-
-        it(``)
-    })
 
     // Lets keep the connection open so that we can import it in test 05
     // after(function () {

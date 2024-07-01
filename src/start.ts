@@ -18,6 +18,7 @@ import { config } from './data/Config.js'
 export const startEngine = async () => {
 
     log(`Hello from ${os.hostname()}!`)
+    log(`The current time is ${new Date()}`)
     log(`Interfaces: ${JSON.stringify(os.networkInterfaces())}`)
     log(`Platform: ${os.platform()}`)
     log(`Architecture: ${os.arch()}`)

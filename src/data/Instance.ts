@@ -271,10 +271,13 @@ export const runInstance = async (instance: Instance, disk: Disk) => {
       const parsedPort = parseInt(ports[0])
       // If parsedPort is not NaN, assign it to the instance port
       if (!isNaN(parsedPort)) {
+        log(`Port number extracted from .env file for instance ${instance.name}: ${parsedPort}`)
         instance.port = parsedPort
       } else {
-        log(chalk.red(`Error parsing port number from .env file for instance ${instance.name}. Got ${parsedPort}`))
+        log(chalk.red(`Error parsing port number from .env file for instance ${instance.name}. Got ${parsedPort} from ${envContent} and ${ports}`))
       }
+    } else {
+      log(chalk.red(`Error extracting port number from .env file for instance ${instance.name}`))
     }
 
 

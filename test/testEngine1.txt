@@ -1,0 +1,77 @@
+{
+    hostName: 'loving-jennings',
+    version: '1.0',
+    hostOS: 'Linux',
+    dockerMetrics: { memory: '3975192576', cpu: '1.5,0.8,0.52', network: '', disk: '' },
+    dockerLogs: { logs: [] },
+    dockerEvents: { events: [] },
+    lastBooted: 1719730051307,
+    restrictedInterfaces: [ 'eth0', 'wlan0' ],
+    connectedInterfaces: {
+      lo: {
+        name: 'lo',
+        ip4: '127.0.0.1',
+        netmask: '255.0.0.0',
+        cidr: '127.0.0.1/8'
+      },
+      eth0: {
+        name: 'eth0',
+        ip4: '192.168.0.139',
+        netmask: '255.255.255.0',
+        cidr: '192.168.0.139/24'
+      },
+      'br-1dcc318fe31d': {
+        name: 'br-1dcc318fe31d',
+        ip4: '172.18.0.1',
+        netmask: '255.255.0.0',
+        cidr: '172.18.0.1/16'
+      }
+    },
+    disks: [
+      {
+        name: 'loving-jennings',
+        device: 'sda2',
+        created: 1718271140002,
+        lastDocked: 1719730055514,
+        removable: false,
+        upgradable: false,
+        apps: [
+          {
+            name: 'kolibri',
+            version: '49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0',
+            title: 'Kolibri',
+            description: 'Kolibri is an adaptable set of open solutions specially developed to support learning for the half of the world without Internet access. \n' +
+              'Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.\n',
+            url: 'https://learningequality.org/kolibri/',
+            category: 'education',
+            icon: 'icon.png',
+            author: 'Koen Swings'
+          }
+        ],
+        instances: [
+          {
+            instanceOf: 'kolibri',
+            name: 'kolibri',
+            status: 'Running',
+            port: 0,
+            serviceImages: [ 'koenswings/kolibri:latest_dev' ],
+            dockerMetrics: {
+              memory: '3975192576',
+              cpu: '1.66,0.86,0.55',
+              network: '',
+              disk: ''
+            },
+            dockerLogs: { logs: [] },
+            dockerEvents: { events: [] },
+            created: 1719730055601,
+            lastBackedUp: 0,
+            lastStarted: 1719730064180,
+            upgradable: false,
+            backUpEnabled: false
+          }
+        ]
+      }
+    ],
+    commands: []
+  }
+  
