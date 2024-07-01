@@ -37,17 +37,31 @@ export const startEngine = async () => {
 
     // Process the config
     const settings = config.settings
+    let server
 
     // Start the websocket servers
     log('STARTING THE WEBSOCKET SERVERS')
     if (!settings.interfaces) {
         // No access control - listen on all interfaces
-        enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+        server = enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
     } else {
         // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
-        enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+        server = enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
         //enableWebSocketMonitor('127.0.0.1', '1234')
     }
+
+    // If this process is killed or exited, close the server
+    process.on('exit', () => {
+        log('Closing the websocket server')
+        server.close()
+        process.exit()
+    })
+    process.on('SIGINT', () => {
+        log('Closing the websocket server')
+        server.close()
+        process.exit()
+    })
+
 
     // Create and sync the appnets
     await sleep(1000)

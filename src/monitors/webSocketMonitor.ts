@@ -11,3 +11,8 @@ export const enableWebSocketMonitor = (host, port) => {
     return wsServer
 }
 
+// When receiving an exit signal, close the websocket server
+export const disableWebSocketMonitor = (wsServer) => {
+    wsServer.close()
+    log('Closing the web socket server')
+}
