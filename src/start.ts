@@ -15,6 +15,8 @@ import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
 import { addNetwork, getLocalEngine } from './data/Store.js'
 import { config } from './data/Config.js'
 
+let server
+
 export const startEngine = async () => {
 
     log(`Hello from ${os.hostname()}!`)
@@ -37,7 +39,6 @@ export const startEngine = async () => {
 
     // Process the config
     const settings = config.settings
-    let server
 
     // Start the websocket servers
     log('STARTING THE WEBSOCKET SERVERS')
@@ -53,15 +54,24 @@ export const startEngine = async () => {
     // If this process is killed or exited, close the server
     process.on('exit', () => {
         log('Closing the websocket server')
-        server.close()
-        process.exit()
+        console.log('*** Exit received ****');
+        console.log('*** The Engine will be closed in 10 sec ****');
+        setTimeout(shutdownProcedure, 10000);
     })
     process.on('SIGINT', () => {
+        // this will be fired when you kill the app with ctrl + c.
         log('Closing the websocket server')
-        server.close()
-        process.exit()
+        console.log('*** SIGINT received ****');
+        console.log('*** The Engine will be closed in 10 sec ****');
+        setTimeout(shutdownProcedure, 10000);
     })
-
+    process.on('SIGTERM', () => {
+        // this will be fired by the Linux shutdown command
+        log('Closing the websocket server')
+        console.log('*** SIGTERM received ****');
+        console.log('*** The Engine will be closed in 10 sec ****');
+        setTimeout(shutdownProcedure, 10000);
+    })
 
     // Create and sync the appnets
     await sleep(1000)
@@ -132,3 +142,11 @@ export const startEngine = async () => {
     // enableDateTimeMonitor(5000, generateRandomArrayModification(apps))
 
 }
+
+
+function shutdownProcedure() {
+    console.log('*** Engine is now closing ***');
+    server.close()
+    process.exit(0);
+}
+
