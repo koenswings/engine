@@ -121,7 +121,7 @@ export const buildInstance = async (instanceName: string, typeName: string, gitA
     }
 
 
-    console.log(chalk.green(`App ${instanceName} built`))
+    console.log(chalk.green(`Instance ${instanceName} built`))
   } catch (e) {
     console.log(chalk.red('Error building app instance'))
     console.error(e)
