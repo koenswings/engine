@@ -1,5 +1,5 @@
 import { $, YAML, chalk, fs, os } from "zx";
-import { log } from "../utils/utils.js";
+import { deepPrint, log } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs } from "./CommonTypes.js";
 import { getLocalEngine } from "./Store.js";
 import { Disk } from "./Disk.js";
@@ -179,8 +179,9 @@ export const startInstance = async (instance: Instance, disk: Disk) => {
     // The port is in use by another app if an app can be found in networkdata with the same port
     let port = 3000
     const instances = getEngineInstances(getLocalEngine())
+    console.log(`Instances: ${deepPrint(instances)}.`)
     while (true) {
-      const inst = instances.find(instance => instance.port == port)
+      const inst = instances.find(instance => instance && instance.port == port)
       if (inst) {
         port++
       } else {
@@ -263,18 +264,18 @@ export const runInstance = async (instance: Instance, disk: Disk) => {
     // Extract the port number from the .env file containing "port=<portNumber>"
     const envContent = (await $`cat /disks/${disk.device}/instances/${instance.name}/.env`).stdout
     // Look for a line with port=<portNumber> and extract the portNumber
-    const ports = envContent.match(/port=(\d+)/)
-    if (ports && ports.length >= 1) {
-      if (ports.length > 1) {
-        log(chalk.yellowBright(`Warning: multiple port numbers found in .env file for instance ${instance.name}. Using the first one.`))
-      }
-      const parsedPort = parseInt(ports[0])
+    // const ports = envContent.match(/port=(\d+)/g)
+    // Split using '=' and take the second element
+    const port = envContent.split('=')[1]
+    console.log(`Ports: ${deepPrint(port)}`)
+    if (port) {
+      const parsedPort = parseInt(port)
       // If parsedPort is not NaN, assign it to the instance port
       if (!isNaN(parsedPort)) {
         log(`Port number extracted from .env file for instance ${instance.name}: ${parsedPort}`)
         instance.port = parsedPort
       } else {
-        log(chalk.red(`Error parsing port number from .env file for instance ${instance.name}. Got ${parsedPort} from ${envContent} and ${ports}`))
+        log(chalk.red(`Error parsing port number from .env file for instance ${instance.name}. Got ${parsedPort} from ${envContent} and ${port}`))
       }
     } else {
       log(chalk.red(`Error extracting port number from .env file for instance ${instance.name}`))
