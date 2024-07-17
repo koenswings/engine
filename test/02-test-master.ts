@@ -2,7 +2,7 @@ import { getLocalEngine, findNetworkByName, } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { config } from '../src/data/Config.js';
-import { ConnectionResult, Network, NetworkData, connectEngine, createNetwork } from '../src/data/Network.js';
+import { ConnectionResult, Network, connectEngine, createNetwork, getEngine, getEngines } from '../src/data/Network.js';
 import { chalk, sleep } from 'zx';
 import { subscribe } from 'valtio';
 //import { expect } from 'chai';
@@ -15,7 +15,6 @@ const testInterface = testSetup.interface
 const loopBackAddress = '127.0.0.1'
 
 let network: Network
-let networkData: NetworkData
 let connectionPromise: Promise<ConnectionResult>
 
 let engine, appnet
@@ -99,10 +98,9 @@ describe('The test master (the engine from which these tests are run) - ', async
 
     before(async function () {
       network = createNetwork(testNet)
-      networkData = network.data
       // Subscribe to changes in the networkData1 object and log them
       // Also protect against too many changes which would overflow stdout
-      subscribe(networkData, (value) => {
+      subscribe(network.engineIds, (value) => {
         log(chalk.bgBlackBright("\n" + `Test master monitor: Network data was modified as follows: ${deepPrint(value)}`))
         //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
         if (value.length > 10) {
@@ -128,7 +126,8 @@ describe('The test master (the engine from which these tests are run) - ', async
 
       // Expect the network, networkData and connectionPromise to exist
       expect(network).to.exist
-      expect(networkData).to.exist
+      expect(network.engineIds).to.exist
+      expect(network.engines).to.exist
       expect(connectionPromise).to.exist
 
       // The promise must resolve to a ConnectionResult
@@ -142,13 +141,13 @@ describe('The test master (the engine from which these tests are run) - ', async
     it('the connection must deliver an engine object within 30 secs', async function (done) {
       this.timeout(30000)
 
-      // If networkdata1.engines is not empty, call done()
-      if (networkData.length !== 0) {
+      // If network.engines is not empty, it has already synced, so call done()
+      if (network.engineIds.length !== 0) {
         done()
       } else {
         // Subscribe to changes in the networkData1 object 
         // NOTE: If ever remote data comes in during this test and before we subscribe, this will FAIL
-        subscribe(networkData, (value) => {
+        subscribe(network.engineIds, (value) => {
           // Test for the chnage that modifies the engines array
           // Here is an example of a value we expect
           // [[
@@ -180,9 +179,11 @@ describe('The test master (the engine from which these tests are run) - ', async
           //     undefined
           //   ]]
           // SO find an element in the array that sets the engine property at a specific index to an object and extract that object
-          const engine = value.find((el) => el[0] === 'set' && el[1][0] === 'engines')
-          // log the engine we found
-          log(chalk.bgBlackBright("\n" + `New engine found: ${deepPrint(engine)}`))
+          const engineId = value.find((el) => el[0] === 'set' && el[1][0] === '0')
+          // Now that the ids have propagated, we can query for all engines so that proxies are created and bound to the corresponding Yjs objects
+          getEngines(network).forEach((engine) => {
+            log(chalk.bgBlackBright(`Engine found: ${deepPrint(engine)}`))
+          })
           done()
         })
       }
@@ -192,8 +193,9 @@ describe('The test master (the engine from which these tests are run) - ', async
     it('the engine object delivered over the connection must equal the test master engine', async function () {
       const engine = getLocalEngine()
       // networkData1.engines must have an object that is a deep copy of the local engine object
-      expect(networkData).to.have.lengthOf(1)
-      expect(networkData[0]).to.eql(engine)
+      expect(network.engineIds).to.have.lengthOf(1)
+      expect(network.engineIds[0]).to.eql(engine.id)
+      expect(getEngine(network, network.engineIds[0])).to.eql(engine)
     })
 
     after(function () {

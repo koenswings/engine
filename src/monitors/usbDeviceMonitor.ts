@@ -1,5 +1,5 @@
 import chokidar from 'chokidar'
-import { fileExists, log } from '../utils/utils.js'
+import { DiskMeta, fileExists, log, readMeta } from '../utils/utils.js'
 import { $, YAML } from 'zx'
 import { Disk, createDisk, syncDiskWithFile } from '../data/Disk.js'
 import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
@@ -45,11 +45,24 @@ export const enableUsbDeviceMonitor = () => {
                     // Check if the disk has a file META.yaml in the root location of the disk
                     // If so, read the YAML content from the file and parse it into the object diskMetadata
                     // if (await $`test -f /disks/${device}/META.yaml`.then(() => true).catch(() => false)) {
-                    if (await fileExists(`/disks/${device}/META.yaml`)) {
-                        const metaContent = (await $`cat /disks/${device}/META.yaml`).stdout.trim()
-                        const diskMetadata = YAML.parse(metaContent)
-                        const diskName = diskMetadata.name
-                        const diskCreated = diskMetadata.created as number
+                    // if (await fileExists(`/disks/${device}/META.yaml`)) {
+                    //     const metaContent = (await $`cat /disks/${device}/META.yaml`).stdout.trim()
+                    //     const diskMetadata = YAML.parse(metaContent)
+                    //     const diskName = diskMetadata.name
+                    //     const diskCreated = diskMetadata.created as number
+                    //     const diskCreatedTime = new Date(diskCreated)
+                    //     log(`Found an appnet disk on device ${device} with name ${diskName} and created on ${diskCreatedTime}`)
+                    //     // Add the disk to the store
+                    //     const disk:Disk = createDisk(device, diskName, diskCreated)
+                    //     await syncDiskWithFile(disk)
+                    //     addDisk(localEngine, disk)
+                    // } else {
+                    //     log('Not an app disk')
+                    // }                    
+                    const meta:DiskMeta = await readMeta(device)
+                    if (meta) {
+                        const diskName = meta.name
+                        const diskCreated = meta.created
                         const diskCreatedTime = new Date(diskCreated)
                         log(`Found an appnet disk on device ${device} with name ${diskName} and created on ${diskCreatedTime}`)
                         // Add the disk to the store
@@ -58,7 +71,7 @@ export const enableUsbDeviceMonitor = () => {
                         addDisk(localEngine, disk)
                     } else {
                         log('Not an app disk')
-                    }                    
+                    }
                 } catch (e) {
                     log(`Error mounting device ${device}`)
                     log(e)

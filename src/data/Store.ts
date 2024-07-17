@@ -1,4 +1,4 @@
-import { Engine, setRestrictedInterfaces } from './Engine.js'
+import { Engine, createLocalEngine, setRestrictedInterfaces } from './Engine.js'
 import { ConnectionResult, Network, connectEngine, createNetwork } from './Network.js'
 import os from 'os'
 import { Interface } from './Engine.js'
@@ -7,14 +7,12 @@ import { proxy } from 'valtio'
 import { enableAppnetDataGlobalMonitor } from '../monitors/appnetDataMonitor.js'
 import { deepPrint, log } from '../utils/utils.js'
 import { firstBoot } from '../y-websocket/yjsUtils.js'
-import { getAppnetId, config, setAppnetId, writeConfig } from './Config.js'
+import { config } from './Config.js'
 import { enableWebSocketMonitor } from '../monitors/webSocketMonitor.js'
 import { Server } from 'http'
 
-
-
 export interface Store {
-    localEngineName: string,
+    localEngine: Engine,
     networks: Network[],
     runningServers: RunningServers,
     listeners: Listeners
@@ -24,84 +22,67 @@ export interface Store {
 export type Listener = (data: any) => void
 export type Listeners = { [key: string]: Listener }  // The key is the interface name 
 
-const store: Store = {
-    localEngineName: os.hostname(),
-    networks: [],
-    runningServers: {},
-    listeners: {}
-}
-
 // An object that stores all running servers on the local engine
 // It should have the ip address as a key and the server object as the value
 export type RunningServers = {
   [ip: string]: Server
 }
 
-export const createLocalEngine = (restrictedInterfaces: string[]) => {
-    const localEngine = {
-        hostName: os.hostname(),
-        version: "1.0",
-        hostOS: os.type(),
-        dockerMetrics: {
-            memory: os.totalmem().toString(),
-            cpu: os.loadavg().toString(),
-            network: "",
-            disk: ""
-        },
-        dockerLogs: { logs: [] },
-        dockerEvents: { events: [] },
-        lastBooted: (new Date()).getTime(),
-        restrictedInterfaces: restrictedInterfaces,
-        connectedInterfaces: {} as { [key: string]: Interface },
-        disks: [] as Disk[],
-        commands: [] as string[]
-    }
-    
-    // This engine object is proxied with Valtio
-    const $localEngine = proxy<Engine>(localEngine)
-    //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
-    return $localEngine
-}    
-  
-export const getLocalEngine = () => {
-    // First check if the hostname has changed
-    const localEngineName = os.hostname()
-    if (store.localEngineName !== localEngineName) {
-        store.localEngineName = localEngineName
-    }
-    const oldLocalEngineName = config.settings.localEngineName
-    // log(`Local engine name: ${localEngineName}`)
-    // log(`Old local engine name: ${oldLocalEngineName}`)
-    if (oldLocalEngineName === undefined || oldLocalEngineName === null || oldLocalEngineName === "") {
-        // First time boot
-        config.settings.localEngineName = localEngineName
-        log(`First time boot. Setting local engine name to ${localEngineName}`)
-        writeConfig(config, 'config.yaml')
-    } else {
-        if (oldLocalEngineName !== localEngineName) {
-            config.settings.localEngineName = localEngineName
-            // Loop over all networks and all engines on those networks, find the engine with the old hostname and update it
-            log(`Local engine name has changed from ${oldLocalEngineName} to ${localEngineName}`)
-            store.networks.forEach(network => {
-                network.data.forEach(engine => {
-                    if (engine.hostName === oldLocalEngineName) {
-                        log(`Updating engine ${oldLocalEngineName} to ${localEngineName}`)
-                        engine.hostName = localEngineName
-                    }
-                })
-            })
-            writeConfig(config, 'config.yaml')
-        }
-    }
-    const engine = store.networks[0].data.find(engine => engine.hostName === store.localEngineName)
-    if (engine === undefined) {
-        log(`deepPrint(store): ${deepPrint(store, 4)}`)
-        throw new Error(`Local engine ${store.localEngineName} not found`)
-    }
-    return engine
+
+const store: Store = {
+    localEngine: await createLocalEngine(config.settings.interfaces ? config.settings.interfaces : []),
+    networks: [],
+    runningServers: {},
+    listeners: {}
 }
+  
+// export const getLocalEngine = () => {
+//     const oldLocalEngineName = config.settings.localEngineName
+//     const currentLocalEngineName = os.hostname()
 
+//     // First check if the hostname has changed
+//     if (store.localEngineName !== localEngineName) {
+//         store.localEngineName = localEngineName
+//     }
+    
+//     if (oldLocalEngineName === undefined || oldLocalEngineName === null || oldLocalEngineName === "") {
+//         // If the engine name has not yet been set in the config (on first time boot), set it to the current local engine name
+//         config.settings.localEngineName = currentLocalEngineName
+//         log(`First time boot. Setting local engine name to ${currentLocalEngineName}`)
+//         writeConfig(config, 'config.yaml')
+//         const engine = store.networks[0].doc.getArray('currentLocalEngineName')
+//     } else {
+//         if (oldLocalEngineName !== currentLocalEngineName) {
+//             // The engine host name has changed
+//             const engine = store.networks[0].doc.getArray('oldLocalEngineName')
+//             // TODO - Update the key of the engine object in the YDoc !!!
+//             // Update the config file
+//             config.settings.localEngineName = currentLocalEngineName
+//             // Loop over all networks and all engines on those networks, find the engine with the old hostname and update it
+//             log(`Local engine name has changed from ${oldLocalEngineName} to ${localEngineName}`)
+//             store.networks.forEach(network => {
+//                 Object.keys(network.data).forEach(engine => {
+//                     if (network.data[engine].hostName === oldLocalEngineName) {
+//                         log(`Updating engine ${oldLocalEngineName} to ${localEngineName}`)
+//                         network.data[engine].hostName = localEngineName
+//                     }
+//                 })
+//             })
+//             writeConfig(config, 'config.yaml')
+//         }
+//     }
+//     const engine = Object.keys(store.networks[0].data).find(engine => Object.keys(store.networks[0].data)[engine].hostName === store.localEngineName)
+//     if (engine === undefined) {
+//         log(`deepPrint(store): ${deepPrint(store, 4)}`)
+//         throw new Error(`Local engine ${store.localEngineName} not found`)
+//     }
+//     return Object.keys(store.networks[0].data)[engine]
+// }
+
+export const getLocalEngine = () => {
+    return store.localEngine
+}
 
 export const findNetworkByName = (networkName: string): Network | undefined => {
     return store.networks.find(network => network.name === networkName)
@@ -135,15 +116,31 @@ export const addNetwork = async (networkName: string):Promise<ConnectionResult> 
     //   We still keep it for now, if we ever want to solve issues by persisting the ids of Network objects
     // const id = getAppnetId(config, networkName)
     // if ((id === undefined || id === null)) {
-    if (firstBoot) {
-        log(`First time boot. Adding a new local engine object to network ${networkName}`)    
-        const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-        const localEngine = createLocalEngine(restrictedInterfaces)
-        network.data.push(localEngine)
-        // setAppnetId(config, networkName, network.doc.clientID)
-        // Write the updated config file
-        // await writeConfig(config, 'config.yaml')
-    }
+    // log(`Adding a new local engine object to network ${networkName}`)    
+    // const engine = getLocalEngine()
+    // const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+    // const hostName = os.hostname()
+    // engine.hostName = hostName
+    // engine.version = "1.0"
+    // engine.hostOS = os.type()
+    // engine.dockerMetrics = {
+    //     memory: os.totalmem().toString(),
+    //     cpu: os.loadavg().toString(),
+    //     network: "",
+    //     disk: ""
+    // }
+    // engine.dockerLogs = { logs: [] }
+    // engine.dockerEvents = { events: [] }
+    // engine.lastBooted = (new Date()).getTime()
+    // engine.restrictedInterfaces = restrictedInterfaces
+    // engine.connectedInterfaces = {} as { [key: string]: Interface }
+    // engine.disks = [] as Disk[]
+    // engine.commands = [] as string[]
+    //const localEngine = createLocalEngine(restrictedInterfaces)
+    // network.data.push(localEngine)
+    // setAppnetId(config, networkName, network.doc.clientID)
+    // Write the updated config file
+    // await writeConfig(config, 'config.yaml')
 
     // Add subscriptions  
     enableAppnetDataGlobalMonitor(network)

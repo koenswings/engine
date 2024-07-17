@@ -1,7 +1,7 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
-import { Network, NetworkData, connectEngine, createNetwork, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
+import { Network, connectEngine, createNetwork, getEngine, getEngines, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { deepPrint } from '../src/utils/utils.js';
 
@@ -12,6 +12,7 @@ import { config } from '../src/data/Config.js'
 import { getNetworks } from '../src/data/Store.js';
 import { CommandDefinition } from '../src/data/CommandDefinition.js';
 import { create } from 'domain';
+import { UUID } from '../src/data/CommonTypes.js';
 
 const defaults  = config.defaults
 const engineAddress = argv.e || argv.engine || defaults.engine
@@ -44,7 +45,6 @@ if (argv.v || argv.version) {
 // ************************
 
 const network: Network = createNetwork(networkName)
-const networkData: NetworkData = network.data
 await connectEngine(network, engineAddress)
 
 
@@ -107,13 +107,11 @@ export const addEngine = async (engine: string, port:number) => {
 
 const ls = () => {
     console.log('NetworkData on this engine:')
-    console.log(deepPrint(networkData, 4))
     console.log(deepPrint(getNetworks(), 3))
 }
 
 const lsEngines = () => {
     console.log('Engines:')
-    console.log(deepPrint(networkData, 3))
 }
 
 const lsDisks = () => {
@@ -141,17 +139,27 @@ const lsInstances = () => {
 
 // Network Management
 
-const enableAppnetMonitor = (engineName: string, network: string, iface: string) => {
-    console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${network}`)
-    // We must send a remote command to engine1 to monitor the network
-    sendCommand(engineName, `enableAppnetMonitor ${iface} ${network}`)
+const enableAppnetMonitor = (engineName: string, networkName: string, iface: string) => {
+    console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${networkName}`)
+    // Find the engine with the name engineName
+    const engine = getEngines(network).find(e => e.hostName === engineName)
+    if (engine) {
+        sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}`)
+    } else {
+        console.log(`Engine ${engineName} not found on network ${network.name}`)
+    }
 }
 
 
-const disableAppnetMonitor = (engineName: string, network: string, iface: string) => {
-    console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${network}`)
-    // We must send a remote command to engine1 to monitor the network
-    sendCommand(engineName, `disableAppnetMonitor ${iface} ${network}`)
+const disableAppnetMonitor = (engineName: string, networkName: string, iface: string) => {
+    console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${networkName}`)
+    // Find the engine with the name engineName
+    const engine = getEngines(network).find(e => e.hostName === engineName)
+    if (engine) {
+        sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}`)
+    } else {
+        console.log(`Engine ${engineName} not found on network ${network.name}`)
+    }
 }
 
 // Disk Management
@@ -165,24 +173,46 @@ const disableAppnetMonitor = (engineName: string, network: string, iface: string
 
 const createInstance =  (engineName: string, instanceName: string, typeName:string, version:string, diskName:string) => {
     console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
-    // We must send a remote command to engine1 to create the Instance
-    sendCommand(engineName, `createInstance ${instanceName} ${typeName} ${version} ${diskName}`)
+    // Find the engine with the name engineName
+    const engine = getEngines(network).find(e => e.hostName === engineName)
+    if (engine) {
+        sendCommand(engine.id, `createInstance ${instanceName} ${typeName} ${version} ${diskName}`)
+    } else {
+        console.log(`Engine ${engineName} not found on network ${network.name}`)
+    }
 }
 
 const startInstance =  (engineName: string, instanceName: string, diskName:string) => {
     console.log(`Starting instance '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
-    // We must send a remote command to engine1 to start the Instance
-    sendCommand(engineName, `startInstance ${instanceName} ${diskName}`)
+    // Find the engine with the name engineName
+    const engine = getEngines(network).find(e => e.hostName === engineName)
+    if (engine) {
+        sendCommand(engine.id, `startInstance ${instanceName} ${diskName}`)
+    } else {
+        console.log(`Engine ${engineName} not found on network ${network.name}`)
+    }
 }
 
 const runInstance = (engineName: string, instanceName: string, diskName: string) => {
     console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
-    sendCommand(engineName, `runInstance ${instanceName} ${diskName}`)
+    // Find the engine with the name engineName
+    const engine = getEngines(network).find(e => e.hostName === engineName)
+    if (engine) {
+        sendCommand(engine.id, `runInstance ${instanceName} ${diskName}`)
+    } else {
+        console.log(`Engine ${engineName} not found on network ${network.name}`)
+    }
 }
 
 const stopInstance = (engineName: string, instanceName: string, diskName: string) => {
     console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
-    sendCommand(engineName, `stopInstance ${instanceName} ${diskName}`)
+    // Find the engine with the name engineName
+    const engine = getEngines(network).find(e => e.hostName === engineName)
+    if (engine) {
+        sendCommand(engine.id, `stopInstance ${instanceName} ${diskName}`)
+    } else {
+        console.log(`Engine ${engineName} not found on network ${network.name}`)
+    }
 }
 
 // Demo commands
@@ -201,14 +231,22 @@ const stopInstance = (engineName: string, instanceName: string, diskName: string
 // Remote Command Execution
 // ************************
 
-const sendCommand = (engineName: string, command: string) => {
-    console.log(`Sending command '${command}' to engine ${engineName}`)
-    // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
-    const engine = networkData.find(e => e.hostName === engineName)
-    if (engine) {
-        console.log(`Pushing commands to ${engineName}`)
-        engine.commands.push(command)
-    }
+const sendCommand = (engineId: UUID, command: string) => {
+    console.log(`Sending command '${command}' to engine ${engineId}`)
+
+    const engine = getEngine(network, engineId)
+    console.log(`Pushing commands to ${engineId}`)
+    engine.commands.push(command)
+    // // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
+    // const engineId = Object.keys(networkData).find(e => networkData[e].hostName === engineName)
+    // if (engineId) {
+    //     const engine = networkData[engineId]
+    //     if (engine) {
+    //         console.log(`Pushing commands to ${engineName}`)
+    //         engine.commands.push(command)
+    //     }
+    // }
+
 }
 
 

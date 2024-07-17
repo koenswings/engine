@@ -1,17 +1,19 @@
-import { $ } from 'zx';
-import { deepPrint, log, sameNet } from '../utils/utils.js';
-import { Version, DockerMetrics, DockerLogs, DockerEvents } from './CommonTypes.js';
+import { $, os } from 'zx';
+import { DiskMeta, deepPrint, log, readMeta, sameNet } from '../utils/utils.js';
+import { Version, DockerMetrics, DockerLogs, DockerEvents, UUID } from './CommonTypes.js';
 import { Disk } from './Disk.js';
 import { proxy } from 'valtio';
 
 
 export interface Engine {
+    id: UUID,
     hostName: string;
     version: Version;
     hostOS: string;
     dockerMetrics: DockerMetrics;
     dockerLogs: DockerLogs;
     dockerEvents: DockerEvents;
+    created: number;
     lastBooted: number; // We must use a timestamp number as Date objects are not supported in YJS
     disks: Disk[];
     //networkInterfaces: NetworkInterface[];
@@ -27,6 +29,41 @@ export interface Interface {
     netmask: string,
     cidr: string
 }
+
+
+export const createLocalEngine = async (restrictedInterfaces: string[]) => {
+    const meta:DiskMeta = await readMeta()
+    if (!meta) {
+        console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
+        process.exit(1)
+    }
+    const localEngine = {
+        id: meta.id, 
+        hostName: os.hostname(),
+        version: "1.0",
+        hostOS: os.type(),
+        dockerMetrics: {
+            memory: os.totalmem().toString(),
+            cpu: os.loadavg().toString(),
+            network: "",
+            disk: ""
+        },
+        dockerLogs: { logs: [] },
+        dockerEvents: { events: [] },
+        created: meta.created,
+        lastBooted: (new Date()).getTime(),
+        restrictedInterfaces: restrictedInterfaces,
+        connectedInterfaces: {} as { [key: string]: Interface },
+        disks: [] as Disk[],
+        commands: [] as string[]
+    }
+    
+    // This engine object is proxied with Valtio
+    const $localEngine = proxy<Engine>(localEngine)
+    //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
+
+    return $localEngine
+}    
 
 export const addDisk = (engine: Engine, disk: Disk) => {
     log(`Updating disk ${disk.name} of engine ${engine.hostName}:`)

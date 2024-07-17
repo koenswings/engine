@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { NetworkData, ConnectionResult, Network, createNetwork, connectEngine } from '../src/data/Network.js';
+import { ConnectionResult, Network, createNetwork, connectEngine, getEngines } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
@@ -18,7 +18,6 @@ const testEngine1Address = testDisk1.name + ".local"
 
 
 export let network1: Network
-let networkData1: NetworkData
 let connection1Promise: Promise<ConnectionResult>
 
 let remoteEngine, disk
@@ -29,10 +28,9 @@ describe('Test engine 1: ', () => {
 
         before(async function () {
             network1 = createNetwork(testNet)
-            networkData1 = network1.data
             // Subscribe to changes in the networkData1 object and log them
             // Also protect against too many changes which would overflow stdout
-            subscribe(networkData1, (value) => {
+            subscribe(network1.engineIds, (value) => {
                 log(chalk.bgBlackBright("\n" + `Test engine 1 monitor: Network data was modified as follows: ${deepPrint(value)}`))
                 //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
                 if (value.length > 10) {
@@ -56,7 +54,8 @@ describe('Test engine 1: ', () => {
         it('The test machine must be able to connect with it ', async function () {
             this.timeout(0)
             expect(network1).to.exist
-            expect(networkData1).to.exist
+            expect(network1.engineIds).to.exist
+            expect(network1.engines).to.exist
             expect(connection1Promise).to.exist
 
             // The promise must resolve to a ConnectionResult
@@ -68,13 +67,13 @@ describe('Test engine 1: ', () => {
         it('The connection must deliver a remote engine object within 30 secs', async function (done) {
             this.timeout(30000)
 
-            // If networkdata1.engines is not empty, call done()
-            if (networkData1.length !== 0) {
+            // If network.engines is not empty, call done()
+            if (network1.engineIds.length !== 0) {
                 done()
             } else {
                 // Subscribe to changes in the networkData1 object 
                 // NOTE: If ever remote data comes in during this test and before we subscribe, this will FAIL
-                subscribe(networkData1, (value) => {
+                subscribe(network1.engineIds, (value) => {
                     // Test for the chnage that modifies the engines array
                     // Here is an example of a value we expect
                     // [[
@@ -106,9 +105,11 @@ describe('Test engine 1: ', () => {
                     //     undefined
                     //   ]]
                     // SO find an element in the array that sets the engine property at a specific index to an object and extract that object
-                    const engine = value.find((el) => el[0] === 'set' && el[1][0] === 'engines')
-                    // log the engine we found
-                    log(chalk.bgBlackBright("\n" + `New engine found: ${deepPrint(engine)}`))
+                    const engineId = value.find((el) => el[0] === 'set' && el[1][0] === '0')
+                    // Now that the ids have propagated, we can query for all engines so that proxies are created and bound to the corresponding Yjs objects
+                    getEngines(network1).forEach((engine) => {
+                        log(chalk.bgBlackBright(`Engine found: ${deepPrint(engine)}`))
+                    })
                     done()
                 })
             }
@@ -120,7 +121,7 @@ describe('Test engine 1: ', () => {
             //log(chalk.bgBlackBright("\n" + deepPrint(networkData1, 4)))
             // We must find an Engine object in networkData1 with the same name as testEngine1
             it(`with the right name`, async function () {
-                remoteEngine = networkData1.find(eng => eng.hostName === testEngine1Name)
+                remoteEngine = Object.keys(network1.engines).find(eng => network1.engines[eng].hostName === testEngine1Name)
                 expect(remoteEngine).to.exist
             })
 
@@ -149,7 +150,7 @@ describe('Test engine 1: ', () => {
             describe(`with a connected interface named ${testInterface}: `, async function () {
 
                 it(`that exists`, async function () {
-                    remoteEngine = networkData1.find(eng => eng.hostName === testEngine1Name)
+                    remoteEngine = Object.keys(network1.engines).find(eng => network1.engines[eng].hostName === testEngine1Name)
                     //console.log(`Remote engine: ${deepPrint(remoteEngine)}`)
                     //console.log(testInterface)
                     expect(remoteEngine.connectedInterfaces).to.have.property(testInterface)

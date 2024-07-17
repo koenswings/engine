@@ -1,9 +1,11 @@
 
 
 
-export type URL = string;
+export type URL = string
 
-export type Version = string; // Can be major.minor or a commit hash
+export type Version = string // Can be major.minor or a commit hash
+
+export type UUID = string
 
 export interface DockerMetrics {
   cpu: string;

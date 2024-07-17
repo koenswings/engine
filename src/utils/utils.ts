@@ -1,5 +1,5 @@
 import util from 'util';
-import { $, chalk, fs, question } from 'zx';
+import { $, YAML, chalk, fs, question } from 'zx';
 import { config, writeConfig } from '../data/Config.js';
 
 // Read verbosityLevel from the environmnet
@@ -59,6 +59,34 @@ export const fileExists = (path: string) => {
 // export const firstBoot: boolean = fs.existsSync('../yjs-db') ? false : true 
 // export const firstBoot: boolean = !(await fileExists('./yjs-db'))
 // log(`First boot: ${firstBoot}`)
+
+export interface DiskMeta {
+  name: string
+  id: string
+  created: number
+}
+
+export const readMeta = async (device?: string):Promise<DiskMeta | null> => {
+  let path
+  if (device === undefined) {
+    path = `/disks/${device}/META.yaml`
+  } else {
+    path = `/META.yaml`
+  }
+  try {
+    if (await fileExists(path)) {
+      const metaContent = (await $`cat ${path}`).stdout.trim()
+      const diskMetadata:DiskMeta = YAML.parse(metaContent)
+      return diskMetadata
+    } else {
+      log('Not an app disk')
+      return null
+    }
+  } catch (e) {
+      return null
+  }
+}
+
 
 
 // Write a function that checks if a given yarray contains a specific value
