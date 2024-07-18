@@ -68,12 +68,13 @@ export interface DiskMeta {
 
 export const readMeta = async (device?: string):Promise<DiskMeta | null> => {
   let path
-  if (device === undefined) {
+  if (typeof device !== 'undefined') {
     path = `/disks/${device}/META.yaml`
   } else {
-    path = `/META.yaml`
+    path = `./META.yaml`
   }
   try {
+    log(`Our current dir is ${await $`pwd`} with content ${await $`ls`} and path ${path}`)
     if (await fileExists(path)) {
       const metaContent = (await $`cat ${path}`).stdout.trim()
       const diskMetadata:DiskMeta = YAML.parse(metaContent)
