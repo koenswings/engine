@@ -14,5 +14,5 @@ export const enableEngineGlobalMonitor = (engine: Engine) => {
             process.exit(1)
         }
     })
-    log(`Added COMMANDS MONITOR for engine ${engine.hostName}`)
+    log(`Added a global monitor for engine ${engine.hostName}`)
 }

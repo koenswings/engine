@@ -35,7 +35,7 @@ describe('The test master (the engine from which these tests are run) - ', async
     })
     it(`that must be part of the Engine array in the NetworkData object of the Network`, async function () {
       if (!engine || !appnet) this.skip()
-      expect(appnet.data).to.include(engine)
+      expect(appnet.engines).to.include(engine)
     })
 
     // The local engine can be on any machine so we cannot know the values, only that they should not be empty

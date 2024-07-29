@@ -98,6 +98,11 @@ export const createNetwork = (networkName: string): Network => {
   const engineIds = proxy([])
   bind(engineIds, networkDoc.getArray('engineIds'))
 
+  // Make sure that the id of the local engine is in the engineIds array
+  if (!engineIds.includes(localEngine.id)) {
+    engineIds.push(localEngine.id)
+  }
+
   // Create a proxy for the engines array
   const engines = proxy({})
 

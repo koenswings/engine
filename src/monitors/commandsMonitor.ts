@@ -68,7 +68,7 @@ export const enableEngineCommandsMonitor = (engine: Engine) => {
         log(`Executing command: ${command}`)
         await handleCommand(engineCommands, command)
     })
-    log(`Added COMMANDS MONITOR for engine ${engine.hostName}`)
+    log(`Added a commands monitor for engine ${engine.hostName}`)
 }
 
 // export const enableEngineCommandsMonitor = (networkData:NetworkData, networkName:string) => {
