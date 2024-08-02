@@ -33,11 +33,11 @@ export interface Network {
   // All connected engines sorted per interface
   connections: Connections;
 
-  // The ids for all engines in the network
-  engineIds: UUID[];
+  // The set of ids for all engines in the network
+  engineSet: {[key: UUID]: boolean}
 
-  // The proxies for each engine (which is itself a proxy)
-  engines: {[key: UUID]: Engine}
+  // The cache of Valtio engines (which is itself a Valtio object)
+  engineCache: {[key: UUID]: Engine}
 
 }
 
@@ -95,16 +95,14 @@ export const createNetwork = (networkName: string): Network => {
   log(`Bound local engine ${localEngine.id} to networkData`)
 
   // Create and bind a proxy for the engine Ids array
-  const engineIds = proxy([])
-  bind(engineIds, networkDoc.getArray('engineIds'))
+  const engineSet = proxy({})
+  bind(engineSet, networkDoc.getMap('engineSet'))
 
-  // Make sure that the id of the local engine is in the engineIds array
-  if (!engineIds.includes(localEngine.id)) {
-    engineIds.push(localEngine.id)
-  }
+  // Make sure that the id of the local engine is in the engineIds set
+  engineSet[localEngine.id] = true
 
-  // Create a proxy for the engines array
-  const engines = proxy({})
+  // Create the Valtio engines cache
+  const engineCache = proxy({})
 
   // Create a Network object
   const network = {
@@ -112,8 +110,8 @@ export const createNetwork = (networkName: string): Network => {
     doc: networkDoc,
     unbind: unbindLocalEngine,
     connections: {},
-    engineIds: engineIds,
-    engines: engines
+    engineSet: engineSet,
+    engineCache: engineCache
   }
 
   log(`Network ${network.name} initialised`)
@@ -203,35 +201,56 @@ export const isEngineConnected = (network: Network, ifaceName: string, ip: strin
 
 export const getEngines = (network: Network) => {
   //return network.doc.getArray('engineIds').toArray() as string[]
-  return network.engineIds.map(id => getEngine(network, id))
+  return Object.keys(network.engineSet).map(id => getEngine(network, id))
 }
 
 export const getEngine = (network: Network, engineId: string) => {
-  if (network.engines.hasOwnProperty(engineId)) {
-    return network.engines[engineId]
+  if (network.engineCache.hasOwnProperty(engineId)) {
+    return network.engineCache[engineId]
   } else {
     const engineMap = network.doc.getMap(engineId) as Map<Engine>
     const engine = proxy({}) as Engine
     bind(engine as Record<string, any>, engineMap)
-    network.engines[engineId] = engine
+    network.engineCache[engineId] = engine
     return engine
   }
 }
 
+export const findEngine = (network: Network, engineName: string) => {
+  return getEngines(network).find(engine => engine.hostName === engineName)
+}
+
+// export const getNetworkApps = (network: Network) => {
+//   const engineIds = network.engineIds
+//   return engineIds.reduce(
+//     (acc, engineId) => {
+//       return acc.concat(getEngineApps(getEngine(network, engineId)))
+//     },
+//     [])
+// }
+
 export const getNetworkApps = (network: Network) => {
-  const engineIds = network.engineIds
-  return engineIds.reduce(
-    (acc, engineId) => {
-      return acc.concat(getEngineApps(getEngine(network, engineId)))
+  return getEngines(network).reduce(
+    (acc, engine) => {
+      return acc.concat(getEngineApps(engine))
     },
     [])
 }
 
+
+// export const getNetworkInstances = (network: Network) => {
+//   const engineIds = network.engineIds
+//   return engineIds.reduce(
+//     (acc, engineId) => {
+//       return acc.concat(getEngineInstances(getEngine(network, engineId)))
+//     },
+//     [])
+// }
+
 export const getNetworkInstances = (network: Network) => {
-  const engineIds = network.engineIds
-  return engineIds.reduce(
-    (acc, engineId) => {
-      return acc.concat(getEngineInstances(getEngine(network, engineId)))
+  return getEngines(network).reduce(
+    (acc, engine) => {
+      return acc.concat(getEngineInstances(engine))
     },
     [])
 }
@@ -239,10 +258,9 @@ export const getNetworkInstances = (network: Network) => {
 export const getNetworkDisks = (network: Network) => {
   // Collect all disks from all networkData.engines
   // Loop over all networkData.engines and collect all disks in one array called disks
-  const engineIds = network.engineIds
-  return engineIds.reduce(
-    (acc, engineId) => {
-      return acc.concat(getEngine(network, engineId).disks)
+  return getEngines(network).reduce(
+    (acc, engine) => {
+      return acc.concat(engine.disks)
     },
     []
   )

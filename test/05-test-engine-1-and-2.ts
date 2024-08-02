@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { ConnectionResult, Network, createNetwork, connectEngine } from '../src/data/Network.js';
+import { ConnectionResult, Network, createNetwork, connectEngine, findEngine } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
@@ -32,17 +32,19 @@ describe.skip('Two remote engines - ', () => {
     })
 
     it(`test engine 1 must appear in the network data of test engine 2`, async function () {
-        const remoteEngine1 = Object.keys(network2.engines).find(engId => network2.engines[engId].hostName === testEngine1Name)
+        // const remoteEngine1 = Object.keys(network2.engines).find(engId => network2.engines[engId].hostName === testEngine1Name)
+        const remoteEngine1 = findEngine(network2, testEngine1Name) 
         expect(remoteEngine1).to.exist
     })
 
     it(`test engine 2 must appear in the network data of test engine 1`, async function () {
-        const remoteEngine2 = Object.keys(network1.engines).find(engId => network1.engines[engId].hostName === testEngine2Name)
+        // const remoteEngine2 = Object.keys(network1.engines).find(engId => network1.engines[engId].hostName === testEngine2Name)
+        const remoteEngine2 = findEngine(network1, testEngine2Name) 
         expect(remoteEngine2).to.exist
     })
 
-    it(`the two network data objects should be deeply equal`, async function () {
-        expect(network1.engines).to.deep.equal(network2.engines)
+    it(`the two engineSet objects should be deeply equal`, async function () {
+        expect(network1.engineSet).to.deep.equal(network2.engineSet)
     })
 
     // These tests can not run if we allow the test master to be a non-priviliged engine - these are on an isolated network and can not detect other engines

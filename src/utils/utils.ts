@@ -64,6 +64,7 @@ export interface DiskMeta {
   name: string
   id: string
   created: number
+  version: string
 }
 
 export const readMeta = async (device?: string):Promise<DiskMeta | null> => {

@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { ConnectionResult, Network, createNetwork, connectEngine, getEngines } from '../src/data/Network.js';
+import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngine } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
@@ -28,15 +28,15 @@ describe('Test engine 2: ', () => {
 
         before(async function () {
             network2 = createNetwork(testNet)
-            // Subscribe to changes in the networkData2 object and log them
+            // Subscribe to changes in the engineSet object and log them
             // Also protect against too many changes which would overflow stdout
-            subscribe(network2.engineIds, (value) => {
-                log(chalk.bgBlackBright("\n" + `Test engine 2 monitor: Network data was modified as follows: ${deepPrint(value)}`))
+            subscribe(network2.engineSet, (value) => {
+                log(chalk.bgBlackBright("\n" + `Test engine 2 monitor: engineSet was modified as follows: ${deepPrint(value)}`))
                 //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
                 if (value.length > 10) {
-                    // exit the program
-                    log(`Too many changes detected, exiting...`)
-                    process.exit(1)
+                // exit the program
+                log(`Too many changes detected, exiting...`)
+                process.exit(1)
                 }
             })
             connection2Promise = connectEngine(network2, testEngine2Address, true)
@@ -54,8 +54,8 @@ describe('Test engine 2: ', () => {
         it('The test machine must be able to connect with it ', async function () {
             this.timeout(0)
             expect(network2).to.exist
-            expect(network2.engineIds).to.exist
-            expect(network2.engines).to.exist
+            expect(network2.engineSet).to.exist
+            expect(network2.engineCache).to.exist
             expect(connection2Promise).to.exist
 
             // The promise must resolve to a ConnectionResult
@@ -68,12 +68,13 @@ describe('Test engine 2: ', () => {
             this.timeout(30000)
 
             // If networkdata2.engines is not empty, call done()
-            if (Object.keys(network2.engineIds).length !== 0) {
+            if (Object.keys(network2.engineSet).length !== 0) {
                 done()
             } else {
-                // Subscribe to changes in the networkData2 object 
+                // Subscribe to changes in the engineSet object 
                 // NOTE: If ever remote data comes in during this test and before we subscribe, this will FAIL
-                subscribe(network2.engineIds, (value) => {
+                subscribe(network2.engineSet, (value) => {
+                    log(chalk.bgBlackBright(`engineSet changed: ${deepPrint(value)}`))
                     // Test for the chnage that modifies the engines array
                     // Here is an example of a value we expect
                     // [[
@@ -121,7 +122,7 @@ describe('Test engine 2: ', () => {
             //log(chalk.bgBlackBright("\n" + deepPrint(networkData2, 4)))
             // We must find an Engine object in networkData2 with the same name as testEngine2
             it(`with the right name`, async function () {
-                remoteEngine = Object.keys(network2.engines).find(eng => network2.engines[eng].hostName === testEngine2Name)
+                remoteEngine = findEngine(network2, testEngine2Name)
                 expect(remoteEngine).to.exist
             })
 
@@ -145,7 +146,7 @@ describe('Test engine 2: ', () => {
             describe(`with an interface named ${testInterface}`, async function () {
 
                 it(`that exists`, async function () {
-                    remoteEngine = Object.keys(network2.engines).find(eng => network2.engines[eng].hostName === testEngine2Name)
+                    remoteEngine = findEngine(network2, testEngine2Name)
                     //console.log(`Remote engine: ${deepPrint(remoteEngine)}`)
                     //console.log(testInterface)
                     expect(remoteEngine.connectedInterfaces).to.have.property(testInterface)

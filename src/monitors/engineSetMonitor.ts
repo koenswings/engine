@@ -4,11 +4,11 @@ import { log, deepPrint } from '../utils/utils.js'
 import { getLocalEngine } from '../data/Store.js'
 
 
-export const enableAppnetDataGlobalMonitor = (network:Network) => {
+export const enableEngineSetMonitor = (network:Network) => {
   const networkName = network.name
     // TEMPORARY for testing: Monitor networkData for changes propagate by Yjs 
-    subscribe(network.engines, (value) => {
-        log(`NETWORKDATA GLOBAL MONITOR: Network ${networkName}: Network data was modified as follows: ${deepPrint(value)}`)
+    subscribe(network.engineSet, (value) => {
+        log(`ENGINESET MONITOR: The engineSet of network ${networkName} was modified as follows: ${deepPrint(value)}`)
         //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
         if (value.length > 10) {
             // exit the program
@@ -16,7 +16,7 @@ export const enableAppnetDataGlobalMonitor = (network:Network) => {
             process.exit(1)
         }
         })
-        log(`Added GLOBAL MONITOR to network ${networkName}`)
+        log(`Added ENGINESET MONITOR to network ${networkName}`)
 }
 
 

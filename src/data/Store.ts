@@ -1,15 +1,20 @@
-import { Engine, createLocalEngine, setRestrictedInterfaces } from './Engine.js'
+import { Engine, setRestrictedInterfaces } from './Engine.js'
 import { ConnectionResult, Network, connectEngine, createNetwork } from './Network.js'
 import os from 'os'
 import { Interface } from './Engine.js'
 import { Disk } from './Disk.js'
 import { proxy } from 'valtio'
-import { enableAppnetDataGlobalMonitor } from '../monitors/appnetDataMonitor.js'
-import { deepPrint, log } from '../utils/utils.js'
+import { enableEngineSetMonitor } from '../monitors/engineSetMonitor.js'
+import { DiskMeta, deepPrint, log, readMeta } from '../utils/utils.js'
 import { firstBoot } from '../y-websocket/yjsUtils.js'
 import { config } from './Config.js'
 import { enableWebSocketMonitor } from '../monitors/webSocketMonitor.js'
 import { Server } from 'http'
+
+
+// **********
+// Typedefs
+// **********
 
 export interface Store {
     localEngine: Engine,
@@ -25,18 +30,48 @@ export type Listeners = { [key: string]: Listener }  // The key is the interface
 // An object that stores all running servers on the local engine
 // It should have the ip address as a key and the server object as the value
 export type RunningServers = {
-  [ip: string]: Server
+    [ip: string]: Server
+}
+
+const initialiseLocalEngine = async () => {
+
+    const meta: DiskMeta = await readMeta()
+    if (!meta) {
+        console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
+        process.exit(1)
+    }
+
+    const localEngine = proxy<Engine>({
+        id: meta.id,
+        hostName: os.hostname(),
+        version: meta.version,
+        hostOS: os.type(),
+        dockerMetrics: {
+            memory: os.totalmem().toString(),
+            cpu: os.loadavg().toString(),
+            network: "",
+            disk: ""
+        },
+        created: meta.created,
+        lastBooted: (new Date()).getTime(),
+        restrictedInterfaces: config.settings.interfaces ? config.settings.interfaces : []
+    })
+
+    // This engine object is proxied with Valtio
+    const $localEngine = proxy<Engine>(localEngine)
+    //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
+
+    return $localEngine
 }
 
 
-
 const store: Store = {
-    localEngine: await createLocalEngine(config.settings.interfaces ? config.settings.interfaces : []),
+    localEngine: await initialiseLocalEngine(),
     networks: [],
     runningServers: {},
     listeners: {}
 }
-  
+
 // export const getLocalEngine = () => {
 //     const oldLocalEngineName = config.settings.localEngineName
 //     const currentLocalEngineName = os.hostname()
@@ -45,7 +80,7 @@ const store: Store = {
 //     if (store.localEngineName !== localEngineName) {
 //         store.localEngineName = localEngineName
 //     }
-    
+
 //     if (oldLocalEngineName === undefined || oldLocalEngineName === null || oldLocalEngineName === "") {
 //         // If the engine name has not yet been set in the config (on first time boot), set it to the current local engine name
 //         config.settings.localEngineName = currentLocalEngineName
@@ -104,7 +139,7 @@ export const getNetworkNames = () => {
     return store.networks.map(network => network.name)
 }
 
-export const addNetwork = async (networkName: string):Promise<ConnectionResult> => {
+export const addNetwork = async (networkName: string): Promise<ConnectionResult> => {
     // Create and initialise a Network object
     const network = createNetwork(networkName)
 
@@ -143,7 +178,7 @@ export const addNetwork = async (networkName: string):Promise<ConnectionResult> 
     // await writeConfig(config, 'config.yaml')
 
     // Add subscriptions  
-    enableAppnetDataGlobalMonitor(network)
+    enableEngineSetMonitor(network)
 
     // Add it to the networks array
     store.networks.push(network)
@@ -166,22 +201,21 @@ export const closeRunningServer = (ip: string) => {
 
 export const addListener = (iface: string, listener: (data: any) => void) => {
     store.listeners[iface] = listener
-  }
-  
-  export const removeListener = (iface: string) => {
+}
+
+export const removeListener = (iface: string) => {
     delete store.listeners[iface]
-  }
-  
-  export const getListeners = () => {
+}
+
+export const getListeners = () => {
     // Return an array of all listeners
     return Object.values(store.listeners)
-  }
-  
-  export const getListenerByIface = (iface: string) => {
+}
+
+export const getListenerByIface = (iface: string) => {
     if (store.listeners.hasOwnProperty(iface)) {
-      return store.listeners[iface]
+        return store.listeners[iface]
     } else {
-      return null
+        return null
     }
-  }
-  
+}
