@@ -33,9 +33,15 @@ describe('The test master (the engine from which these tests are run) - ', async
       engine = getLocalEngine()
       expect(engine).to.exist
     })
-    it(`that must be part of the Engine array in the NetworkData object of the Network`, async function () {
+    it(`that must be a top-level object in the Yjs doc of the Network`, async function () {
       if (!engine || !appnet) this.skip()
-      expect(appnet.engines.values()).to.include(engine)
+      //expect(appnet.engines.values()).to.include(engine)
+    expect(network.doc.getMap(engine.id)).to.exist
+    })
+    it(`whose id should be contained in the engineSet of the Network`, async function () {
+      if (!engine || !appnet) this.skip()
+      //expect(appnet.engines.values()).to.include(engine)
+    expect(network.engineSet[engine.id]).to.be.true
     })
 
     // The local engine can be on any machine so we cannot know the values, only that they should not be empty
@@ -97,7 +103,7 @@ describe('The test master (the engine from which these tests are run) - ', async
   describe('must support connections over the loopback interface', async function () {
 
     before(async function () {
-      network = createNetwork(testNet)
+      network = await createNetwork(testNet)
       // Subscribe to changes in the engineSet object and log them
       // Also protect against too many changes which would overflow stdout
       subscribe(network.engineSet, (value) => {

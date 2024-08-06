@@ -1,13 +1,16 @@
 import { Doc, Map } from 'yjs'
 import { WebsocketProvider } from '../y-websocket/y-websocket.js'
 import { Engine, getEngineApps, getEngineInstances } from './Engine.js'
-import { log } from '../utils/utils.js';
+import { deepPrint, log } from '../utils/utils.js';
 import { proxy } from 'valtio';
 import { bind } from '../valtio-yjs/index.js';
 import { pEvent } from 'p-event';
 import { getLocalEngine } from './Store.js';
 import { UUID } from './CommonTypes.js';
-import { get } from 'http';
+import { LeveldbPersistence } from 'y-leveldb'
+import { $ } from 'zx';
+import { firstBoot } from '../y-websocket/yjsUtils.js';
+
 
 
 // **********
@@ -65,9 +68,19 @@ export type Connections = { [key: string]: Connection }   // key is the ip addre
 // Functions
 // **********
 
-export const createNetwork = (networkName: string): Network => {
+export const createNetwork = async (networkName: string): Promise<Network> => {
   // Create a Yjs document for the network
   const networkDoc = new Doc()
+  
+  // OLD
+  // Create and connect the database
+  // Create the folder for the database at first boot
+  // if (firstBoot) {
+  //   await $`mkdir -p ./yjs-db/${networkName}`
+  // }
+  // const persistence = new LeveldbPersistence('./yjs-db/' + networkName)
+  // const networkDoc = await persistence.getYDoc(networkName)
+
   log(`Created a Yjs document for network ${networkName} with id ${networkDoc.clientID}`)
 
   // Create the YMap for the network data
@@ -93,6 +106,7 @@ export const createNetwork = (networkName: string): Network => {
   const yLocalEngine = networkDoc.getMap(localEngine.id)
   const unbindLocalEngine = bind(localEngine as Record<string, any>, yLocalEngine)
   log(`Bound local engine ${localEngine.id} to networkData`)
+  log(deepPrint(getLocalEngine()))
 
   // Create and bind a proxy for the engine Ids array
   const engineSet = proxy({})
@@ -103,6 +117,7 @@ export const createNetwork = (networkName: string): Network => {
 
   // Create the Valtio engines cache
   const engineCache = proxy({})
+
 
   // Create a Network object
   const network = {
@@ -133,6 +148,7 @@ export const connectEngine = (network: Network, address: string, timeout?:boolea
 
   log(`Checking connection of ${network.name} with ${address}`)
   if (!network.connections.hasOwnProperty(`${address}:1234`)) {
+    log(`Creating a new connection to ${address}:1234`)
     const wsProvider = new WebsocketProvider(`ws://${address}:1234`, network.name, networkDoc)
     // Add the wsProvider to the wsProviders object of the network
     // network.wsProviders[`${ip4}:1234-on-${ifaceName}`] = wsProvider
@@ -174,6 +190,7 @@ export const connectEngine = (network: Network, address: string, timeout?:boolea
     return pEvent(wsProvider, 'status', (event: ConnectionResult) => (event.status === 'synced' || event.status === 'disconnected'  || event.status === 'reconnection-failure-3'))
   } else {
     // Return a resolved promise of ConnectionResult
+    log(`Connection to ${address}:1234 already exists`)
     return Promise.resolve({ status: 'synced' })
   }
 }

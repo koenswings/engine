@@ -30,6 +30,9 @@ services:
       - type: bind
         source: .
         target: /engine
+      - type: bind
+        source: /META.yaml
+        target: /META.yaml
       - type: bind  # Required to see newly added USB devices
         source: /dev
         target: /dev

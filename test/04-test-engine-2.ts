@@ -27,7 +27,7 @@ describe('Test engine 2: ', () => {
     describe(`Must support connections on address ${testEngine2Address}`, () => {
 
         before(async function () {
-            network2 = createNetwork(testNet)
+            network2 = await createNetwork(testNet)
             // Subscribe to changes in the engineSet object and log them
             // Also protect against too many changes which would overflow stdout
             subscribe(network2.engineSet, (value) => {

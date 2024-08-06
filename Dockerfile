@@ -34,6 +34,9 @@ RUN apt-get install -y usbutils udev
 # Install the avahi dns_sd compat library and its header files 
 RUN apt-get install -y libavahi-compat-libdnssd-dev
 
+# Create a META.yaml file in the root location
+RUN echo "name: dev_engine, id: 1234567890, created: 1718271140002, version: "1.0" > /META.yaml
+
 # Initialise pnpm 
 # All packages will be added to /pnpm, outside the /app folder
 ENV SHELL bash

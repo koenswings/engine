@@ -7,6 +7,12 @@ export type Version = string // Can be major.minor or a commit hash
 
 export type UUID = string
 
+export type Command = string
+
+// References to top-level YMaps and YArrays in the Yjs document
+export type YMapRef = string
+export type YArrayRef = string
+
 export interface DockerMetrics {
   cpu: string;
   memory: string;

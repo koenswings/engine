@@ -33,7 +33,7 @@ export type RunningServers = {
     [ip: string]: Server
 }
 
-const initialiseLocalEngine = async () => {
+const initialiseLocalEngine = async ():Promise<Engine> => {
 
     const meta: DiskMeta = await readMeta()
     if (!meta) {
@@ -41,32 +41,55 @@ const initialiseLocalEngine = async () => {
         process.exit(1)
     }
 
-    const localEngine = proxy<Engine>({
-        id: meta.id,
-        hostName: os.hostname(),
-        version: meta.version,
-        hostOS: os.type(),
-        dockerMetrics: {
+    const $localEngine = proxy<Engine>({})
+    $localEngine.id = meta.id
+    $localEngine.hostName = os.hostname()
+    $localEngine.version = meta.version
+    $localEngine.hostOS = os.type()
+    $localEngine.dockerMetrics = {
             memory: os.totalmem().toString(),
             cpu: os.loadavg().toString(),
             network: "",
             disk: ""
-        },
-        created: meta.created,
-        lastBooted: (new Date()).getTime(),
-        restrictedInterfaces: config.settings.interfaces ? config.settings.interfaces : []
-    })
-
-    // This engine object is proxied with Valtio
-    const $localEngine = proxy<Engine>(localEngine)
+        }
+    $localEngine.dockerLogs = { logs: [] }
+    $localEngine.dockerEvents = { events: [] }
+    $localEngine.created = meta.created
+    $localEngine.lastBooted = (new Date()).getTime()
+    $localEngine.disks = []
+    $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+    $localEngine.connectedInterfaces = {}
+    $localEngine.commands = []
     //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
+    return $localEngine
+}
 
+const updateLocalEngine = async ():Promise<Engine> => {
+    const meta: DiskMeta = await readMeta()
+    if (!meta) {
+        console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
+        process.exit(1)
+    }
+    const $localEngine = proxy<Engine>({})
+    $localEngine.id = meta.id
+    $localEngine.hostName = os.hostname()
+    $localEngine.version = meta.version
+    $localEngine.hostOS = os.type()
+    $localEngine.dockerMetrics = {
+        memory: os.totalmem().toString(),
+        cpu: os.loadavg().toString(),
+        network: "",
+        disk: ""
+    }
+    $localEngine.created = meta.created
+    $localEngine.lastBooted = (new Date()).getTime()
+    $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
     return $localEngine
 }
 
 
 const store: Store = {
-    localEngine: await initialiseLocalEngine(),
+    localEngine: firstBoot ? await initialiseLocalEngine() : await updateLocalEngine(),
     networks: [],
     runningServers: {},
     listeners: {}
@@ -141,7 +164,7 @@ export const getNetworkNames = () => {
 
 export const addNetwork = async (networkName: string): Promise<ConnectionResult> => {
     // Create and initialise a Network object
-    const network = createNetwork(networkName)
+    const network = await createNetwork(networkName)
 
     // Store its client id if this is the first time boot
     // NOTE: 

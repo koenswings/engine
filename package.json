@@ -7,8 +7,8 @@
   "scripts": {
     "install_packages": "pnpm install --frozen-lockfile",
     "start": "tsc && YPERSISTENCE=./yjs-db node dist/src/index.js",
-    "dev": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && VERBOSITY=3 node dist/src/index.js'",
-    "devDB": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && YPERSISTENCE=./yjs-db VERBOSITY=3 node dist/src/index.js'",
+    "devNoDB": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && VERBOSITY=3 node dist/src/index.js'",
+    "dev": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && YPERSISTENCE=./yjs-db VERBOSITY=3 node dist/src/index.js'",
     "devreset": "pnpm reset && nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && YPERSISTENCE=./yjs-db node dist/src/index.js'",
     "devtest": "tsc --build --clean && tsc && mocha --bail --reporter list 'dist/test/*.js' --exit",
     "sync": "rsync -av --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ./ pi@raspberrypi.local:/home/pi/engine",

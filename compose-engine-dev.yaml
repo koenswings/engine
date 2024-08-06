@@ -30,9 +30,13 @@ services:
       - type: bind
         source: .
         target: /engine
+      - type: bind
+        source: /META.yaml
+        target: /META.yaml
       - type: bind  # Required to see newly added USB devices
         source: /dev
         target: /dev
+  
 
     # Run pnpm dev on start
     command: bash -c "cd /engine && npm config set prefer-offline=true && pnpm install_packages && pnpm dev" 

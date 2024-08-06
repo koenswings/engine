@@ -9,10 +9,10 @@ import { engineCommands } from './utils/engineCommands.js'
 
 import { $, YAML, chalk, sleep } from 'zx'
 import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
-import { log } from './utils/utils.js'
+import { deepPrint, log } from './utils/utils.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
 import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
-import { addNetwork, getLocalEngine } from './data/Store.js'
+import { addNetwork, findNetworkByName, getLocalEngine } from './data/Store.js'
 import { config } from './data/Config.js'
 
 let server
@@ -83,6 +83,11 @@ export const startEngine = async () => {
     } else {
         await addNetwork("appnet")
     }
+    await sleep(3000)
+    const appNetwork = findNetworkByName("appnet")
+    log("Local engine YMap 3 sec afer syncing: " + deepPrint(appNetwork.doc.getMap(getLocalEngine().id), 2))
+    log(deepPrint(getLocalEngine(), 2))
+
 
     // Start the interface monitors
     await sleep(1000)

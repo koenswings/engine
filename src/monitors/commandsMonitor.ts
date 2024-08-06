@@ -61,14 +61,18 @@ import { Engine } from '../data/Engine.js'
 
 export const enableEngineCommandsMonitor = (engine: Engine) => {
     // Monitor our local engine for commands to be executed
-    subscribe(engine.commands, async (value) => {
-        log(`ENGINE ${engine.hostName} COMMANDS MONITOR: Engine ${engine.hostName} commands is modified as follows: ${deepPrint(value)}`)
-        // Extract the command from the value and execute it
-        const command = value[0][2] as string
-        log(`Executing command: ${command}`)
-        await handleCommand(engineCommands, command)
-    })
-    log(`Added a commands monitor for engine ${engine.hostName}`)
+    log(`Adding a commands monitor for engine ${engine.hostName}`)
+    if (engine.commands) {
+        subscribe(engine.commands, async (value) => {
+            log(`ENGINE ${engine.hostName} COMMANDS MONITOR: Engine ${engine.hostName} commands is modified as follows: ${deepPrint(value)}`)
+            // Extract the command from the value and execute it
+            const command = value[0][2] as string
+            log(`Executing command: ${command}`)
+            await handleCommand(engineCommands, command)
+        })
+    } else {
+        log(`No commands monitor installed because engine ${engine.hostName} does not have a commands array`)
+    }
 }
 
 // export const enableEngineCommandsMonitor = (networkData:NetworkData, networkName:string) => {

@@ -44,7 +44,7 @@ if (argv.v || argv.version) {
 // Connection to an engine
 // ************************
 
-const network: Network = createNetwork(networkName)
+const network: Network = await createNetwork(networkName)
 await connectEngine(network, engineAddress)
 
 
@@ -143,10 +143,10 @@ const enableAppnetMonitor = (engineName: string, networkName: string, iface: str
     console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${networkName}`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
-    if (engine) {
+    if (engine && engine.id) {
         sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}`)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name}`)
+        console.log(`Engine ${engineName}: not found on network ${network.name} or has no id`)
     }
 }
 
@@ -155,10 +155,10 @@ const disableAppnetMonitor = (engineName: string, networkName: string, iface: st
     console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${networkName}`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
-    if (engine) {
+    if (engine && engine.id) {
         sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}`)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name}`)
+        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 
@@ -175,10 +175,10 @@ const createInstance =  (engineName: string, instanceName: string, typeName:stri
     console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
-    if (engine) {
+    if (engine && engine.id) {
         sendCommand(engine.id, `createInstance ${instanceName} ${typeName} ${version} ${diskName}`)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name}`)
+        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 
@@ -186,10 +186,10 @@ const startInstance =  (engineName: string, instanceName: string, diskName:strin
     console.log(`Starting instance '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
-    if (engine) {
+    if (engine && engine.id) {
         sendCommand(engine.id, `startInstance ${instanceName} ${diskName}`)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name}`)
+        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 
@@ -197,10 +197,10 @@ const runInstance = (engineName: string, instanceName: string, diskName: string)
     console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
-    if (engine) {
+    if (engine && engine.id) {
         sendCommand(engine.id, `runInstance ${instanceName} ${diskName}`)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name}`)
+        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 
@@ -208,10 +208,10 @@ const stopInstance = (engineName: string, instanceName: string, diskName: string
     console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
-    if (engine) {
+    if (engine && engine.id) {
         sendCommand(engine.id, `stopInstance ${instanceName} ${diskName}`)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name}`)
+        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 

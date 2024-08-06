@@ -1,9 +1,8 @@
 import { $, os } from 'zx';
 import { DiskMeta, deepPrint, log, readMeta, sameNet } from '../utils/utils.js';
-import { Version, DockerMetrics, DockerLogs, DockerEvents, UUID } from './CommonTypes.js';
+import { Version, DockerMetrics, DockerLogs, DockerEvents, UUID, Command, YMapRef, YArrayRef} from './CommonTypes.js';
 import { Disk } from './Disk.js';
 import { proxy } from 'valtio';
-
 
 export interface Engine {
     id?: UUID,
@@ -20,6 +19,7 @@ export interface Engine {
     restrictedInterfaces?: string[]    
     connectedInterfaces?: {[key: string]: Interface} // The key is the interface name and the value is the Interface object
     commands?: string[];
+    //commands?: YArrayRef;
 }
 
 // We give an engine an Interface once it has an IP address on that interface
@@ -30,7 +30,12 @@ export interface Interface {
     cidr: string
 }
 
+export const addCommand = (engine: Engine, command: string) => {
+    log(`Adding command ${command} to engine ${engine.hostName}`)
+    // engine.commands.push(command)
 
+
+}
 
 
 export const addDisk = (engine: Engine, disk: Disk) => {
