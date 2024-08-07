@@ -10,6 +10,7 @@ import { UUID } from './CommonTypes.js';
 import { LeveldbPersistence } from 'y-leveldb'
 import { $ } from 'zx';
 import { firstBoot } from '../y-websocket/yjsUtils.js';
+// import { IndexeddbPersistence } from 'y-indexeddb'
 
 
 
@@ -72,6 +73,13 @@ export const createNetwork = async (networkName: string): Promise<Network> => {
   // Create a Yjs document for the network
   const networkDoc = new Doc()
   
+  // OLD - Can not work in Nodejs as there is no Indexeddb on Nodejs
+  // Add the persistence layer
+  // const dbProvider = new IndexeddbPersistence(networkName, networkDoc)
+  // dbProvider.on('synced', () => {
+  //   log('Content from the database is loaded')
+  // })
+
   // OLD
   // Create and connect the database
   // Create the folder for the database at first boot
