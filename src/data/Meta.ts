@@ -10,7 +10,7 @@ export interface DiskMeta {
   }
   
   export const readMeta = async (device?: string):Promise<DiskMeta | undefined> => {
-    log(`The root dir has this this content ${await $`ls /`}`)
+    //log(`The root dir has this this content ${await $`ls /`}`)
     let path
     if (typeof device !== 'undefined') {
       path = `/disks/${device}/META.yaml`

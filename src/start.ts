@@ -1,8 +1,7 @@
 import os from 'os'
 import { enableUsbDeviceMonitor } from './monitors/usbDeviceMonitor.js'
-import { enableTimeMonitor, generateRandomArrayPopulationCallback, } from './monitors/timeMonitor.js'
-import { enableEngineCommandsMonitor } from "./monitors/commandsMonitor.js"
-import { enableEngineGlobalMonitor } from "./monitors/engineMonitor.js"
+import { enableTimeMonitor, generateHeartBeat, generateRandomArrayPopulationCallback, } from './monitors/timeMonitor.js'
+import { enableEngineCommandsMonitor, enableEngineSetMonitor } from "./monitors/enginesMonitor.js"
 import { changeTest } from "./monitors/timeMonitor.js"
 import { handleCommand } from './utils/commandHandler.js'
 import { engineCommands } from './utils/engineCommands.js'
@@ -15,7 +14,6 @@ import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
 import { addNetwork, findNetworkByName, getLocalEngine, initialiseStore } from './data/Store.js'
 import { config } from './data/Config.js'
 import { initialiseLocalEngine } from './data/Engine.js'
-import { enableEngineSetMonitor } from './monitors/engineSetMonitor.js'
 import { AppnetName, IPAddress, PortNumber } from './data/CommonTypes.js'
 import { store } from './data/Store.js'
 
@@ -45,7 +43,7 @@ export const startEngine = async ():Promise<void> => {
     const settings = config.settings
 
     // Start the websocket servers
-    log('STARTING THE WEBSOCKET SERVERS')
+    log(chalk.bgMagenta('STARTING THE WEBSOCKET SERVERS'))
     if (!settings.interfaces) {
         // No access control - listen on all interfaces
         server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
@@ -80,7 +78,7 @@ export const startEngine = async ():Promise<void> => {
 
     // Create and sync the appnets
     await sleep(1000)
-    log('CREATING AND SYNCING THE APPNETS')
+    log(chalk.bgMagenta('CREATING AND SYNCING THE APPNETS'))
     if (settings.appnets) {
         settings.appnets.forEach(async (appnet) => {
             await addNetwork(store, appnet.name as AppnetName)
@@ -91,17 +89,23 @@ export const startEngine = async ():Promise<void> => {
 
     // Initialize the local engine
     await sleep(1000)
-    log('INITIALISING THE LOCAL ENGINE')
+    log(chalk.bgMagenta('INITIALISING THE LOCAL ENGINE'))
     const localEngine = await initialiseLocalEngine(store)
 
-    // Enable monitoring of engines in each network
+    await sleep(1000)
+    log(chalk.bgMagenta('STARTING MONITORS ON ALL ENGINES'))
     store.networks.forEach((network) => {
         enableEngineSetMonitor(store, network)
     })
 
+    await sleep(1000)
+    log(chalk.bgMagenta('STARTING A COMMANDS MONITOR ON THE LOCAL ENGINE'))
+    enableEngineCommandsMonitor(localEngine)
+
+
     // Start the interface monitors
     await sleep(1000)
-    log('STARTING INTERFACE MONITORS')
+    log(chalk.bgMagenta('STARTING INTERFACE MONITORS'))
     if (!settings.interfaces) {
         // No access control - listen on all interfaces
         enableInterfaceMonitor(store, [])
@@ -111,26 +115,22 @@ export const startEngine = async ():Promise<void> => {
     }
 
     await sleep(1000)
-    log(chalk.bgMagenta('STARTING MULTICAST DNS ENGINE MONITOR'))
+    log(chalk.bgMagenta('STARTING MULTICAST DNS MONITOR'))
     enableMulticastDNSEngineMonitor(store)
 
-    
-    await sleep(1000)
-    log('STARTING OBJECT MONITORS ON LOCAL ENGINE')
-    enableEngineGlobalMonitor(localEngine)
-    enableEngineCommandsMonitor(localEngine)
-
 
     await sleep(1000)
-    log('STARTING MONITORING OF USB0')
+    log(chalk.bgMagenta('STARTING MONITORING OF USB DEVICES'))
     enableUsbDeviceMonitor(store)
 
 
     await sleep(15000)
-    log('STARTING CHANGE TEST')
-    changeTest(store)
-    enableTimeMonitor(300000, changeTest)
-
+    // log(chalk.bgMagenta('STARTING CHANGE TEST'))
+    // changeTest(store)
+    // enableTimeMonitor(300000, changeTest)
+    log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
+    generateHeartBeat(store)
+    enableTimeMonitor(300000, generateHeartBeat)
 
 
     // log('STARTING MONITOR OF ETH0')

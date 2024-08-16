@@ -69,3 +69,14 @@ export const changeTest = (store:Store) => {
         log(`CHANGETEST: Engine not yet available ********`)
     }
 }
+
+export const generateHeartBeat = (store:Store) => {
+    const localEngine = getLocalEngine(store)
+    if (localEngine && localEngine.lastRun) {
+        localEngine.lastRun =  (new Date()).getTime() as Timestamp
+        log(`UPDATING ENGINE LASTRUN TO ${localEngine.lastRun}`)
+        log(deepPrint(localEngine))
+    } else {
+        log(`HEARTBEAT: Engine not yet available or has no lastRun property ********`)
+    }
+}

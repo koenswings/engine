@@ -4,7 +4,6 @@ import os from 'os'
 import { Interface } from './Engine.js'
 import { Disk } from './Disk.js'
 import { proxy } from 'valtio'
-import { enableEngineSetMonitor } from '../monitors/engineSetMonitor.js'
 import { deepPrint, log } from '../utils/utils.js'
 import { readMeta, DiskMeta } from './Meta.js';
 import { firstBoot } from '../y-websocket/yjsUtils.js'

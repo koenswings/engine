@@ -21,6 +21,7 @@ export interface Engine {
     dockerEvents?: DockerEvents;
     created?: Timestamp;
     lastBooted?: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
+    lastRun?: Timestamp; 
     //disks?: Disk[];
     disks: {[key:DiskID]:boolean};
     //networkInterfaces: NetworkInterface[];
@@ -118,6 +119,7 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
     $localEngine.dockerEvents = { events: [] }
     $localEngine.created = meta.created
     $localEngine.lastBooted = (new Date()).getTime() as Timestamp
+    $localEngine.lastRun = (new Date()).getTime() as Timestamp
     // $localEngine.disks = proxy<{[key:DiskID]:boolean}>({}) 
     $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
     $localEngine.connectedInterfaces = {}
