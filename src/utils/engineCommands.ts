@@ -4,8 +4,10 @@ import { log, deepPrint } from '../utils/utils.js'
 import { $, YAML, chalk } from 'zx';
 import { read, write } from 'fs';
 import { CommandDefinition } from '../data/CommandDefinition.js';
-import { getLocalEngine } from '../data/Store.js';
+import { Store, getLocalEngine } from '../data/Store.js';
 import { findDiskByName, rebootEngine } from '../data/Engine.js';
+import { AppName, DeviceName, Hostname, InstanceName, Version } from '../data/CommonTypes.js';
+import { store } from '../data/Store.js';
 
 // const storeAndEnableAppnetMonitor = async (networkName: string, ifaceName: string) => {
 //     // Read the config.yaml file, add this command to the startupCOmmands array, and write the file back
@@ -65,16 +67,16 @@ import { findDiskByName, rebootEngine } from '../data/Engine.js';
 //     rebootEngine(getLocalEngine())
 // }
 
-const buildInstanceOnDisk = async (instance: string, app: string, gitAccount: string, gitTag: string, diskName: string) => {
-    const disk = findDiskByName(getLocalEngine(), diskName)
-    let device
+const buildInstanceOnDisk = async (store:Store, instanceName: InstanceName, appName: AppName, gitAccount: string, gitTag: string, diskName: Hostname) => {
+    const disk = findDiskByName(store, getLocalEngine(store), diskName)
+    let device:DeviceName
     if (disk && disk.device) {
         device = disk.device
     } else {
-        console.log(chalk.red(`Disk ${diskName} not found on engine ${getLocalEngine().hostName}`))
+        console.log(chalk.red(`Disk ${diskName} not found on engine ${getLocalEngine(store).hostName}`))
         return
     }
-    buildInstance(instance, app, gitAccount, gitTag, device)
+    buildInstance(instanceName, appName, gitAccount, gitTag as Version, device)
 }
 
 

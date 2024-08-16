@@ -1,23 +1,24 @@
 import { $, YAML, chalk, fs, os } from "zx";
 import { deepPrint, log } from "../utils/utils.js";
-import { DockerEvents, DockerMetrics, DockerLogs } from "./CommonTypes.js";
-import { getLocalEngine } from "./Store.js";
+import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname } from "./CommonTypes.js";
+import { Store, getLocalEngine } from "./Store.js";
 import { Disk } from "./Disk.js";
 import { findDiskByName, getEngineInstances } from "./Engine.js";
 import { proxy } from "valtio";
 
 export interface Instance {
-  instanceOf: string;   // Reference by name since we can store the AppMaster object only once in Yjs
-  name: string;
+  id: InstanceID;
+  instanceOf: AppID;   // Reference by name since we can store the AppMaster object only once in Yjs
+  name: InstanceName;
   status: Status;
-  port: number;
-  serviceImages: string[];
+  port: PortNumber;
+  serviceImages: ServiceImage[];
   dockerMetrics: DockerMetrics;
   dockerLogs: DockerLogs;
   dockerEvents: DockerEvents;
-  created: number; // We must use a timestamp number as Date objects are not supported in YJS
-  lastBackedUp: number; // We must use a timestamp number as Date objects are not supported in YJS
-  lastStarted: number; // We must use a timestamp number as Date objects are not supported in YJS
+  created: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
+  lastBackedUp: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
+  lastStarted: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
   upgradable: boolean;
   backUpEnabled: boolean;
   //disk: Disk;
@@ -26,8 +27,8 @@ export interface Instance {
 export type Status = 'Initializing' | 'Running' | 'Pauzed' | 'Error';
 
 
-export const buildInstance = async (instanceName: string, typeName: string, gitAccount: string, version: string, device: string) => {
-  console.log(`Building instance '${instanceName}' from version ${version} of app '${typeName}' on device '${device}' of the local engine.`)
+export const buildInstance = async (instanceName: InstanceName, appName: AppName, gitAccount: string, version: Version, device: DeviceName):Promise<void> => {
+  console.log(`Building instance '${instanceName}' from version ${version} of app '${appName}' on device '${device}' of the local engine.`)
 
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling
@@ -45,17 +46,17 @@ export const buildInstance = async (instanceName: string, typeName: string, gitA
 
     // Clone the app from the repository
     // Remove /tmp/apps/${typeName} if it exists
-    await $`rm -rf /tmp/apps/${typeName}`
+    await $`rm -rf /tmp/apps/${appName}`
     let appVersion = ""
     if (version === "latest_dev") {
-      await $`git clone https://github.com/${gitAccount}/app-${typeName} /tmp/apps/${typeName}`
+      await $`git clone https://github.com/${gitAccount}/app-${appName} /tmp/apps/${appName}`
       // Set appVersion to the latest commit hash
-      const gitLog = await $`cd /tmp/apps/${typeName} && git log -n 1 --pretty=format:%H`
+      const gitLog = await $`cd /tmp/apps/${appName} && git log -n 1 --pretty=format:%H`
       appVersion = gitLog.stdout.trim()
       log(`App version: ${appVersion}`)
 
     } else {
-      await $`git clone -b ${version} https://github.com/koenswings/app-${typeName} /tmp/apps/${typeName}`
+      await $`git clone -b ${version} https://github.com/koenswings/app-${appName} /tmp/apps/${appName}`
       appVersion = version
     }
 
@@ -64,7 +65,7 @@ export const buildInstance = async (instanceName: string, typeName: string, gitA
     // Overwrite if it exists
     // We want to copy the content of a directory and rename the directory at the same time: 
     //   See https://unix.stackexchange.com/questions/412259/how-can-i-copy-a-directory-and-rename-it-in-the-same-command
-    await $`cp -fr /tmp/apps/${typeName}/. /disks/${device}/apps/${typeName}-${appVersion}/`
+    await $`cp -fr /tmp/apps/${appName}/. /disks/${device}/apps/${appName}-${appVersion}/`
 
 
     // **************************
@@ -81,11 +82,11 @@ export const buildInstance = async (instanceName: string, typeName: string, gitA
         break
       } catch (e) {
         instanceNumber++
-        instanceName = `${baseInstanceName}-${instanceNumber}`
+        instanceName = `${baseInstanceName}-${instanceNumber}` as InstanceName
       }
     }
     // Again use /. to specify the content of the dir, not the dir itself 
-    await $`cp -fr /tmp/apps/${typeName}/. /disks/${device}/instances/${instanceName}/`
+    await $`cp -fr /tmp/apps/${appName}/. /disks/${device}/instances/${instanceName}/`
 
     // If the app has an init_data.tar.gz file, unpack it in the app folder
     if (fs.existsSync(`/disks/${device}/instances/${instanceName}/init_data.tar.gz`)) {
@@ -104,7 +105,7 @@ export const buildInstance = async (instanceName: string, typeName: string, gitA
     await $`echo ${composeYAML} > /disks/${device}/instances/${instanceName}/compose.yaml`
 
     // Remove the temporary app folder
-    await $`rm -rf /tmp/apps/${typeName}`
+    await $`rm -rf /tmp/apps/${appName}`
 
     // **************************
     // STEP 3 - Persist the services
@@ -129,18 +130,20 @@ export const buildInstance = async (instanceName: string, typeName: string, gitA
 }
 
 
-export const createInstanceFromFile = async (instanceName: string, diskName: string, device: string): Promise<Instance> | undefined => {
+export const createInstanceFromFile = async (instanceName: InstanceName, diskName: Hostname, device: DeviceName): Promise<Instance | undefined> => {
   let instance: Instance
   try {
     const composeFile = await $`cat /disks/${device}/instances/${instanceName}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     const services = Object.keys(compose.services)
     const servicesImages = services.map(service => compose.services[service].image)
+    const instanceId = instanceName as string
     instance = {
+      id: instanceId as InstanceID,
       instanceOf: compose['x-app'].name,
       name: instanceName,
       status: 'Initializing',
-      port: 0,
+      port: 0 as PortNumber,
       serviceImages: servicesImages,
       dockerMetrics: {
         memory: os.totalmem().toString(),
@@ -150,23 +153,24 @@ export const createInstanceFromFile = async (instanceName: string, diskName: str
       },
       dockerLogs: { logs: [] },
       dockerEvents: { events: [] },
-      created: new Date().getTime(),
-      lastBackedUp: 0,
-      lastStarted: 0,
+      created: new Date().getTime() as Timestamp,
+      lastBackedUp: 0  as Timestamp,
+      lastStarted: 0  as Timestamp,
       upgradable: false,
       backUpEnabled: false
     }
   } catch (e) {
     log(chalk.red(`Error initializing instance ${instanceName} on disk ${diskName}`))
     console.error(e)
+    return undefined
   }
   const $instance = proxy<Instance>(instance)
   return $instance
 }
 
 
-export const startInstance = async (instance: Instance, disk: Disk) => {
-  console.log(`Starting instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine().hostName}'.`)
+export const startInstance = async (store:Store, instance: Instance, disk: Disk):Promise<void> => {
+  console.log(`Starting instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
 
   try {
 
@@ -178,7 +182,7 @@ export const startInstance = async (instance: Instance, disk: Disk) => {
     // Start from port number 3000 and check if the port is already in use by another app
     // The port is in use by another app if an app can be found in networkdata with the same port
     let port = 3000
-    const instances = getEngineInstances(getLocalEngine())
+    const instances = getEngineInstances(store, getLocalEngine(store))
     console.log(`Instances: ${deepPrint(instances)}.`)
     while (true) {
       const inst = instances.find(instance => instance && instance.port == port)
@@ -228,13 +232,13 @@ export const startInstance = async (instance: Instance, disk: Disk) => {
     // STEP 3 - Container creation
     // **************************
 
-    await createInstanceContainers(instance, disk)
+    await createInstanceContainers(store, instance, disk)
 
     // **************************
     // STEP 4 - run the Instance
     // **************************
 
-    await runInstance(instance, disk)
+    await runInstance(store, instance, disk)
   }
 
   catch (e) {
@@ -243,9 +247,9 @@ export const startInstance = async (instance: Instance, disk: Disk) => {
   }
 }
 
-export const createInstanceContainers = async (instance: Instance, disk: Disk) => {
+export const createInstanceContainers = async (store:Store, instance: Instance, disk: Disk) => {
   try {
-    log(`Creating containers of app instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine().hostName}'.`)
+    log(`Creating containers of app instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
     await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml create`
     instance.status = 'Pauzed'
   } catch (e) {
@@ -254,12 +258,12 @@ export const createInstanceContainers = async (instance: Instance, disk: Disk) =
   }
 }
 
-export const runInstance = async (instance: Instance, disk: Disk) => {
+export const runInstance = async (store:Store, instance: Instance, disk: Disk):Promise<void> => {
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling
   try {
 
-    log(`Running instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine().hostName}'.`)
+    log(`Running instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
 
     // Extract the port number from the .env file containing "port=<portNumber>"
     const envContent = (await $`cat /disks/${disk.device}/instances/${instance.name}/.env`).stdout
@@ -273,7 +277,7 @@ export const runInstance = async (instance: Instance, disk: Disk) => {
       // If parsedPort is not NaN, assign it to the instance port
       if (!isNaN(parsedPort)) {
         log(`Port number extracted from .env file for instance ${instance.name}: ${parsedPort}`)
-        instance.port = parsedPort
+        instance.port = parsedPort as PortNumber
       } else {
         log(chalk.red(`Error parsing port number from .env file for instance ${instance.name}. Got ${parsedPort} from ${envContent} and ${port}`))
       }
@@ -288,7 +292,7 @@ export const runInstance = async (instance: Instance, disk: Disk) => {
     // Modify the status of the instance
     instance.status = 'Running'
     // Modify the lastStarted time of the instance
-    instance.lastStarted = new Date().getTime()
+    instance.lastStarted = new Date().getTime() as Timestamp
     // Modify the dockerMetrics of the instance
     instance.dockerMetrics = {
       memory: os.totalmem().toString(),
@@ -312,8 +316,8 @@ export const runInstance = async (instance: Instance, disk: Disk) => {
   }
 }
 
-export const stopInstance = async (instance: Instance, disk: Disk) => {
-  console.log(`Stopping app '${instance.name}' on disk '${disk.name}' of engine '${getLocalEngine().hostName}'.`)
+export const stopInstance = async (store:Store, instance: Instance, disk: Disk):Promise<void> => {
+  console.log(`Stopping app '${instance.name}' on disk '${disk.name}' of engine '${getLocalEngine(store).hostName}'.`)
 
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling

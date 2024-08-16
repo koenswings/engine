@@ -1,18 +1,18 @@
 import net_listner from 'network-interfaces-listener'
 import os from 'os'
-import { addNetwork, closeRunningServer, createRunningServer, findNetworkByName, getLocalEngine, getListenerByIface, addListener, getListeners } from '../data/Store.js'
+import { addNetwork, closeRunningServer, createRunningServer, findNetworkByName, getLocalEngine, getListenerByIface, addListener, getListeners, Store } from '../data/Store.js'
 import { createNetwork, connectEngine } from '../data/Network.js'
 import { deepPrint, log } from '../utils/utils.js'
 import { existsSync, write } from 'fs'
 import { $, chalk } from 'zx'
 import { exit } from 'process'
-import { InterfaceName } from '../data/Config.js'
+import { InterfaceName } from '../data/CommonTypes.js'
 import { LIBUSB_CAP_HAS_HID_ACCESS } from 'usb/dist/usb/bindings.js'
 import { enableWebSocketMonitor } from './webSocketMonitor.js'
 import { addConnectedInterface, isConnected, removeConnectedInterfaceByName } from '../data/Engine.js'
 
 
-export const enableInterfaceMonitor = async (ifaceNames:InterfaceName[]) => {
+export const enableInterfaceMonitor = async (store:Store, ifaceNames:InterfaceName[]):Promise<void> => {
 
     const monitorAll = ifaceNames.length === 0
   
@@ -39,7 +39,7 @@ export const enableInterfaceMonitor = async (ifaceNames:InterfaceName[]) => {
 
         for (const ifaceName of changedInterfaces) {
 
-            processInterface(data, ifaceName)
+            processInterface(store, data, ifaceName as InterfaceName)
         }
 
         if (data.message) {
@@ -60,18 +60,18 @@ export const enableInterfaceMonitor = async (ifaceNames:InterfaceName[]) => {
     // We need to remove the listener when we unmonitor the network
     if (monitorAll) {
         net_listner.addNetInterfaceListener("ALL", onNetworkChange)
-        addListener("ALL", onNetworkChange)
+        addListener(store, "ALL" as InterfaceName, onNetworkChange)
     } else {
         for (const ifaceName of ifaceNames) {
             net_listner.addNetInterfaceListener(ifaceName, onNetworkChange)
-            addListener(ifaceName, onNetworkChange)
+            addListener(store, ifaceName, onNetworkChange)
         }
     }
 }
 
-const processInterface = (data, ifaceName) => {
+const processInterface = (store:Store, data:any, ifaceName:InterfaceName):void => {
     log (`Processing interface ${ifaceName}`)
-    const localEngine = getLocalEngine()
+    const localEngine = getLocalEngine(store)
     // Check if data[ifaceName] is an array
     if (!Array.isArray(data[ifaceName])) {
         log(`Data for interface ${ifaceName} is not an array`)
@@ -81,7 +81,7 @@ const processInterface = (data, ifaceName) => {
         // Check if address is an object with property family that is 'IPv4'
         return address.family && address.family === 'IPv4'
     })
-    if (ip4Set) {
+    if (localEngine.connectedInterfaces && ip4Set) {
         const ip4 = ip4Set.address
         const netmask = ip4Set.netmask
         const cidr = ip4Set.cidr
@@ -97,8 +97,8 @@ const processInterface = (data, ifaceName) => {
                 if (oldIp4 !== ip4) {
                     log(`Changing the IP address on interface ${ifaceName} from ${oldIp4} to ${ip4}`)
                     // Close the existing server
-                    closeRunningServer(oldIp4)
-                    createRunningServer(ip4)
+                    closeRunningServer(store, oldIp4)
+                    createRunningServer(store, ip4)
                     // Update the network interface with the new data
                     iface.ip4 = ip4
                 }
@@ -119,7 +119,7 @@ const processInterface = (data, ifaceName) => {
             if (wasConnected && !nowConnected) {
                 
                 //disconnectNetwork(network, ifaceName)
-                removeConnectedInterfaceByName(getLocalEngine(), ifaceName)
+                removeConnectedInterfaceByName(getLocalEngine(store), ifaceName)
                 return
             }
 

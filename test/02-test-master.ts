@@ -2,17 +2,20 @@ import { getLocalEngine, findNetworkByName, } from '../src/data/Store.js';
 import { deepPrint, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { config } from '../src/data/Config.js';
-import { ConnectionResult, Network, connectEngine, createNetwork, getEngine, getEngines } from '../src/data/Network.js';
+import { ConnectionResult, Network, connectEngine, createNetwork, getEngines } from '../src/data/Network.js';
 import { chalk, sleep } from 'zx';
 import { subscribe } from 'valtio';
 //import { expect } from 'chai';
 const { expect } = await import('chai')
+import { store } from '../src/data/Store.js';
+import { App } from '../src/data/App.js';
+import { AppnetName, IPAddress } from '../src/data/CommonTypes.js';
 
 const testSetup = config.testSetup
-const testNet = testSetup.appnet
+const testNet = testSetup.appnet as AppnetName
 const testInterface = testSetup.interface
 
-const loopBackAddress = '127.0.0.1'
+const loopBackAddress = '127.0.0.1' as IPAddress
 
 let network: Network
 let connectionPromise: Promise<ConnectionResult>
@@ -24,13 +27,13 @@ let engine, appnet
 describe('The test master (the engine from which these tests are run) - ', async function () {
 
   it(`must have a Network object with the name ${testNet}`, async function () {
-    appnet = findNetworkByName(testNet)
+    appnet = findNetworkByName(store, testNet)
     expect(appnet).to.exist
   })
 
   describe(`must have a local Engine object `, async function () {
     it(`that must exist`, async function () {
-      engine = getLocalEngine()
+      engine = getLocalEngine(store)
       expect(engine).to.exist
     })
     it(`that must be a top-level object in the Yjs doc of the Network`, async function () {
@@ -38,10 +41,10 @@ describe('The test master (the engine from which these tests are run) - ', async
       //expect(appnet.engines.values()).to.include(engine)
     expect(network.doc.getMap(engine.id)).to.exist
     })
-    it(`whose id should be contained in the engineSet of the Network`, async function () {
+    it(`whose id should be contained in the engines set of the Network`, async function () {
       if (!engine || !appnet) this.skip()
       //expect(appnet.engines.values()).to.include(engine)
-    expect(network.engineSet[engine.id]).to.be.true
+    expect(network.appnet.engines[engine.id]).to.be.true
     })
 
     // The local engine can be on any machine so we cannot know the values, only that they should not be empty
@@ -103,10 +106,10 @@ describe('The test master (the engine from which these tests are run) - ', async
   describe('must support connections over the loopback interface', async function () {
 
     before(async function () {
-      network = await createNetwork(testNet)
+      network = await createNetwork(store, testNet)
       // Subscribe to changes in the engineSet object and log them
       // Also protect against too many changes which would overflow stdout
-      subscribe(network.engineSet, (value) => {
+      subscribe(network.appnet.engines, (value) => {
         log(chalk.bgBlackBright("\n" + `Test master monitor: engineSet was modified as follows: ${deepPrint(value)}`))
         //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
         if (value.length > 10) {
@@ -132,8 +135,8 @@ describe('The test master (the engine from which these tests are run) - ', async
 
       // Expect the network, networkData and connectionPromise to exist
       expect(network).to.exist
-      expect(network.engineSet).to.exist
-      expect(network.engineCache).to.exist
+      expect(network.appnet).to.exist
+      expect(network.appnet.engines).to.exist
       expect(connectionPromise).to.exist
 
       // The promise must resolve to a ConnectionResult
@@ -147,13 +150,13 @@ describe('The test master (the engine from which these tests are run) - ', async
     it('the connection must deliver an engine object within 30 secs', async function (done) {
       this.timeout(30000)
 
-      // If network.engines is not empty, it has already synced, so call done()
-      if (Object.keys(network.engineSet).length !== 0) {
+      // If network.appnet.engines is not empty, it has already synced, so call done()
+      if (Object.keys(network.appnet.engines).length !== 0) {
         done()
       } else {
         // Subscribe to changes in the engineSet object 
         // NOTE: If ever remote data comes in during this test and before we subscribe, this will FAIL
-        subscribe(network.engineSet, (value) => {
+        subscribe(network.appnet.engines, (value) => {
           log(chalk.bgBlackBright(`engineSet changed: ${deepPrint(value)}`))
           // Test for the chnage that modifies the engines array
           // Here is an example of a value we expect
@@ -198,11 +201,11 @@ describe('The test master (the engine from which these tests are run) - ', async
     })
 
     it('the engine object delivered over the connection must equal the test master engine', async function () {
-      const engine = getLocalEngine()
+      const engine = getLocalEngine(store)
       // engineSet must have a key for the id of the local engine
-      expect(network.engineSet).to.have.property(engine.id)
+      expect(network.appnet.engines).to.have.property(engine.id)
       // the object at that key must be a deep copy of the local engine object
-      expect(network.engineSet[engine.id]).to.eql(engine)
+      expect(network.appnet.engines[engine.id]).to.eql(engine)
       // networkData1.engines must have an object that is a deep copy of the local engine object
       // expect(network.engineSet).to.have.lengthOf(1)
       // expect(network.engineIds[0]).to.eql(engine.id)

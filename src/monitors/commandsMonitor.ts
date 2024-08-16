@@ -59,7 +59,7 @@ import { Engine } from '../data/Engine.js'
 //     }
 // }
 
-export const enableEngineCommandsMonitor = (engine: Engine) => {
+export const enableEngineCommandsMonitor = (engine: Engine):void => {
     // Monitor our local engine for commands to be executed
     log(`Adding a commands monitor for engine ${engine.hostName}`)
     if (engine.commands) {

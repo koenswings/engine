@@ -5,95 +5,119 @@ import { Interface } from './Engine.js'
 import { Disk } from './Disk.js'
 import { proxy } from 'valtio'
 import { enableEngineSetMonitor } from '../monitors/engineSetMonitor.js'
-import { DiskMeta, deepPrint, log, readMeta } from '../utils/utils.js'
+import { deepPrint, log } from '../utils/utils.js'
+import { readMeta, DiskMeta } from './Meta.js';
 import { firstBoot } from '../y-websocket/yjsUtils.js'
 import { config } from './Config.js'
 import { enableWebSocketMonitor } from '../monitors/webSocketMonitor.js'
 import { Server } from 'http'
+import { App } from './App.js'
+import { Instance } from './Instance.js'
+import { AppID, AppnetName, DiskID, EngineID, IPAddress, InstanceID, InterfaceName, PortNumber } from './CommonTypes.js'
+import { Appnet } from './Appnet.js'
 
 
 // **********
 // Typedefs
 // **********
 
+// Insert a JSDoc comment explaining Store
+/**
+ * The Store object is a centralised store for all data objects in the application
+ * It contains the following properties:
+ * - localEngine: The local engine object
+ * - engineDB: A dictionary of all engines in the application
+ * - diskDB: A dictionary of all disks in the application
+ * - appDB: A dictionary of all apps in the application
+ * - instanceDB: A dictionary of all instances in the application
+ * - networks: An array of all networks in the application
+ * - runningServers: An object that stores all running servers on the local engine
+ * - listeners: An object that stores all listeners sorted per interface name
+ * 
+ * @typedef {Object} Store
+ * @property {EngineID} localEngine - The local engine object
+ * @property {Object.<EngineID, Engine>} engineDB - A dictionary of all engines in the application
+ * @property {Object.<DiskID, Disk>} diskDB - A dictionary of all disks in the application
+ * @property {Object.<AppID, App>} appDB - A dictionary of all apps in the application
+ * @property {Object.<InstanceID, Instance>} instanceDB - A dictionary of all instances in the application
+ * @property {Network[]} networks - An array of all networks in the application
+ * @property {RunningServers} runningServers - An object that stores all running servers on the local engine
+ * @property {Listeners} listeners - An object that stores all listeners sorted per interface name
+ *  
+ */
 export interface Store {
-    localEngine: Engine,
+    // The id of the local engine
+    localEngine: EngineID,
+    
+    // The Valtio object database
+    engineDB: { [key: EngineID]: Engine },
+    diskDB: { [key: DiskID]: Disk },
+    appDB: { [key: AppID]: App },
+    instanceDB: { [key: InstanceID]: Instance },
+
+    // The list of Networks the local engine is connected to
     networks: Network[],
+
+    // The instances of servers that are running on the local engine
     runningServers: RunningServers,
+
+    // The listeners that are listening for interface data on the local engine
     listeners: Listeners
 }
 
-// Create a type called Listeners that represents all listeners sorted per interface name
+/**
+ * The callback that is called when an interface receives data
+ */
 export type Listener = (data: any) => void
-export type Listeners = { [key: string]: Listener }  // The key is the interface name 
+
+
+// Create a type called Listeners that represents all listeners sorted per interface name
+/**
+ * Listeners stores all listeners sorted per interface name
+ * It should have the interface name as a key and the listener function as the value
+ * 
+ */
+export type Listeners = { [key: InterfaceName]: Listener }  // The key is the interface name 
 
 // An object that stores all running servers on the local engine
 // It should have the ip address as a key and the server object as the value
+/**
+ * An object that stores all running servers on the local engine
+ * It should have the ip address as a key and the server object as the value
+ * 
+ * @typedef {Object} RunningServers
+ * @property {IPAddress} ip - The ip address of the server
+ * @property {Server} server - The server object
+ *  
+ */
 export type RunningServers = {
-    [ip: string]: Server
+    [ip: IPAddress]: Server
 }
 
-const initialiseLocalEngine = async ():Promise<Engine> => {
-
-    const meta: DiskMeta = await readMeta()
+const getLocalEngineId = async ():Promise<EngineID> => {
+    const meta: DiskMeta | undefined = await readMeta()
     if (!meta) {
         console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
         process.exit(1)
     }
-
-    const $localEngine = proxy<Engine>({})
-    $localEngine.id = meta.id
-    $localEngine.hostName = os.hostname()
-    $localEngine.version = meta.version
-    $localEngine.hostOS = os.type()
-    $localEngine.dockerMetrics = {
-            memory: os.totalmem().toString(),
-            cpu: os.loadavg().toString(),
-            network: "",
-            disk: ""
-        }
-    $localEngine.dockerLogs = { logs: [] }
-    $localEngine.dockerEvents = { events: [] }
-    $localEngine.created = meta.created
-    $localEngine.lastBooted = (new Date()).getTime()
-    $localEngine.disks = []
-    $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-    $localEngine.connectedInterfaces = {}
-    $localEngine.commands = []
-    //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
-    return $localEngine
+    return meta.id
 }
 
-const updateLocalEngine = async ():Promise<Engine> => {
-    const meta: DiskMeta = await readMeta()
-    if (!meta) {
-        console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
-        process.exit(1)
+export const initialiseStore = async ():Promise<Store> => {
+    const store: Store = {
+        localEngine: await getLocalEngineId(),
+        engineDB: {},
+        diskDB: {},
+        appDB: {},
+        instanceDB: {},
+        networks: [],
+        runningServers: {},
+        listeners: {}
     }
-    const $localEngine = proxy<Engine>({})
-    $localEngine.id = meta.id
-    $localEngine.hostName = os.hostname()
-    $localEngine.version = meta.version
-    $localEngine.hostOS = os.type()
-    $localEngine.dockerMetrics = {
-        memory: os.totalmem().toString(),
-        cpu: os.loadavg().toString(),
-        network: "",
-        disk: ""
-    }
-    $localEngine.created = meta.created
-    $localEngine.lastBooted = (new Date()).getTime()
-    $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-    return $localEngine
+    return store
 }
 
-
-const store: Store = {
-    localEngine: firstBoot ? await initialiseLocalEngine() : await updateLocalEngine(),
-    networks: [],
-    runningServers: {},
-    listeners: {}
-}
+export const store = await initialiseStore()
 
 // export const getLocalEngine = () => {
 //     const oldLocalEngineName = config.settings.localEngineName
@@ -138,11 +162,27 @@ const store: Store = {
 //     return Object.keys(store.networks[0].data)[engine]
 // }
 
-export const getLocalEngine = () => {
-    return store.localEngine
+export const getLocalEngine = (store:Store):Engine => {
+    return store.engineDB[store.localEngine]
 }
 
-export const findNetworkByName = (networkName: string): Network | undefined => {
+export const getEngine = (store: Store, engineId: EngineID):Engine | undefined => {
+    return store.engineDB[engineId]
+}
+
+export const getDisk = (store: Store, diskId: DiskID):Disk | undefined => {
+    return store.diskDB[diskId]
+}
+
+export const getApp = (store: Store, appId: AppID):App | undefined => {
+    return store.appDB[appId]
+}
+
+export const getInstance = (store: Store, instanceId: InstanceID):Instance | undefined => {
+    return store.instanceDB[instanceId]
+}
+
+export const findNetworkByName = (store:Store, networkName: AppnetName): Network | undefined => {
     return store.networks.find(network => network.name === networkName)
 }
 
@@ -154,17 +194,17 @@ export const findNetworkByName = (networkName: string): Network | undefined => {
 //     })
 // }
 
-export const getNetworks = () => {
+export const getNetworks = (store:Store):Network[] => {
     return store.networks
 }
 
-export const getNetworkNames = () => {
+export const getNetworkNames = (store:Store):AppnetName[] => {
     return store.networks.map(network => network.name)
 }
 
-export const addNetwork = async (networkName: string): Promise<ConnectionResult> => {
+export const addNetwork = async (store:Store, networkName: AppnetName): Promise<ConnectionResult> => {
     // Create and initialise a Network object
-    const network = await createNetwork(networkName)
+    const network = await createNetwork(store, networkName)
 
     // Store its client id if this is the first time boot
     // NOTE: 
@@ -201,44 +241,44 @@ export const addNetwork = async (networkName: string): Promise<ConnectionResult>
     // await writeConfig(config, 'config.yaml')
 
     // Add subscriptions  
-    enableEngineSetMonitor(network)
+    // enableEngineSetMonitor(network)
 
     // Add it to the networks array
     store.networks.push(network)
     log(`Network ${network.name} added to the store`)
 
     // Connect it to the local websockets server
-    return connectEngine(network, "127.0.0.1")
+    return connectEngine(network, "127.0.0.1" as IPAddress)
 }
 
-export const createRunningServer = (ip: string) => {
-    const httpServer = enableWebSocketMonitor(ip, '1234')
+export const createRunningServer = (store:Store, ip: IPAddress):void => {
+    const httpServer = enableWebSocketMonitor(ip, 1234 as PortNumber)
     store.runningServers[ip] = httpServer
 }
 
-export const closeRunningServer = (ip: string) => {
+export const closeRunningServer = (store:Store, ip: IPAddress):void => {
     store.runningServers[ip].close()
     delete store.runningServers[ip]
 }
 
 
-export const addListener = (iface: string, listener: (data: any) => void) => {
+export const addListener = (store:Store, iface: InterfaceName, listener: (data: any) => void):void => {
     store.listeners[iface] = listener
 }
 
-export const removeListener = (iface: string) => {
+export const removeListener = (store:Store, iface: InterfaceName):void => {
     delete store.listeners[iface]
 }
 
-export const getListeners = () => {
+export const getListeners = (store:Store):Listener[] => {
     // Return an array of all listeners
     return Object.values(store.listeners)
 }
 
-export const getListenerByIface = (iface: string) => {
+export const getListenerByIface = (store:Store, iface: InterfaceName):Listener | undefined => {
     if (store.listeners.hasOwnProperty(iface)) {
         return store.listeners[iface]
     } else {
-        return null
+        return undefined
     }
 }

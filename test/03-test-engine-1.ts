@@ -6,15 +6,17 @@ import { expect } from 'chai';
 import { config } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 import { subscribe } from 'valtio';
+import { store } from '../src/data/Store.js';
+import { AppnetName, Hostname, IPAddress, InterfaceName } from '../src/data/CommonTypes.js';
 
 
 const testSetup = config.testSetup
 
-const testNet = testSetup.appnet
-const testInterface = testSetup.interface
+const testNet = testSetup.appnet as AppnetName
+const testInterface = testSetup.interface as InterfaceName
 const testDisk1 = testSetup.testDisk1
-const testEngine1Name = testDisk1.name
-const testEngine1Address = testDisk1.name + ".local"
+const testEngine1Name = testDisk1.name as Hostname
+const testEngine1Address = testDisk1.name + ".local" as IPAddress
 
 
 export let network1: Network
@@ -27,10 +29,10 @@ describe('Test engine 1: ', () => {
     describe(`Must support connections on address ${testEngine1Address}`, () => {
 
         before(async function () {
-            network1 = await createNetwork(testNet)
+            network1 = await createNetwork(store, testNet)
             // Subscribe to changes in the engineSet object and log them
             // Also protect against too many changes which would overflow stdout
-            subscribe(network1.engineSet, (value) => {
+            subscribe(network1.appnet.engines, (value) => {
                 log(chalk.bgBlackBright("\n" + `Test engine 1 monitor: engineSet was modified as follows: ${deepPrint(value)}`))
                 //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
                 if (value.length > 10) {
@@ -54,8 +56,8 @@ describe('Test engine 1: ', () => {
         it('The test machine must be able to connect with it ', async function () {
             this.timeout(0)
             expect(network1).to.exist
-            expect(network1.engineSet).to.exist
-            expect(network1.engineCache).to.exist
+            expect(network1.appnet).to.exist
+            expect(network1.appnet.engines).to.exist
             expect(connection1Promise).to.exist
 
             // The promise must resolve to a ConnectionResult
@@ -68,12 +70,12 @@ describe('Test engine 1: ', () => {
             this.timeout(30000)
 
             // If network.engines is not empty, call done()
-            if (Object.keys(network1.engineSet).length !== 0) {
+            if (Object.keys(network1.appnet.engines).length !== 0) {
                 done()
             } else {
                 // Subscribe to changes in the engineSet object 
                 // NOTE: If ever remote data comes in during this test and before we subscribe, this will FAIL
-                subscribe(network1.engineSet, (value) => {
+                subscribe(network1.appnet.engines, (value) => {
                     log(chalk.bgBlackBright(`engineSet changed: ${deepPrint(value)}`))
                     // Test for the chnage that modifies the engines array
                     // Here is an example of a value we expect

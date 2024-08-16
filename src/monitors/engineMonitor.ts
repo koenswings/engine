@@ -3,7 +3,7 @@ import { log, deepPrint } from '../utils/utils.js'
 import { getLocalEngine } from '../data/Store.js'
 import { Engine } from '../data/Engine.js'
 
-export const enableEngineGlobalMonitor = (engine: Engine) => {
+export const enableEngineGlobalMonitor = (engine: Engine):void => {
     // Monitor our local engine for any changes applied from within the engine
     subscribe(engine, (value) => {
         log(`ENGINE ${engine.hostName} GLOBAL MONITOR: Engine ${engine.hostName} is modified as follows: ${deepPrint(value)}`)

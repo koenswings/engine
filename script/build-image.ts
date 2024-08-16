@@ -4,6 +4,7 @@ import YAML from 'yaml'
 import { generateHostName } from '../src/utils/nameGenerator.js'
 //import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
+import { uuid } from '../src/utils/utils.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project
@@ -594,7 +595,9 @@ const installZerotier = async () => {
 const addMetadata = async () => {
   const diskMetadata = {
     name: hostname,
-    created: new Date().getTime()
+    created: new Date().getTime(),
+    version: version,
+    id: uuid()
   }
   await $`echo ${YAML.stringify(diskMetadata)} > /META.yaml`
 }

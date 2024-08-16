@@ -1,15 +1,19 @@
 import { Doc, Map } from 'yjs'
 import { WebsocketProvider } from '../y-websocket/y-websocket.js'
-import { Engine, getEngineApps, getEngineInstances } from './Engine.js'
+import { Engine, getDisks, getEngineApps, getEngineInstances } from './Engine.js'
 import { deepPrint, log } from '../utils/utils.js';
 import { proxy } from 'valtio';
 import { bind } from '../valtio-yjs/index.js';
 import { pEvent } from 'p-event';
-import { getLocalEngine } from './Store.js';
-import { UUID } from './CommonTypes.js';
+import { Store, getEngine, getLocalEngine } from './Store.js';
+import { AppnetName, EngineID, Hostname, IPAddress, InterfaceName } from './CommonTypes.js';
 import { LeveldbPersistence } from 'y-leveldb'
 import { $ } from 'zx';
 import { firstBoot } from '../y-websocket/yjsUtils.js';
+import { Disk } from './Disk.js';
+import { App } from './App.js';
+import { Instance } from './Instance.js';
+import { Appnet, initialiseAppnetData } from './Appnet.js';
 // import { IndexeddbPersistence } from 'y-indexeddb'
 
 
@@ -18,50 +22,46 @@ import { firstBoot } from '../y-websocket/yjsUtils.js';
 // Typedefs
 // **********
 
-// export type ConnectionStatus = 'connected' | 'disconnected';
 
-export type ConnectionResult = { status: any; }
+/**
+ * The possible results returned from the Yjs websocket provider
+ */
+export type ConnectionResult = { status: ConnectionStatus } 
+export type ConnectionStatus = 'connected' | 'disconnected' | 'synced' | 'reconnection-failure-3'
 
 
 // The root level Network object which is NOT proxied  
+/**
+ * The part of the Store that manages the network of connected Engines
+ */
 export interface Network {
   // The unique identifier of the Network
-  name: string;    
+  name: AppnetName;    
 
   // The Yjs document that holds the network data
   doc: Doc;
 
+  // The Valtio root object of the data in the network
+  appnet: Appnet,
+
   // The unbind function to disconnect the Valtio-yjs proxy from the Yjs object
-  unbind: () => void;      
+  unbind?: () => void;      
 
   // All connected engines sorted per interface
   connections: Connections;
 
-  // The set of ids for all engines in the network
-  engineSet: {[key: UUID]: boolean}
-
-  // The cache of Valtio engines (which is itself a Valtio object)
-  engineCache: {[key: UUID]: Engine}
+  // The root Store object that contains the database of objects
+  store: Store;
 
 }
 
-// export interface NetworkData {
-//     engines: Engine[] 
-// }
-
-// export type NetworkData = { [key: string]: Engine }
-
-// HACK - 
-// export interface NetworkData {
-//   [key: string]: any;
-// }
-
 // Create a type called Connections that represents all connections that a Network has
-// The connections are sorted per interface and per ip address of the Engin that the Network is connected to
-// (a Network can be connected to multiple Engines on one Interface)
+// The connections are organised per ip address of the Engine that the Network is connected to
+/**
+ * The connections that a Network has to other Engines
+ */
+export type Connections = { [key: IPAddress]: Connection }   // key is the ip address
 export type Connection = WebsocketProvider
-// export type Connections = {[key: string]: {[key: string]: Connection}}   // The first key is the interface and the second key is the ip address
-export type Connections = { [key: string]: Connection }   // key is the ip address
 
 
 
@@ -69,7 +69,7 @@ export type Connections = { [key: string]: Connection }   // key is the ip addre
 // Functions
 // **********
 
-export const createNetwork = async (networkName: string): Promise<Network> => {
+export const createNetwork = async (store:Store, networkName: AppnetName): Promise<Network> => {
   // Create a Yjs document for the network
   const networkDoc = new Doc()
   
@@ -91,50 +91,31 @@ export const createNetwork = async (networkName: string): Promise<Network> => {
 
   log(`Created a Yjs document for network ${networkName} with id ${networkDoc.clientID}`)
 
+  // OLD
   // Create the YMap for the network data
   // const yNetworkData = networkDoc.getArray('data')
   // onst yEngines = networkDoc.getArray('engines')
   // Set data.engines to yEngines
   // yNetworkData.set('engines', yEngines)
-
-
-
+  //
   // Now add the proxied engine object to the networkData
   // Valtio supports nesting of proxied objects 
   // const networkData = proxy<NetworkData>({engines:[]}) 
   // const networkData = proxy<NetworkData>({})
   // const networkData = proxy<NetworkData>({engines:undefined}) 
-
+  //
   // Bind the Valtio proxy to the Yjs object
   // const unbind = bind(networkData as Record<string, any>, yNetworkData);
   //log(`Interface ${ifaceName}: Created a Valtio-yjs proxy for networkData`)
-
-  // Bind the local engine object to the YMap object with the same id
-  const localEngine = getLocalEngine()
-  const yLocalEngine = networkDoc.getMap(localEngine.id)
-  const unbindLocalEngine = bind(localEngine as Record<string, any>, yLocalEngine)
-  log(`Bound local engine ${localEngine.id} to networkData`)
-  log(deepPrint(getLocalEngine()))
-
-  // Create and bind a proxy for the engine Ids array
-  const engineSet = proxy({})
-  bind(engineSet, networkDoc.getMap('engineSet'))
-
-  // Make sure that the id of the local engine is in the engineIds set
-  engineSet[localEngine.id] = true
-
-  // Create the Valtio engines cache
-  const engineCache = proxy({})
-
-
+  // 
+  
   // Create a Network object
   const network = {
     name: networkName,
     doc: networkDoc,
-    unbind: unbindLocalEngine,
+    appnet: await initialiseAppnetData(networkName, networkDoc),
     connections: {},
-    engineSet: engineSet,
-    engineCache: engineCache
+    store: store
   }
 
   log(`Network ${network.name} initialised`)
@@ -142,7 +123,26 @@ export const createNetwork = async (networkName: string): Promise<Network> => {
   return network
 }
 
-export const connectEngine = (network: Network, address: string, timeout?:boolean): Promise<ConnectionResult> => {
+// export const bindEngine = (network: Network, engine: Engine, ) => {
+//   // Bind the local engine object to the YMap object with the same id
+//   const yEngine = network.doc.getMap(engine.id)
+//   const unbindEngine = bind(engine as Record<string, any>, yEngine)
+//   log(`Bound engine ${engine.id} to networkData`)
+
+//   // Create and bind a proxy for the engine Ids array
+//   const engineSet = proxy({})
+//   bind(engineSet, networkDoc.getMap('engineSet'))
+
+//   // Make sure that the id of the local engine is in the engineIds set
+//   engineSet[localEngine.id] = true
+
+//   // Create the Valtio engines cache
+//   // const engineCache = proxy({})
+
+//   // Set the bind property of network
+// }
+
+export const connectEngine = (network: Network, address: IPAddress, timeout?:boolean): Promise<ConnectionResult> => {
   const networkDoc = network.doc
 
   // UPDATE001: Decomment the following code in case we want to only open sockets on the interfaces that we monitor
@@ -218,30 +218,41 @@ export const connectEngine = (network: Network, address: string, timeout?:boolea
 // }
 
 
-export const isEngineConnected = (network: Network, ifaceName: string, ip: string) => {
-  // Checks if the engine specified by interface and ip address, is connected
+export const isEngineConnected = (network: Network, ip: IPAddress):boolean => {
+  // Checks if the engine specified by ip address, is connected
   // return network.connections[ifaceName] && network.connections[ifaceName].hasOwnProperty(ip) && network.connections[ifaceName][ip].wsconnected 
   return network.connections.hasOwnProperty(ip) && network.connections[ip].wsconnected
 }
 
-export const getEngines = (network: Network) => {
+export const getEngines = (network: Network):Engine[] => {
   //return network.doc.getArray('engineIds').toArray() as string[]
-  return Object.keys(network.engineSet).map(id => getEngine(network, id))
+  const appnet = network.appnet
+  const engineIds = Object.keys(appnet.engines) as EngineID[]
+  return engineIds.flatMap(engineId => {
+    const engine = getEngine(network.store, engineId)
+    if (engine) {
+      return [engine]
+    } else {
+      return []
+    }
+  })
 }
 
-export const getEngine = (network: Network, engineId: string) => {
-  if (network.engineCache.hasOwnProperty(engineId)) {
-    return network.engineCache[engineId]
-  } else {
-    const engineMap = network.doc.getMap(engineId) as Map<Engine>
-    const engine = proxy({}) as Engine
-    bind(engine as Record<string, any>, engineMap)
-    network.engineCache[engineId] = engine
-    return engine
-  }
-}
+// export const getEngine = (network: Network, engineId: string) => {
+//   if (network.engineCache.hasOwnProperty(engineId)) {
+//     return network.engineCache[engineId]
+//   } else {
+//     const engineMap = network.doc.getMap(engineId) as Map<Engine>
+//     const engine = proxy({}) as Engine
+//     bind(engine as Record<string, any>, engineMap)
+//     network.engineCache[engineId] = engine
+//     return engine
+//   }
+// }
 
-export const findEngine = (network: Network, engineName: string) => {
+
+
+export const findEngine = (network: Network, engineName: Hostname):Engine | undefined => {
   return getEngines(network).find(engine => engine.hostName === engineName)
 }
 
@@ -254,12 +265,12 @@ export const findEngine = (network: Network, engineName: string) => {
 //     [])
 // }
 
-export const getNetworkApps = (network: Network) => {
+export const getNetworkApps = (network: Network):App[] => {
   return getEngines(network).reduce(
     (acc, engine) => {
-      return acc.concat(getEngineApps(engine))
+      return acc.concat(getEngineApps(network.store, engine))
     },
-    [])
+    [] as App[])
 }
 
 
@@ -272,22 +283,22 @@ export const getNetworkApps = (network: Network) => {
 //     [])
 // }
 
-export const getNetworkInstances = (network: Network) => {
+export const getNetworkInstances = (network: Network):Instance[] => {
   return getEngines(network).reduce(
     (acc, engine) => {
-      return acc.concat(getEngineInstances(engine))
+      return acc.concat(getEngineInstances(network.store, engine))
     },
-    [])
+    [] as Instance[])
 }
 
-export const getNetworkDisks = (network: Network) => {
+export const getNetworkDisks = (network: Network): Disk[] => {
   // Collect all disks from all networkData.engines
   // Loop over all networkData.engines and collect all disks in one array called disks
   return getEngines(network).reduce(
     (acc, engine) => {
-      return acc.concat(engine.disks)
+      return acc.concat(getDisks(network.store, engine))
     },
-    []
+    [] as Disk[]
   )
 }
 

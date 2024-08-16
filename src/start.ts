@@ -12,12 +12,16 @@ import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
 import { deepPrint, log } from './utils/utils.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
 import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
-import { addNetwork, findNetworkByName, getLocalEngine } from './data/Store.js'
+import { addNetwork, findNetworkByName, getLocalEngine, initialiseStore } from './data/Store.js'
 import { config } from './data/Config.js'
+import { initialiseLocalEngine } from './data/Engine.js'
+import { enableEngineSetMonitor } from './monitors/engineSetMonitor.js'
+import { AppnetName, IPAddress, PortNumber } from './data/CommonTypes.js'
+import { store } from './data/Store.js'
 
 let server
 
-export const startEngine = async () => {
+export const startEngine = async ():Promise<void> => {
 
     log(`Hello from ${os.hostname()}!`)
     log(`The current time is ${new Date()}`)
@@ -44,10 +48,10 @@ export const startEngine = async () => {
     log('STARTING THE WEBSOCKET SERVERS')
     if (!settings.interfaces) {
         // No access control - listen on all interfaces
-        server = enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+        server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
     } else {
         // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
-        server = enableWebSocketMonitor('0.0.0.0', '1234')   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+        server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
         //enableWebSocketMonitor('127.0.0.1', '1234')
     }
 
@@ -73,52 +77,58 @@ export const startEngine = async () => {
         setTimeout(shutdownProcedure, 10000);
     })
 
+
     // Create and sync the appnets
     await sleep(1000)
     log('CREATING AND SYNCING THE APPNETS')
     if (settings.appnets) {
         settings.appnets.forEach(async (appnet) => {
-            await addNetwork(appnet.name)
+            await addNetwork(store, appnet.name as AppnetName)
         })        
     } else {
-        await addNetwork("appnet")
+        await addNetwork(store, "appnet" as AppnetName)
     }
-    await sleep(3000)
-    const appNetwork = findNetworkByName("appnet")
-    log("Local engine YMap 3 sec afer syncing: " + deepPrint(appNetwork.doc.getMap(getLocalEngine().id), 2))
-    log(deepPrint(getLocalEngine(), 2))
 
+    // Initialize the local engine
+    await sleep(1000)
+    log('INITIALISING THE LOCAL ENGINE')
+    const localEngine = await initialiseLocalEngine(store)
+
+    // Enable monitoring of engines in each network
+    store.networks.forEach((network) => {
+        enableEngineSetMonitor(store, network)
+    })
 
     // Start the interface monitors
     await sleep(1000)
     log('STARTING INTERFACE MONITORS')
     if (!settings.interfaces) {
         // No access control - listen on all interfaces
-        enableInterfaceMonitor([])
+        enableInterfaceMonitor(store, [])
     } else {
         // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
-        enableInterfaceMonitor(settings.interfaces)
+        enableInterfaceMonitor(store, settings.interfaces)
     }
 
     await sleep(1000)
     log(chalk.bgMagenta('STARTING MULTICAST DNS ENGINE MONITOR'))
-    enableMulticastDNSEngineMonitor()
+    enableMulticastDNSEngineMonitor(store)
 
     
     await sleep(1000)
     log('STARTING OBJECT MONITORS ON LOCAL ENGINE')
-    enableEngineGlobalMonitor(getLocalEngine())
-    enableEngineCommandsMonitor(getLocalEngine())
+    enableEngineGlobalMonitor(localEngine)
+    enableEngineCommandsMonitor(localEngine)
 
 
     await sleep(1000)
     log('STARTING MONITORING OF USB0')
-    enableUsbDeviceMonitor()
+    enableUsbDeviceMonitor(store)
 
 
     await sleep(15000)
     log('STARTING CHANGE TEST')
-    changeTest()
+    changeTest(store)
     enableTimeMonitor(300000, changeTest)
 
 
@@ -149,7 +159,7 @@ export const startEngine = async () => {
 }
 
 
-function shutdownProcedure() {
+function shutdownProcedure():void {
     console.log('*** Engine is now closing ***');
     server.close()
     process.exit(0);

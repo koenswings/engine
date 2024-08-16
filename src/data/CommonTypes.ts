@@ -1,17 +1,41 @@
+declare const __brand__type__: unique symbol;
+type Brand<BaseType, BrandName> = BaseType & {
+  readonly [__brand__type__]: BrandName;
+}
 
 
 
-export type URL = string
+export type Version = Brand<string, "VERSION"> // Can be major.minor or a commit hash
 
-export type Version = string // Can be major.minor or a commit hash
+export type EngineID = Brand<string, "DISKID">
+export type DiskID = Brand<string, "DISKID">
+export type AppID = Brand<string, "APPID">
+export type InstanceID = Brand<string, "INSTANCEID">
 
-export type UUID = string
+export type AppnetName = Brand<string, "APPNETNAME">
+export type AppName = Brand<string, "APPNETNAME">
+export type InstanceName = Brand<string, "INSTANCENAME">
 
-export type Command = string
+export type URL = Brand<string, "URL">
+
+export type IPAddress = Brand<string, "IPADRESS">
+export type NetMask = Brand<string, "NETMASK">
+export type CIDR = Brand<string, "CIDR">
+export type PortNumber = Brand<number, "PORTNUMBER">
+
+export type InterfaceName = Brand<string, "INTERFACENAME">
+export type DeviceName = Brand<string, "DEVICENAME">
+
+export type Hostname = Brand<string, "HOSTNAME">
+export type ServiceImage = Brand<string, "SERVICEIMAGE">
+
+export type Timestamp = Brand<number, "TIMESTAMP">
+
+export type Command = Brand<string, "COMMAND">
 
 // References to top-level YMaps and YArrays in the Yjs document
-export type YMapRef = string
-export type YArrayRef = string
+// export type YMapRef = string
+// export type YArrayRef = string
 
 export interface DockerMetrics {
   cpu: string;

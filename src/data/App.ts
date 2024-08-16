@@ -1,10 +1,11 @@
 import { $, YAML, chalk } from 'zx';
-import { Version, URL } from './CommonTypes.js';
+import { Version, URL, AppID, AppName, Hostname, DeviceName } from './CommonTypes.js';
 import { log } from '../utils/utils.js';
 import { proxy } from 'valtio';
 
 export interface App {
-    name: string;
+    id: AppID;
+    name: AppName;
     version: Version;
     title: string;
     description: string;
@@ -17,17 +18,19 @@ export interface App {
 type AppCategory = 'Productivity' | 'Utilities' | 'Games';
 
 
-export const createAppFromFile = async (appFullName:string, diskName:string, device:string) => {
+export const createAppFromFile = async (appFullName:AppName, diskName:Hostname, device:DeviceName) => {
     let app: App
     try {
         // The full name of the app is <appName>-<version>
         const appParts = appFullName.split('-')
-        const appName = appParts[0]
-        const appVersion = appParts[1]
+        const appName = appParts[0] as AppName
+        const appVersion = appParts[1] as Version
         // Read the compose.yaml file in the app folder
         const appComposeFile = await $`cat /disks/${device}/apps/${appFullName}/compose.yaml`
         const appCompose = YAML.parse(appComposeFile.stdout)
+        const appId = appName as string
         app = {
+            id: appId as AppID,
             name: appName,
             version: appVersion,
             title: appCompose['x-app'].title,
@@ -50,6 +53,7 @@ export const createAppFromFile = async (appFullName:string, diskName:string, dev
     } catch (e) {
         log(chalk.red(`Error creating app ${appFullName} from disk ${diskName}`))
         console.error(e)
+        return undefined
     }
     const $app = proxy<App>(app)
     return $app

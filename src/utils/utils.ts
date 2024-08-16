@@ -1,12 +1,15 @@
 import util from 'util';
 import { $, YAML, chalk, fs, question } from 'zx';
 import { config, writeConfig } from '../data/Config.js';
+import { DiskID, Hostname, IPAddress, NetMask, Timestamp, Version } from '../data/CommonTypes.js';
+import { isIP } from 'net';
 
 // Read verbosityLevel from the environmnet
-export let verbosityLevel = parseInt(process.env.VERBOSITY) || 0
+const verbosity = process.env.VERBOSITY || ""
+export let verbosityLevel = parseInt(verbosity) || 0
 
 //export const log = console.log.bind(console);
-export const log = (msg:string, level?:number) => {
+export const log = (msg:string, level?:number):void => {
   if (!level) {
     // Set the default log level to 2
     level = 2
@@ -16,7 +19,7 @@ export const log = (msg:string, level?:number) => {
   }
 }
 
-export const setVerbosity = (level:number) => {
+export const setVerbosity = (level:number):void => {
   verbosityLevel = level
 }
 
@@ -50,7 +53,7 @@ export const setVerbosity = (level:number) => {
 //   return await $`test -f ${path}`.then(() => true).catch(() => false)
 // }
 
-export const fileExists = (path: string) => {
+export const fileExists = (path: string):boolean => {
   return fs.existsSync(path)
 }
 
@@ -60,35 +63,6 @@ export const fileExists = (path: string) => {
 // export const firstBoot: boolean = !(await fileExists('./yjs-db'))
 // log(`First boot: ${firstBoot}`)
 
-export interface DiskMeta {
-  name: string
-  id: string
-  created: number
-  version: string
-}
-
-export const readMeta = async (device?: string):Promise<DiskMeta | null> => {
-  log(`The root dir has this this content ${await $`ls /`}`)
-  let path
-  if (typeof device !== 'undefined') {
-    path = `/disks/${device}/META.yaml`
-  } else {
-    path = `/META.yaml`
-  }
-  try {
-    //log(`Our current dir is ${await $`pwd`} with content ${await $`ls`} and path ${path}`)
-    if (await fileExists(path)) {
-      const metaContent = (await $`cat ${path}`).stdout.trim()
-      const diskMetadata:DiskMeta = YAML.parse(metaContent)
-      return diskMetadata
-    } else {
-      log('Not an app disk')
-      return null
-    }
-  } catch (e) {
-      return null
-  }
-}
 
 
 
@@ -123,52 +97,67 @@ export const isNetmask = isIP4
 // See https://stackoverflow.com/questions/503052/how-to-check-if-ip-is-in-one-of-these-subnets
 
 
-const ip2long = (ip) => {
-  var components;
-  if(components = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/))
-  {
-      var iplong = 0;
-      var power  = 1;
-      for(var i=4; i>=1; i-=1)
-      {
-          iplong += power * parseInt(components[i]);
-          power  *= 256;
-      }
-      return iplong;
-  }
-  else return -1;
-};
+// const ip2long = (ip) => {
+//   var components;
+//   if(components = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/))
+//   {
+//       var iplong = 0;
+//       var power  = 1;
+//       for(var i=4; i>=1; i-=1)
+//       {
+//           iplong += power * parseInt(components[i]);
+//           power  *= 256;
+//       }
+//       return iplong;
+//   }
+//   else return -1;
+// };
 
 // THIS FUNCTION IS WRONG
-export const inSubNet = (ip, subnet) => {   
-  var mask, base_ip, long_ip = ip2long(ip);
-  if( (mask = subnet.match(/^(.*?)\/(\d{1,2})$/)) && ((base_ip=ip2long(mask[1])) >= 0) )
-  {
-      var freedom = Math.pow(2, 32 - parseInt(mask[2]));
-      return (long_ip > base_ip) && (long_ip < base_ip + freedom - 1);
-  }
-  else return false;
+// export const inSubNet = (ip, subnet) => {   
+//   var mask, base_ip, long_ip = ip2long(ip);
+//   if( (mask = subnet.match(/^(.*?)\/(\d{1,2})$/)) && ((base_ip=ip2long(mask[1])) >= 0) )
+//   {
+//       var freedom = Math.pow(2, 32 - parseInt(mask[2]));
+//       return (long_ip > base_ip) && (long_ip < base_ip + freedom - 1);
+//   }
+//   else return false;
+// }
+
+export const IPnumber = (ip:IPAddress):number => {
+//  var ip = IPaddress.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+//  if(ip) {
+//      return (+ip[1]<<24) + (+ip[2]<<16) + (+ip[3]<<8) + (+ip[4]);
+//  }
+  return (+ip[1]<<24) + (+ip[2]<<16) + (+ip[3]<<8) + (+ip[4]);
 }
 
-export const IPnumber = (IPaddress) => {
-  var ip = IPaddress.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if(ip) {
-      return (+ip[1]<<24) + (+ip[2]<<16) + (+ip[3]<<8) + (+ip[4]);
-  }
-  // else ... ?
-  return null;
+export const isIPAddress = (str: string): str is IPAddress => {
+  // return str.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/
+  // const ipRegex = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/
+  return ipRegex.test(str)
 }
 
-export const sameNet = (IP1, IP2, mask) => {
+export const sameNet = (IP1:any, IP2:any, mask:any) => {
   //log(`${IPnumber(IP1) & IPnumber(mask)} == ${IPnumber(IP2) & IPnumber(mask)}`)
-  return (IPnumber(IP1) & IPnumber(mask)) == (IPnumber(IP2) & IPnumber(mask))
+  // Check if the IP addresses are strings
+  if (isIPAddress(IP1) && isIPAddress(IP2) && isNetmask(mask)) {
+    return (IPnumber(IP1) & IPnumber(mask)) == (IPnumber(IP2) & IPnumber(mask))
+  } else {
+    return false
+  }
 }
 
-export const findIp = async (address) => {
+export const findIp = async (address:IPAddress) => {
   // Use a shell command to resolve the ip address
   // REmove the trailing \n from the ip address
   const testEngine1IP = (await $`ping -c 1 ${address} | grep PING | awk '{print $3}' | tr -d '()'`).stdout.replace(/\n$/, '')
-  return testEngine1IP
+  if (isIPAddress(testEngine1IP)) {
+    return testEngine1IP
+  } else {
+    return undefined
+  }
 }
 
 export const reset = async ($) => {
@@ -189,9 +178,15 @@ export const reset = async ($) => {
   }
 }
 
-export const prompt = (level, message: string) => {
+export const prompt = (level:number, message: string) => {
   // Create level*4 spaces
   const spaces = ' '.repeat(level * 4)
   console.log(chalk.green(spaces+message))
   return question(chalk.bgMagentaBright(spaces+'Press ENTER when ready'))
 }
+
+// Generate a uuid
+export const uuid = ():string => {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+

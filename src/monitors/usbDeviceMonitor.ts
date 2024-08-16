@@ -1,18 +1,20 @@
 import chokidar from 'chokidar'
-import { DiskMeta, fileExists, log, readMeta } from '../utils/utils.js'
+import { fileExists, log } from '../utils/utils.js'
+import { readMeta, DiskMeta } from '../data/Meta.js';
 import { $, YAML } from 'zx'
 import { Disk, createDisk, syncDiskWithFile } from '../data/Disk.js'
 import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
-import { getLocalEngine } from '../data/Store.js'
+import { Store, getLocalEngine } from '../data/Store.js'
+import { DeviceName, DiskID, Hostname } from '../data/CommonTypes.js'
 
 
-export const enableUsbDeviceMonitor = () => {
+export const enableUsbDeviceMonitor = (store:Store) => {
     // TODO: Alternative implementations for usb device detection:
     // 1. Monitor /dev iso /dev/engine
     // 2. Monitor /dev/disk/by-label
     // 3. Monitor dmesg
 
-    const localEngine = getLocalEngine()
+    const localEngine = getLocalEngine(store)
     const watchDir = '/dev/engine'
     const watcher = chokidar.watch(watchDir, {
         persistent: true,
@@ -23,7 +25,7 @@ export const enableUsbDeviceMonitor = () => {
         .on('add', async function (path) {
             // log(`Device ${path} has been added`)
             // Strip out the name of the device from the path and assign it to a variable
-            const device = path.split('/').pop()
+            const device = path.split('/').pop() as DeviceName
             // Check if the device begins with "sd", is then followed by a letter and ends with the number 2
             // We need the m flag - see https://regexr.com/7rvpq
             if (device.match(/^sd[a-z]2$/m)) {
@@ -59,16 +61,17 @@ export const enableUsbDeviceMonitor = () => {
                     // } else {
                     //     log('Not an app disk')
                     // }                    
-                    const meta:DiskMeta = await readMeta(device)
+                    const meta:DiskMeta | undefined = await readMeta(device)
                     if (meta) {
-                        const diskName = meta.name
+                        const diskName = meta.name as Hostname
+                        const diskID = meta.id as DiskID
                         const diskCreated = meta.created
                         const diskCreatedTime = new Date(diskCreated)
                         log(`Found an appnet disk on device ${device} with name ${diskName} and created on ${diskCreatedTime}`)
                         // Add the disk to the store
-                        const disk:Disk = createDisk(device, diskName, diskCreated)
-                        await syncDiskWithFile(disk)
-                        addDisk(localEngine, disk)
+                        const disk:Disk = createDisk(store, device, diskID, diskName, diskCreated)
+                        await syncDiskWithFile(store, disk)
+                        addDisk(store, localEngine, disk)
                     } else {
                         log('Not an app disk')
                     }
@@ -86,12 +89,12 @@ export const enableUsbDeviceMonitor = () => {
             // Strip out the name of the device from the path and assign it to a variable
             const device = path.split('/').pop()
             // Check if the device begins with "sd" and ends with a letter
-            if (device.match(/^sd[a-z]2$/m)) {
+            if (device && device.match(/^sd[a-z]2$/m)) {
                 log(`USB device ${device} has been removed`)
                 // Remove the disk from the store
-                const disk = findDiskByDevice(localEngine, device)
+                const disk = findDiskByDevice(store, localEngine, device as DeviceName)
                 if (disk) {
-                    removeDisk(localEngine, disk)
+                    removeDisk(localEngine, disk.id)
                     log(`Disk ${device} removed from store`)
                 }
 
@@ -124,9 +127,4 @@ export const enableUsbDeviceMonitor = () => {
     log(`Watching ${watchDir} for USB devices`)
 }
 
-
-
-function createDiskFromFile(device: string, diskName: any, diskCreated: number) {
-    throw new Error('Function not implemented.')
-}
 

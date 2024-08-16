@@ -7,6 +7,7 @@ import { config } from '../src/data/Config.js'
 import { buildInstance } from '../src/data/Instance.js';
 import { log } from 'console';
 import { deepPrint } from '../src/utils/utils.js';
+import { AppName } from '../src/data/CommonTypes.js';
 
 
 // Configure zx
@@ -60,7 +61,7 @@ const apps = argv._
 //   exitWithError("Error: You must specify one app");
 // }
 assert(apps.length == 1, "Error: You must specify the app that you want to create an instance of")
-const app = apps[0]
+const app = apps[0] as AppName
 
 
 // Now override the default configuration using the command line
@@ -96,7 +97,7 @@ try {
 
 
 
-function exitWithError(errorMessage) {
+function exitWithError(errorMessage:string):void {
     console.error(chalk.red(errorMessage));
     process.exit(1);
   }

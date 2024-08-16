@@ -1,5 +1,6 @@
 import { $, YAML, chalk } from "zx"
 import { log } from "../utils/utils.js"
+import { AppnetName, InterfaceName } from "./CommonTypes.js"
 
 // const $$ = $({
 //   verbose: false
@@ -29,27 +30,31 @@ export interface Settings {
   interfaces?: InterfaceName[]  // When no interfaces are specified, all interfaces are monitored and there is no interface acces control
 }
 
-export type InterfaceName = string
-
 export interface AppnetConfig {
-  name: string,
+  name: AppnetName,
   id?: number
 }
 
 export type AppnetSetup = AppnetConfig[]
 
-export const getAppnetId = (config: Config, appnetName: string): number => {
+export const getAppnetId = (config: Config, appnetName: AppnetName): number | undefined => {
   // Find the id of a given appnet
-  const appnetConfig = config.settings.appnets.find((appnet) => appnet.name === appnetName)
-  return appnetConfig.id
+  const appnets = config.settings.appnets
+  if (appnets) {
+    const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
+    return appnetConfig ? appnetConfig.id : undefined
+  } else { return undefined }
 }
 
-export const setAppnetId = (config: Config, appnetName: string, id:number) => {
+export const setAppnetId = (config: Config, appnetName: string, id:number):void => {
   // Find the id of a given appnet
-  const appnetConfig = config.settings.appnets.find((appnet) => appnet.name === appnetName)
-  if (appnetConfig) {
-    appnetConfig.id = id
-  } 
+  const appnets = config.settings.appnets
+  if (appnets) {
+    const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
+    if (appnetConfig) {
+      appnetConfig.id = id
+    } 
+  }
 }
 
 export interface Config {

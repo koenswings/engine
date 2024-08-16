@@ -1,5 +1,6 @@
 import util from 'util';
 import { chalk, question } from 'zx';
+import { Hostname } from '../data/CommonTypes.js';
 
 // Docker-style name generation
 // Inspired by
@@ -832,14 +833,14 @@ import { chalk, question } from 'zx';
     "zhukovsky",
   ]
   
-  export const generateHostName = () => {
-    return util.format('%s-%s', randelem(adjectives), randelem(scientists))
+  export const generateHostName = ():Hostname => {
+    return util.format('%s-%s', randelem(adjectives), randelem(scientists)) as Hostname
   }
   
-  function randnum(n) {
+  function randnum(n:number):number {
     return Math.floor(Math.random() * n);
   }
   
-  function randelem(a) {
+  function randelem(a:string[]):string {
     return a[randnum(a.length)];
   }

@@ -21,8 +21,8 @@ import { callbackHandler, isCallbackSet } from '../callback.js'
 import { fileExists, log } from '../utils/utils.js'
 
 
-const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
-const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
+const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT || "2000") || 2000
+const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT || "10000") || 10000
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1

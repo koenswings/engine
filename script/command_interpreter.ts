@@ -1,7 +1,7 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
-import { Network, connectEngine, createNetwork, getEngine, getEngines, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
+import { Network, connectEngine, createNetwork, getEngines, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { deepPrint } from '../src/utils/utils.js';
 
@@ -9,14 +9,14 @@ import pack from '../package.json' assert { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
 
-import { getNetworks } from '../src/data/Store.js';
+import { getEngine, getNetworks, store } from '../src/data/Store.js';
 import { CommandDefinition } from '../src/data/CommandDefinition.js';
 import { create } from 'domain';
-import { UUID } from '../src/data/CommonTypes.js';
+import { AppName, AppnetName, Command, EngineID, Hostname, InstanceName, InterfaceName, Version } from '../src/data/CommonTypes.js';
 
 const defaults  = config.defaults
 const engineAddress = argv.e || argv.engine || defaults.engine
-const networkName = argv.n || argv.network || defaults.network
+const networkName = argv.n || argv.network || defaults.network as AppnetName
 
 // **********************
 // Command-line arguments
@@ -44,7 +44,7 @@ if (argv.v || argv.version) {
 // Connection to an engine
 // ************************
 
-const network: Network = await createNetwork(networkName)
+const network: Network = await createNetwork(store, networkName)
 await connectEngine(network, engineAddress)
 
 
@@ -53,51 +53,51 @@ await connectEngine(network, engineAddress)
 // Virtual Engines
 // ************************
 
-interface VirtualEngine {
-    name: string;
-    port: number;
-    status: string;
-}
+// interface VirtualEngine {
+//     name: string;
+//     port: number;
+//     status: string;
+// }
 
-const engines: VirtualEngine[] = [
-    // {
-    //     name: "engine1",
-    //     port: 3001,
-    //     status: "running"
-    // },
-    // {
-    //     name: "engine2",
-    //     port: 3002,
-    //     status: "running"
-    // },
-    // {
-    //     name: "engine3",
-    //     port: 3003,
-    //     status: "stopped"
-    // }
-  ]
+// const engines: VirtualEngine[] = [
+//     // {
+//     //     name: "engine1",
+//     //     port: 3001,
+//     //     status: "running"
+//     // },
+//     // {
+//     //     name: "engine2",
+//     //     port: 3002,
+//     //     status: "running"
+//     // },
+//     // {
+//     //     name: "engine3",
+//     //     port: 3003,
+//     //     status: "stopped"
+//     // }
+//   ]
 
-  // Create additional engines for testing
-export const addEngine = async (engine: string, port:number) => {
-    console.log(`Adding engine '${engine}'.`)
-    // Compose up the engine
-    try {
-        cd('..')
-        // Build the engine
-        await $`docker build --target base -t ${engine} .`
-        // Run the engine
-        await $`docker run -p ${port}:1234 -d --name ${engine} ${engine}`
-        // Add the engine to the list
-        engines.push({
-            name: engine,
-            port: port,
-            status: "running"
-        })
-    } catch (e) {
-        console.log(chalk.red('Error adding engine'));
-        console.error(e);
-    } 
-  }
+// Create additional engines for testing
+// export const addEngine = async (engine: string, port:number) => {
+//     console.log(`Adding engine '${engine}'.`)
+//     // Compose up the engine
+//     try {
+//         cd('..')
+//         // Build the engine
+//         await $`docker build --target base -t ${engine} .`
+//         // Run the engine
+//         await $`docker run -p ${port}:1234 -d --name ${engine} ${engine}`
+//         // Add the engine to the list
+//         engines.push({
+//             name: engine,
+//             port: port,
+//             status: "running"
+//         })
+//     } catch (e) {
+//         console.log(chalk.red('Error adding engine'));
+//         console.error(e);
+//     } 
+//   }
 
 
 
@@ -105,28 +105,28 @@ export const addEngine = async (engine: string, port:number) => {
 // Doc inspections
 // **********************
 
-const ls = () => {
+const ls = ():void => {
     console.log('NetworkData on this engine:')
-    console.log(deepPrint(getNetworks(), 3))
+    console.log(deepPrint(getNetworks(store), 3))
 }
 
-const lsEngines = () => {
+const lsEngines = ():void => {
     console.log('Engines:')
 }
 
-const lsDisks = () => {
+const lsDisks = ():void => {
     console.log('Disks:')
     const disks = getNetworkDisks(network)
     console.log(deepPrint(disks, 2))
 }
 
-const lsApps = () => {
+const lsApps = ():void => {
     console.log('Apps:')
     const disks = getNetworkApps(network)
     console.log(deepPrint(disks, 2))
 }
 
-const lsInstances = () => {
+const lsInstances = ():void => {
     console.log('Instances:')
     const disks = getNetworkInstances(network)
     console.log(deepPrint(disks, 2))
@@ -139,24 +139,24 @@ const lsInstances = () => {
 
 // Network Management
 
-const enableAppnetMonitor = (engineName: string, networkName: string, iface: string) => {
+const enableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
     console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${networkName}`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
     if (engine && engine.id) {
-        sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}`)
+        sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}` as Command)
     } else {
         console.log(`Engine ${engineName}: not found on network ${network.name} or has no id`)
     }
 }
 
 
-const disableAppnetMonitor = (engineName: string, networkName: string, iface: string) => {
+const disableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
     console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${networkName}`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
     if (engine && engine.id) {
-        sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}`)
+        sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}` as Command)
     } else {
         console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
@@ -171,45 +171,45 @@ const disableAppnetMonitor = (engineName: string, networkName: string, iface: st
 
 // App Management
 
-const createInstance =  (engineName: string, instanceName: string, typeName:string, version:string, diskName:string) => {
+const createInstance =  (engineName: Hostname, instanceName: InstanceName, typeName:AppName, version:Version, diskName:Hostname):void => {
     console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
     if (engine && engine.id) {
-        sendCommand(engine.id, `createInstance ${instanceName} ${typeName} ${version} ${diskName}`)
+        sendCommand(engine.id, `createInstance ${instanceName} ${typeName} ${version} ${diskName}` as Command)
     } else {
         console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 
-const startInstance =  (engineName: string, instanceName: string, diskName:string) => {
+const startInstance =  (engineName: Hostname, instanceName: InstanceName, diskName:Hostname):void => {
     console.log(`Starting instance '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
     if (engine && engine.id) {
-        sendCommand(engine.id, `startInstance ${instanceName} ${diskName}`)
+        sendCommand(engine.id, `startInstance ${instanceName} ${diskName}` as Command)
     } else {
         console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 
-const runInstance = (engineName: string, instanceName: string, diskName: string) => {
+const runInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
     console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
     if (engine && engine.id) {
-        sendCommand(engine.id, `runInstance ${instanceName} ${diskName}`)
+        sendCommand(engine.id, `runInstance ${instanceName} ${diskName}` as Command)
     } else {
         console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
 }
 
-const stopInstance = (engineName: string, instanceName: string, diskName: string) => {
+const stopInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
     console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
     const engine = getEngines(network).find(e => e.hostName === engineName)
     if (engine && engine.id) {
-        sendCommand(engine.id, `stopInstance ${instanceName} ${diskName}`)
+        sendCommand(engine.id, `stopInstance ${instanceName} ${diskName}` as Command)
     } else {
         console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
     }
@@ -231,12 +231,12 @@ const stopInstance = (engineName: string, instanceName: string, diskName: string
 // Remote Command Execution
 // ************************
 
-const sendCommand = (engineId: UUID, command: string) => {
+const sendCommand = (engineId: EngineID, command: Command):void => {
     console.log(`Sending command '${command}' to engine ${engineId}`)
 
-    const engine = getEngine(network, engineId)
+    const engine = getEngine(store, engineId)
     console.log(`Pushing commands to ${engineId}`)
-    engine.commands.push(command)
+    if (engine && engine.commands) engine.commands.push(command)
     // // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
     // const engineId = Object.keys(networkData).find(e => networkData[e].hostName === engineName)
     // if (engineId) {
@@ -252,11 +252,11 @@ const sendCommand = (engineId: UUID, command: string) => {
 
 // Command registry with an example of the new object command
 const commands: CommandDefinition[] = [
-    {
-        name: "addEngine",
-        execute: addEngine,
-        args: [{ type: "string" }],
-    },
+    // {
+    //     name: "addEngine",
+    //     execute: addEngine,
+    //     args: [{ type: "string" }],
+    // },
     {
         name: "ls",
         execute: ls,

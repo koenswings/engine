@@ -38,7 +38,7 @@ const convertToType = (str: string, descriptor: ArgumentDescriptor): any => {
 }
 
 
-export const handleCommand = async (commands: CommandDefinition[], input: string) => {
+export const handleCommand = async (commands: CommandDefinition[], input: string):Promise<void> => {
     const [commandName, ...stringArgs] = input.split(" ").map(arg => arg.trim()).filter(arg => arg.length > 0);
     const command = commands.find(cmd => cmd.name === commandName);
 

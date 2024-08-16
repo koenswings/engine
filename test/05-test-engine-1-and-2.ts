@@ -9,19 +9,20 @@ import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 
 const testSetup  = config.testSetup
 
-const testNet = testSetup.appnet
-const testInterface = testSetup.interface
+const testNet = testSetup.appnet as AppnetName
+const testInterface = testSetup.interface as InterfaceName
 
 const testDisk1 = testSetup.testDisk1
-const testEngine1Name = testDisk1.name
-const testEngine1Address = testDisk1.name + ".local"
+const testEngine1Name = testDisk1.name as Hostname
+const testEngine1Address = testDisk1.name + ".local" as IPAddress
 
 const testDisk2 = testSetup.testDisk2
-const testEngine2Name = testDisk2.name
-const testEngine2Address = testDisk2.name + ".local"
+const testEngine2Name = testDisk2.name as Hostname
+const testEngine2Address = testDisk2.name + ".local" as IPAddress
 
 import { network1 } from './03-test-engine-1.js'
 import { network2 } from './04-test-engine-2.js'
+import { AppnetName, Hostname, IPAddress, InterfaceName } from '../src/data/CommonTypes.js';
 
 
 
@@ -44,7 +45,7 @@ describe.skip('Two remote engines - ', () => {
     })
 
     it(`the two engineSet objects should be deeply equal`, async function () {
-        expect(network1.engineSet).to.deep.equal(network2.engineSet)
+        expect(network1.appnet.engines).to.deep.equal(network2.appnet.engines)
     })
 
     // These tests can not run if we allow the test master to be a non-priviliged engine - these are on an isolated network and can not detect other engines

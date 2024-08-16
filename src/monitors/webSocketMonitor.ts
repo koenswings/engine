@@ -1,8 +1,10 @@
 import { yjsWebsocketServer } from '../y-websocket/yjsWebSocketServer.js'
 import { log } from '../utils/utils.js'
+import { IPAddress, PortNumber } from '../data/CommonTypes.js'
+import { Server } from 'http'
 
 
-export const enableWebSocketMonitor = (host, port) => {
+export const enableWebSocketMonitor = (host:IPAddress, port:PortNumber):Server => {
     // Monitor the specified host and port for web socket conenctions from clients
     // const host = 'localhost'
     // const port = '1234'
@@ -12,7 +14,7 @@ export const enableWebSocketMonitor = (host, port) => {
 }
 
 // When receiving an exit signal, close the websocket server
-export const disableWebSocketMonitor = (wsServer) => {
+export const disableWebSocketMonitor = (wsServer:Server):void => {
     wsServer.close()
     log('Closing the web socket server')
 }

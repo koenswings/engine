@@ -1,5 +1,6 @@
 
-import { getLocalEngine } from '../data/Store.js'
+import { Timestamp } from '../data/CommonTypes.js'
+import { Store, getLocalEngine } from '../data/Store.js'
 import { log, contains, deepPrint } from '../utils/utils.js'
 import { Array } from 'yjs'
 
@@ -58,10 +59,10 @@ const generateRandomArrayModification = (apps: Array<object>) => {
     }
 }
 
-export const changeTest = () => {
-    const localEngine = getLocalEngine()
-    if (localEngine) {
-        localEngine.lastBooted = localEngine.lastBooted + 1
+export const changeTest = (store:Store) => {
+    const localEngine = getLocalEngine(store)
+    if (localEngine && localEngine.lastBooted) {
+        localEngine.lastBooted = localEngine.lastBooted + 1 as Timestamp
         log(`CHANGING ENGINE LASTBOOTED TO ${localEngine.lastBooted}`)
         log(deepPrint(localEngine))
     } else {

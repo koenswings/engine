@@ -1,0 +1,57 @@
+appnetSetup:
+  - name: appnet
+    interfaces:
+      - eth0
+      - wlan0
+    id: 1351494052
+defaults:
+  user: pi
+  machine: raspberrypi.local
+  password: raspberry
+  engine: 127.0.0.1
+  network: appnet
+  language: en_ZW.UTF-8
+  keyboard: us
+  timezone: Europe/Brussels
+  update: false
+  upgrade: false
+  hdmi: false
+  temperature: true
+  argon: true
+  zerotier: false
+  raspap: false
+  gadget: true
+testSetup:
+  appnet: appnet
+  interface: eth0
+  testDisk1:
+    name: loving-jennings
+    apps:
+      - name: kolibri
+        version: 1.0-0.15.5-dev
+        title: Kolibri
+        description: >
+          Kolibri is an adaptable set of open solutions specially developed to
+          support learning for the half of the world without Internet access. 
+
+          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
+        url: https://learningequality.org/kolibri/
+        category: education
+        icon: icon.png
+        author: Koen Swings
+  testDisk2:
+    name: bold-banzai
+    apps:
+      - name: kolibri
+        version: 1.0-0.15.5-dev
+        title: Kolibri
+        description: >
+          Kolibri is an adaptable set of open solutions specially developed to
+          support learning for the half of the world without Internet access. 
+
+          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
+        url: https://learningequality.org/kolibri/
+        category: education
+        icon: icon.png
+        author: Koen Swings
+
