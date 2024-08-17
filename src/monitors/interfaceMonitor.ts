@@ -23,7 +23,6 @@ export const enableInterfaceMonitor = async (store:Store, ifaceNames:InterfaceNa
     }
 
     // Monitor the interface for changes
-    // Create a dedicated handler for the specified interface and vlan
     const onNetworkChange = (data) => {
 
         const changedInterfaces = Object.keys(data)

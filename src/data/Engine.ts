@@ -203,20 +203,24 @@ export const getDiskNames = (store:Store, engine:Engine):Hostname[] => {
 }
 
 
-export const addDisk = (store:Store, engine: Engine, disk: Disk):void => {
-    log(`Updating disk ${disk.name} of engine ${engine.hostName}:`)
+// export const addDisk = (store:Store, engine: Engine, disk: Disk):void => {
+//     log(`Updating disk ${disk.name} of engine ${engine.hostName}:`)
 
-    // Check if engine already has the disk
-    const diskIds = Object.keys(engine.disks) as DiskID[]
-    const existingDisk = findDisk(store, engine, disk.id)
-    if (existingDisk) {
-        log(`Engine ${engine.hostName} already has disk ${disk.name}. Merging the new disk with the existing disk.`)
-        Object.assign(existingDisk, disk)
-    } else {
-        //log(deepPrint(disk))
-        log(`Pushing a new disk ${disk.name} to engine ${engine.hostName}`)
-        engine.disks[disk.id] = true
-    }
+//     // Check if engine already has the disk
+//     const diskIds = Object.keys(engine.disks) as DiskID[]
+//     const existingDisk = findDisk(store, engine, disk.id)
+//     if (existingDisk) {
+//         log(`Engine ${engine.hostName} already has disk ${disk.name}. Merging the new disk with the existing disk.`)
+//         Object.assign(existingDisk, disk)
+//     } else {
+//         //log(deepPrint(disk))
+//         log(`Pushing a new disk ${disk.name} to engine ${engine.hostName}`)
+//         engine.disks[disk.id] = true
+//     }
+// }
+
+export const addDisk = (engine: Engine, disk: Disk):void => {
+    engine.disks[disk.id] = true
 }
 
 export const removeDisk = (engine: Engine, diskId: DiskID):void => {

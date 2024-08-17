@@ -27,7 +27,7 @@ export interface Instance {
 export type Status = 'Initializing' | 'Running' | 'Pauzed' | 'Error';
 
 
-export const buildInstance = async (instanceName: InstanceName, appName: AppName, gitAccount: string, version: Version, device: DeviceName):Promise<void> => {
+export const buildInstance = async (instanceName: InstanceName, appName: AppName, gitAccount: string, version: Version, device: DeviceName): Promise<void> => {
   console.log(`Building instance '${instanceName}' from version ${version} of app '${appName}' on device '${device}' of the local engine.`)
 
   // CODING STYLE: only use absolute pathnames !
@@ -130,7 +130,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
 }
 
 
-export const createInstanceFromFile = async (instanceName: InstanceName, diskName: Hostname, device: DeviceName): Promise<Instance | undefined> => {
+export const createOrUpdateInstance = async (store: Store, instanceName: InstanceName, diskName: Hostname, device: DeviceName): Promise<Instance | undefined> => {
   let instance: Instance
   try {
     const composeFile = await $`cat /disks/${device}/instances/${instanceName}/compose.yaml`
@@ -154,8 +154,8 @@ export const createInstanceFromFile = async (instanceName: InstanceName, diskNam
       dockerLogs: { logs: [] },
       dockerEvents: { events: [] },
       created: new Date().getTime() as Timestamp,
-      lastBackedUp: 0  as Timestamp,
-      lastStarted: 0  as Timestamp,
+      lastBackedUp: 0 as Timestamp,
+      lastStarted: 0 as Timestamp,
       upgradable: false,
       backUpEnabled: false
     }
@@ -164,12 +164,36 @@ export const createInstanceFromFile = async (instanceName: InstanceName, diskNam
     console.error(e)
     return undefined
   }
-  const $instance = proxy<Instance>(instance)
-  return $instance
+  if (store.instanceDB[instance.id]) {
+    // Update the app
+    log(chalk.green(`Updating instance ${instanceName} on disk ${diskName}`))
+    const existingInstance = store.instanceDB[instance.id]
+    existingInstance.instanceOf = instance.instanceOf
+    existingInstance.name = instance.name
+    existingInstance.status = instance.status
+    existingInstance.port = instance.port
+    existingInstance.serviceImages = instance.serviceImages
+    existingInstance.dockerMetrics = instance.dockerMetrics
+    existingInstance.dockerLogs = instance.dockerLogs
+    existingInstance.dockerEvents = instance.dockerEvents
+    existingInstance.created = instance.created
+    existingInstance.lastBackedUp = instance.lastBackedUp
+    existingInstance.lastStarted = instance.lastStarted
+    existingInstance.upgradable = instance.upgradable
+    existingInstance.backUpEnabled = instance.backUpEnabled
+    return existingInstance
+  } else {
+    // Create the app
+    log
+    const $instance = proxy<Instance>(instance)
+    // Add the app to the store
+    store.instanceDB[instance.id] = $instance
+    return $instance
+  }
 }
 
 
-export const startInstance = async (store:Store, instance: Instance, disk: Disk):Promise<void> => {
+export const startInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
   console.log(`Starting instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
 
   try {
@@ -247,7 +271,7 @@ export const startInstance = async (store:Store, instance: Instance, disk: Disk)
   }
 }
 
-export const createInstanceContainers = async (store:Store, instance: Instance, disk: Disk) => {
+export const createInstanceContainers = async (store: Store, instance: Instance, disk: Disk) => {
   try {
     log(`Creating containers of app instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
     await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml create`
@@ -258,7 +282,7 @@ export const createInstanceContainers = async (store:Store, instance: Instance, 
   }
 }
 
-export const runInstance = async (store:Store, instance: Instance, disk: Disk):Promise<void> => {
+export const runInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling
   try {
@@ -316,7 +340,7 @@ export const runInstance = async (store:Store, instance: Instance, disk: Disk):P
   }
 }
 
-export const stopInstance = async (store:Store, instance: Instance, disk: Disk):Promise<void> => {
+export const stopInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
   console.log(`Stopping app '${instance.name}' on disk '${disk.name}' of engine '${getLocalEngine(store).hostName}'.`)
 
   // CODING STYLE: only use absolute pathnames !

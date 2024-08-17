@@ -44,14 +44,16 @@ export const startEngine = async ():Promise<void> => {
 
     // Start the websocket servers
     log(chalk.bgMagenta('STARTING THE WEBSOCKET SERVERS'))
-    if (!settings.interfaces) {
-        // No access control - listen on all interfaces
-        server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
-    } else {
-        // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
-        server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
-        //enableWebSocketMonitor('127.0.0.1', '1234')
-    }
+    server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+
+    // OLD - Only start a websocket server on the local address now and add additional servers for all settings.interfaces later on to control access
+    // if (!settings.interfaces) {
+    //     // No access control - listen on all interfaces
+    //     server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
+    // } else {
+    //     // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
+    //     enableWebSocketMonitor('127.0.0.1' as IPAddress, '1234')
+    // }
 
     // If this process is killed or exited, close the server
     process.on('exit', () => {
@@ -107,10 +109,10 @@ export const startEngine = async ():Promise<void> => {
     await sleep(1000)
     log(chalk.bgMagenta('STARTING INTERFACE MONITORS'))
     if (!settings.interfaces) {
-        // No access control - listen on all interfaces
+        // No access control - listen on ALL interfaces
         enableInterfaceMonitor(store, [])
     } else {
-        // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
+        // Access control - listen only on the specified interfaces
         enableInterfaceMonitor(store, settings.interfaces)
     }
 
@@ -129,8 +131,8 @@ export const startEngine = async ():Promise<void> => {
     // changeTest(store)
     // enableTimeMonitor(300000, changeTest)
     log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
-    generateHeartBeat(store)
-    enableTimeMonitor(300000, generateHeartBeat)
+    generateHeartBeat()
+    enableTimeMonitor(60000, generateHeartBeat)
 
 
     // log('STARTING MONITOR OF ETH0')

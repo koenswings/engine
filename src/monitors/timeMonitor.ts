@@ -1,6 +1,6 @@
 
 import { Timestamp } from '../data/CommonTypes.js'
-import { Store, getLocalEngine } from '../data/Store.js'
+import { store, Store, getLocalEngine } from '../data/Store.js'
 import { log, contains, deepPrint } from '../utils/utils.js'
 import { Array } from 'yjs'
 
@@ -70,7 +70,7 @@ export const changeTest = (store:Store) => {
     }
 }
 
-export const generateHeartBeat = (store:Store) => {
+export const generateHeartBeat = () => {
     const localEngine = getLocalEngine(store)
     if (localEngine && localEngine.lastRun) {
         localEngine.lastRun =  (new Date()).getTime() as Timestamp

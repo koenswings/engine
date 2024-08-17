@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "install_packages": "pnpm install --frozen-lockfile",
-    "start": "tsc && YPERSISTENCE=./yjs-db node dist/src/index.js",
+    "start": "tsc node dist/src/index.js",
+    "startDB": "tsc && YPERSISTENCE=./yjs-db node dist/src/index.js",
     "dev": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && VERBOSITY=3 node dist/src/index.js'",
     "devDB": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && YPERSISTENCE=./yjs-db VERBOSITY=3 node dist/src/index.js'",
     "devreset": "pnpm reset && nodemon --watch 'src/**/*' -e ts,tsx --exec 'tsc && YPERSISTENCE=./yjs-db node dist/src/index.js'",
@@ -20,8 +21,10 @@
     "cleanOld": "tsc --build --clean",
     "clean": "rm -fr dist/*",
     "build": "pnpm clean && tsc",
-    "test": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db mocha 'dist/test/*.js' --exit",
-    "testdev": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db VERBOSITY=3 mocha --reporter list 'dist/test/*.js' --exit"
+    "test": "tsc --build --clean && tsc && mocha 'dist/test/*.js' --exit",
+    "testdev": "tsc --build --clean && tsc && VERBOSITY=3 mocha --reporter list 'dist/test/*.js' --exit",
+    "testDB": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db mocha 'dist/test/*.js' --exit",
+    "testdevDB": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db VERBOSITY=3 mocha --reporter list 'dist/test/*.js' --exit"
   },
   "keywords": [],
   "author": "Koen Swings",

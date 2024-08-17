@@ -2,6 +2,7 @@ import { $, YAML, chalk } from 'zx';
 import { Version, URL, AppID, AppName, Hostname, DeviceName } from './CommonTypes.js';
 import { log } from '../utils/utils.js';
 import { proxy } from 'valtio';
+import { Store, store } from './Store.js';
 
 export interface App {
     id: AppID;
@@ -17,8 +18,7 @@ export interface App {
 
 type AppCategory = 'Productivity' | 'Utilities' | 'Games';
 
-
-export const createAppFromFile = async (appFullName:AppName, diskName:Hostname, device:DeviceName) => {
+export const createOrUpdateApp = async (store:Store, appFullName:AppName, diskName:Hostname, device:DeviceName) => {
     let app: App
     try {
         // The full name of the app is <appName>-<version>
@@ -55,8 +55,27 @@ export const createAppFromFile = async (appFullName:AppName, diskName:Hostname, 
         console.error(e)
         return undefined
     }
-    const $app = proxy<App>(app)
-    return $app
+    if (store.appDB[app.id]) {
+        // Update the app
+        log(chalk.green(`Updating app ${appFullName} on disk ${diskName}`))
+        const existingApp = store.appDB[app.id]
+        existingApp.name = app.name
+        existingApp.version = app.version
+        existingApp.title = app.title
+        existingApp.description = app.description
+        existingApp.url = app.url
+        existingApp.category = app.category
+        existingApp.icon = app.icon
+        existingApp.author = app.author
+        return existingApp
+    } else {
+        // Create the app
+        log
+        const $app = proxy<App>(app)
+        // Add the app to the store
+        store.appDB[app.id] = $app
+        return $app
+    }
 }
   
   

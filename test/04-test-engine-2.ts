@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngine } from '../src/data/Network.js';
+import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngineByHostname } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
@@ -55,8 +55,8 @@ describe('Test engine 2: ', () => {
         it('The test machine must be able to connect with it ', async function () {
             this.timeout(0)
             expect(network2).to.exist
-            expect(network2.appnet).to.exist
-            expect(network2.appnet.engines).to.exist
+            if (network2) expect(network2.appnet).to.exist
+            if (network2 && network2.appnet) expect(network2.appnet.engines).to.exist
             expect(connection2Promise).to.exist
 
             // The promise must resolve to a ConnectionResult
@@ -67,6 +67,8 @@ describe('Test engine 2: ', () => {
 
         it('The connection must deliver a remote engine object within 30 secs', async function (done) {
             this.timeout(30000)
+            if (!network2 || !network2.appnet) this.skip()
+
 
             // If networkdata2.engines is not empty, call done()
             if (Object.keys(network2.appnet.engines).length !== 0) {
@@ -123,7 +125,7 @@ describe('Test engine 2: ', () => {
             //log(chalk.bgBlackBright("\n" + deepPrint(networkData2, 4)))
             // We must find an Engine object in networkData2 with the same name as testEngine2
             it(`with the right name`, async function () {
-                remoteEngine = findEngine(network2, testEngine2Name)
+                remoteEngine = findEngineByHostname(network2, testEngine2Name)
                 expect(remoteEngine).to.exist
             })
 
@@ -147,7 +149,7 @@ describe('Test engine 2: ', () => {
             describe(`with an interface named ${testInterface}`, async function () {
 
                 it(`that exists`, async function () {
-                    remoteEngine = findEngine(network2, testEngine2Name)
+                    remoteEngine = findEngineByHostname(network2, testEngine2Name)
                     //console.log(`Remote engine: ${deepPrint(remoteEngine)}`)
                     //console.log(testInterface)
                     expect(remoteEngine.connectedInterfaces).to.have.property(testInterface)

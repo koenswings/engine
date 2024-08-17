@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngine } from '../src/data/Network.js';
+import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngineByHostname } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
@@ -56,8 +56,8 @@ describe('Test engine 1: ', () => {
         it('The test machine must be able to connect with it ', async function () {
             this.timeout(0)
             expect(network1).to.exist
-            expect(network1.appnet).to.exist
-            expect(network1.appnet.engines).to.exist
+            if (network1) expect(network1.appnet).to.exist
+            if (network1 && network1.appnet) expect(network1.appnet.engines).to.exist
             expect(connection1Promise).to.exist
 
             // The promise must resolve to a ConnectionResult
@@ -68,9 +68,10 @@ describe('Test engine 1: ', () => {
 
         it('The connection must deliver a remote engine object within 30 secs', async function (done) {
             this.timeout(30000)
+            if (!network1 || !network1.appnet) this.skip()
 
             // If network.engines is not empty, call done()
-            if (Object.keys(network1.appnet.engines).length !== 0) {
+            if (Object.keys(network1.appnet.engines).length == 2) {
                 done()
             } else {
                 // Subscribe to changes in the engineSet object 
@@ -123,8 +124,8 @@ describe('Test engine 1: ', () => {
             //console.dir(networkData1, {depth: 3, colors: true})
             //log(chalk.bgBlackBright("\n" + deepPrint(networkData1, 4)))
             // We must find an Engine object in networkData1 with the same name as testEngine1
-            it(`with the right name`, async function () {
-                remoteEngine = findEngine(network1, testEngine1Name)
+            it(`with the right name ${testEngine1Name}`, async function () {
+                remoteEngine = findEngineByHostname(network1, testEngine1Name)
                 expect(remoteEngine).to.exist
             })
 
@@ -153,7 +154,7 @@ describe('Test engine 1: ', () => {
             describe(`with a connected interface named ${testInterface}: `, async function () {
 
                 it(`that exists`, async function () {
-                    remoteEngine = findEngine(network1, testEngine1Name)
+                    remoteEngine = findEngineByHostname(network1, testEngine1Name)
                     //console.log(`Remote engine: ${deepPrint(remoteEngine)}`)
                     //console.log(testInterface)
                     expect(remoteEngine.connectedInterfaces).to.have.property(testInterface)

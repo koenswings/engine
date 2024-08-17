@@ -207,7 +207,7 @@ export const writeConfig = async (config: Config, path: string) => {
   }
 }
 
-export let config = await readConfig('config.yaml')
+export const config = await readConfig('config.yaml')
 
 // export const updateConfig = async (newConfig: Config) => {
 //   writeConfig(newConfig, 'config.yaml')

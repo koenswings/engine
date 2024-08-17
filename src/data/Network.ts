@@ -252,7 +252,7 @@ export const getEngines = (network: Network):Engine[] => {
 
 
 
-export const findEngine = (network: Network, engineName: Hostname):Engine | undefined => {
+export const findEngineByHostname = (network: Network, engineName: Hostname):Engine | undefined => {
   return getEngines(network).find(engine => engine.hostName === engineName)
 }
 
