@@ -29,7 +29,7 @@ describe('The test master (the engine from which these tests are run) - ', async
 
   describe(`must have a Network object with the name ${testNet}`, async function () {
     it(`that must exist`, async function () {
-      network = findNetworkByName(store, testNet)
+      network = findNetworkByName(testNet)
       expect(network).to.exist
     })
     it(`that must have the right name`, async function () {

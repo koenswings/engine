@@ -2,7 +2,7 @@ import mDnsSd from 'node-dns-sd'
 import events from 'events'   // See https://nodejs.org/api/events.html#events 
 import { IPnumber, deepPrint, log, sameNet } from '../utils/utils.js';
 import { chalk } from 'zx';
-import { store, Store, findNetworkByName, getLocalEngine } from '../data/Store.js';
+import { Store, findNetworkByName, getLocalEngine } from '../data/Store.js';
 import { config } from '../data/Config.js';
 import { connectEngine } from '../data/Network.js'
 import ciao from '@homebridge/ciao'
@@ -21,9 +21,9 @@ interface DiscoveredEngine {
     modelName: string
 }
 
-const discoveredEngines:DiscoveredEngine[] = [] 
+const discoveredEngines: DiscoveredEngine[] = []
 
-export const startAdvertising = (store:Store, networkName: AppnetName, restrictedInterfaces: InterfaceName[]):void => {
+export const startAdvertising = (store: Store, networkName: AppnetName, restrictedInterfaces: InterfaceName[]): void => {
     const engine = getLocalEngine(store)
     const engineName = engine.hostName
     const engineVersion = engine.version
@@ -38,24 +38,24 @@ export const startAdvertising = (store:Store, networkName: AppnetName, restricte
             type: 'engine',
             port: 1234, // optional, can also be set via updatePort() before advertising
             txt: {
-                    name: engineName,
-                    version: engineVersion,
-                    appnet: networkName,
-                }
-            })
+                name: engineName,
+                version: engineVersion,
+                appnet: networkName,
+            }
+        })
     } else if (engineName) {
         log(`Advertising on the following interfaces: ${restrictedInterfaces}`)
         service = responder.createService({
             name: engineName,
             type: 'engine',
             port: 1234, // optional, can also be set via updatePort() before advertising
-            restrictedAddresses: restrictedInterfaces, 
+            restrictedAddresses: restrictedInterfaces,
             txt: {
-                    name: engineName,
-                    version: engineVersion,
-                    appnet: networkName,
-                }
-            })
+                name: engineName,
+                version: engineVersion,
+                appnet: networkName,
+            }
+        })
     }
 
     service.advertise().then(() => {
@@ -66,19 +66,22 @@ export const startAdvertising = (store:Store, networkName: AppnetName, restricte
     // Register a callback on the mdnsMonitor for new engines on this interface and network
     engineMonitor.on(`new_engine_on_network_${networkName}`, (device) => {
         log(chalk.bgMagenta(`Engine ${device.modelName} discovered on network ${networkName}`))
-        const network = findNetworkByName(store, networkName)
+        const network = findNetworkByName(networkName)
+        if (network) {
 
-        // Access control
-        const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-        const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(store), device.address)
-        // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
-        const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface.name))
-        const accessGranted = networkInterfaces.length > 0
+            // Access control
+            const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+            const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(network.store), device.address)
+            // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
+            const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface.name))
+            const accessGranted = networkInterfaces.length > 0
 
-        // If access is granted, connect the engine
-        if (network && accessGranted) {
-            connectEngine(network, device.address)
+            // If access is granted, connect the engine
+            if (accessGranted) {
+                connectEngine(network, device.address)
+            }
         }
+
     })
 
     // The following comments show or past failed attempts to advertise the engine using the mdns package
@@ -98,7 +101,7 @@ export const startAdvertising = (store:Store, networkName: AppnetName, restricte
 
 }
 
-const discoverEngines = (store:Store):void => {
+const discoverEngines = (): void => {
 
     // ********* MDNS Discovery (error) *********
     // Now discover other engines on the same network
@@ -117,7 +120,7 @@ const discoverEngines = (store:Store):void => {
     // mDnsSd.ondata = (packet) => {
     //     console.log("***node-dns-sd*** "+JSON.stringify(packet, null, '  '));
     // };
-    
+
     // log(`***node-dns-sd*** Starting mDnsSd Monitoring`)
     // mDnsSd.startMonitoring().then(() => {
     //     console.log('***node-dns-sd*** - mDnsSd Monitoring started.');
@@ -130,12 +133,12 @@ const discoverEngines = (store:Store):void => {
     // log(`***node-dns-sd*** Discovering engines `)
     mDnsSd.discover({
         name: '_engine._tcp.local'
-        }).then((deviceList) =>{
+    }).then((deviceList) => {
         // console.log("***node-dns-sd*** "+deepPrint(device_list, 1));
         if (deviceList.length === 0) {
             log(chalk.bgBlackBright(`No engines found`))
         } else {
-            log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName+" @ "+device.address)}`))
+            log(chalk.bgBlackBright(`Engines found: ${deviceList.map((device) => device.modelName + " @ " + device.address)}`))
             deviceList.forEach((device) => {
                 // Search of a package with type TXT on the list in device.packet.additionals, and return the rdata property
                 // This is the txt record that we added to the service
@@ -151,27 +154,31 @@ const discoverEngines = (store:Store):void => {
                     const appnet = txtRecord.appnet
                     // Emit an event for the network
                     log(chalk.bgMagenta(`Engine ${device.modelName} is on network ${appnet}`))
-                    const network = findNetworkByName(store, appnet)
+                    const network = findNetworkByName(appnet)
 
-                    // Access control
-                    const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-                    const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(store), device.address)
-                    // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
-                    const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface.name))
-                    const accessGranted = networkInterfaces.length > 0
+                    if (network) {
 
-                    // If access is granted, connect the engine
-                    if (network && accessGranted) {
-                        connectEngine(network, device.address)
+                        // Access control
+                        const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+                        const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(network.store), device.address)
+                        // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
+                        const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface.name))
+                        const accessGranted = networkInterfaces.length > 0
+
+                        // If access is granted, connect the engine
+                        if (accessGranted) {
+                            connectEngine(network, device.address)
+                        }
                     }
-                }  
-        })
+
+                }
+            })
         }
-        }).catch((error) => {
-            log(`***node-dns-sd*** Error discovering engines`)    
-            console.error(error);
-        });
-}   
+    }).catch((error) => {
+        log(`***node-dns-sd*** Error discovering engines`)
+        console.error(error);
+    });
+}
 
 // const removeEngine = (deviceFamilyname:string):void => {
 //     const engine = discoveredEngines.find((engine) => engine.familyName === deviceFamilyname)
@@ -195,7 +202,7 @@ const discoverEngines = (store:Store):void => {
 // }
 
 
-export const enableMulticastDNSEngineMonitor = (store:Store):void => {
+export const enableMulticastDNSEngineMonitor = (store: Store): void => {
     const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
     const appnets = config.settings.appnets
     if (appnets) {
@@ -205,6 +212,6 @@ export const enableMulticastDNSEngineMonitor = (store:Store):void => {
         // Call discoverEngines every 10 seconds
         setInterval(discoverEngines, 60000)
         // Call it for the first time
-        discoverEngines(store)
+        discoverEngines()
     }
 }

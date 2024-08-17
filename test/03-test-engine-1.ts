@@ -34,6 +34,9 @@ describe('Test engine 1: ', () => {
             // Also protect against too many changes which would overflow stdout
             subscribe(network1.appnet.engines, (value) => {
                 log(chalk.bgBlackBright("\n" + `Test engine 1 monitor: engineSet was modified as follows: ${deepPrint(value)}`))
+                getEngines(network1).forEach((engine) => {
+                    log(chalk.bgBlackBright(`Engine found: ${deepPrint(engine)}`))
+                })
                 //log(`NETWORKDATA GLOBAL MONITOR for Network ${networkName}: ${value.length} changes`)
                 if (value.length > 10) {
                 // exit the program
@@ -72,6 +75,7 @@ describe('Test engine 1: ', () => {
 
             // If network.engines is not empty, call done()
             if (Object.keys(network1.appnet.engines).length == 2) {
+                log('There are already two objects in the engineSet')
                 done()
             } else {
                 // Subscribe to changes in the engineSet object 
@@ -111,9 +115,6 @@ describe('Test engine 1: ', () => {
                     // SO find an element in the array that sets the engine property at a specific index to an object and extract that object
                     // const engineId = value.find((el) => el[0] === 'set' && el[1][0] === '0')
                     // Now that the ids have propagated, we can query for all engines so that proxies are created and bound to the corresponding Yjs objects
-                    getEngines(network1).forEach((engine) => {
-                        log(chalk.bgBlackBright(`Engine found: ${deepPrint(engine)}`))
-                    })
                     done()
                 })
             }
@@ -126,6 +127,7 @@ describe('Test engine 1: ', () => {
             // We must find an Engine object in networkData1 with the same name as testEngine1
             it(`with the right name ${testEngine1Name}`, async function () {
                 remoteEngine = findEngineByHostname(network1, testEngine1Name)
+                log(chalk.bgBlackBright(`^^^^^^^^^^^^^Network1: ${deepPrint(network1)}`))
                 expect(remoteEngine).to.exist
             })
 

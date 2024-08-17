@@ -71,7 +71,7 @@ describe('Test engine 2: ', () => {
 
 
             // If networkdata2.engines is not empty, call done()
-            if (Object.keys(network2.appnet.engines).length !== 0) {
+            if (Object.keys(network2.appnet.engines).length == 3) {
                 done()
             } else {
                 // Subscribe to changes in the engineSet object 

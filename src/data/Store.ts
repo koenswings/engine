@@ -181,7 +181,7 @@ export const getInstance = (store: Store, instanceId: InstanceID):Instance | und
     return store.instanceDB[instanceId]
 }
 
-export const findNetworkByName = (store:Store, networkName: AppnetName): Network | undefined => {
+export const findNetworkByName = (networkName: AppnetName): Network | undefined => {
     return store.networks.find(network => network.name === networkName)
 }
 
