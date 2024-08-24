@@ -5,6 +5,8 @@ import { Store, getLocalEngine } from "./Store.js";
 import { Disk } from "./Disk.js";
 import { findDiskByName, getEngineInstances } from "./Engine.js";
 import { proxy } from "valtio";
+import { Network } from "./Network.js";
+import { bind } from "../valtio-yjs/index.js";
 
 export interface Instance {
   id: InstanceID;
@@ -130,17 +132,17 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
 }
 
 
-export const createOrUpdateInstance = async (store: Store, instanceName: InstanceName, diskName: Hostname, device: DeviceName): Promise<Instance | undefined> => {
+export const createOrUpdateInstance = async (store: Store, instanceName: InstanceName, disk:Disk): Promise<Instance | undefined> => {
   let instance: Instance
   try {
-    const composeFile = await $`cat /disks/${device}/instances/${instanceName}/compose.yaml`
+    const composeFile = await $`cat /disks/${disk.device}/instances/${instanceName}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     const services = Object.keys(compose.services)
     const servicesImages = services.map(service => compose.services[service].image)
-    const instanceId = instanceName as string
+    const instanceId = instanceName + "_on_" + disk.id as string
     instance = {
       id: instanceId as InstanceID,
-      instanceOf: compose['x-app'].name,
+      instanceOf: compose['x-app'].version + "_of_" + compose['x-app'].name as AppID,
       name: instanceName,
       status: 'Initializing',
       port: 0 as PortNumber,
@@ -160,13 +162,13 @@ export const createOrUpdateInstance = async (store: Store, instanceName: Instanc
       backUpEnabled: false
     }
   } catch (e) {
-    log(chalk.red(`Error initializing instance ${instanceName} on disk ${diskName}`))
+    log(chalk.red(`Error initializing instance ${instanceName} on disk ${disk.id}`))
     console.error(e)
     return undefined
   }
   if (store.instanceDB[instance.id]) {
     // Update the app
-    log(chalk.green(`Updating instance ${instanceName} on disk ${diskName}`))
+    log(chalk.green(`Updating instance ${instanceName} on disk ${disk.id}`))
     const existingInstance = store.instanceDB[instance.id]
     existingInstance.instanceOf = instance.instanceOf
     existingInstance.name = instance.name
@@ -186,15 +188,26 @@ export const createOrUpdateInstance = async (store: Store, instanceName: Instanc
     // Create the app
     log
     const $instance = proxy<Instance>(instance)
+    // Bind it to all networks
+    bindInstance($instance, store.networks)
     // Add the app to the store
     store.instanceDB[instance.id] = $instance
     return $instance
   }
 }
 
+export const bindInstance = ($instance:Instance, networks:Network[]):void => {
+  networks.forEach((network) => {
+      // Bind the $engine proxy to the network
+      const yEngine = network.doc.getMap($instance.id)
+      network.unbind = bind($instance as Record<string, any>, yEngine)
+      log(`Bound instance ${$instance.id} to network ${network.appnet.name}`)
+  })
+}
+
 
 export const startInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  console.log(`Starting instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
+  console.log(`Starting instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostname}'.`)
 
   try {
 
@@ -217,6 +230,7 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
       }
     }
     console.log(`Port: ${port}`)
+    instance.port = port as PortNumber
 
     // ALternative is to check the system for an occupied port
     // await $`netstat -tuln | grep ${port}`
@@ -273,8 +287,9 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
 
 export const createInstanceContainers = async (store: Store, instance: Instance, disk: Disk) => {
   try {
-    log(`Creating containers of app instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
-    await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml create`
+    log(`Creating containers of app instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostname}'.`)
+    // await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml create`
+    await $`cd /disks/${disk.device}/instances/${instance.name} && docker compose create`
     instance.status = 'Pauzed'
   } catch (e) {
     console.log(chalk.red(`Error creating the containers of app instance ${instance.name}`))
@@ -287,14 +302,15 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
   // CODING STYLE: use try/catch for error handling
   try {
 
-    log(`Running instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostName}'.`)
+    log(`Running instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostname}'.`)
 
     // Extract the port number from the .env file containing "port=<portNumber>"
     const envContent = (await $`cat /disks/${disk.device}/instances/${instance.name}/.env`).stdout
     // Look for a line with port=<portNumber> and extract the portNumber
     // const ports = envContent.match(/port=(\d+)/g)
     // Split using '=' and take the second element
-    const port = envContent.split('=')[1]
+    // Also remove the newline at the end
+    const port = envContent.split('=')[1].slice(0, -1)
     console.log(`Ports: ${deepPrint(port)}`)
     if (port) {
       const parsedPort = parseInt(port)
@@ -311,7 +327,8 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
 
 
     // Compose up the app
-    await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml up -d`
+    //await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml up -d`
+    await $`cd /disks/${disk.device}/instances/${instance.name} && docker compose up -d`
 
     // Modify the status of the instance
     instance.status = 'Running'
@@ -336,12 +353,13 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
 
     console.log(chalk.red(`Error running app instance ${instance.name}`))
     console.error(e)
+    instance.status = 'Error'
 
   }
 }
 
 export const stopInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  console.log(`Stopping app '${instance.name}' on disk '${disk.name}' of engine '${getLocalEngine(store).hostName}'.`)
+  console.log(`Stopping app '${instance.name}' on disk '${disk.name}' of engine '${getLocalEngine(store).hostname}'.`)
 
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling
@@ -349,7 +367,8 @@ export const stopInstance = async (store: Store, instance: Instance, disk: Disk)
   try {
     // Compose stop the app
     // Do it
-    await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml stop`
+    // await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml stop`
+    await $`cd /disks/${disk.device}/instances/${instance.name} && docker compose stop`
     console.log(chalk.green(`App ${instance.name} stopped`))
   } catch (e) {
     console.log(chalk.red(`Error stopping app instance ${instance.name}`))

@@ -238,6 +238,8 @@ export const getEngines = (network: Network):Engine[] => {
   })
 }
 
+
+
 // export const getEngine = (network: Network, engineId: string) => {
 //   if (network.engineCache.hasOwnProperty(engineId)) {
 //     return network.engineCache[engineId]
@@ -253,7 +255,7 @@ export const getEngines = (network: Network):Engine[] => {
 
 
 export const findEngineByHostname = (network: Network, engineName: Hostname):Engine | undefined => {
-  return getEngines(network).find(engine => engine.hostName === engineName)
+  return getEngines(network).find(engine => engine.hostname === engineName)
 }
 
 // export const getNetworkApps = (network: Network) => {

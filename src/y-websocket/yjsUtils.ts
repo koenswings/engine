@@ -33,8 +33,10 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const persistenceDir = process.env.YPERSISTENCE
 
-export const firstBoot = !(await fileExists('./yjs-db'))
-log(`First boot: ${firstBoot}`)
+// OLD CODE - Firstboot detection based on existence of the persistence folder
+// export const firstBoot = !(await fileExists('./yjs-db'))
+// log(`First boot: ${firstBoot}`)
+export const firstBoot = false
 
 /**
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}

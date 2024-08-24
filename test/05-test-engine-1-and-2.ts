@@ -1,91 +1,91 @@
-import { $, chalk, question, sleep } from 'zx'
-import { ConnectionResult, Network, createNetwork, connectEngine, findEngineByHostname } from '../src/data/Network.js';
-import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
-import { log } from '../src/utils/utils.js';
-import { expect } from 'chai';
-import { config } from '../src/data/Config.js';
-import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
+// import { $, chalk, question, sleep } from 'zx'
+// import { ConnectionResult, Network, createNetwork, connectEngine, findEngineByHostname } from '../src/data/Network.js';
+// import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
+// import { log } from '../src/utils/utils.js';
+// import { expect } from 'chai';
+// import { config } from '../src/data/Config.js';
+// import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 
 
-const testSetup  = config.testSetup
+// const testSetup  = config.testSetup
 
-const testNet = testSetup.appnet as AppnetName
-const testInterface = testSetup.interface as InterfaceName
+// const testNet = testSetup.appnet as AppnetName
+// const testInterface = testSetup.interface as InterfaceName
 
-const testDisk1 = testSetup.testDisk1
-const testEngine1Name = testDisk1.name as Hostname
-const testEngine1Address = testDisk1.name + ".local" as IPAddress
+// const testDisk1 = testSetup.testDisk1
+// const testEngine1Name = testDisk1.name as Hostname
+// const testEngine1Address = testDisk1.name + ".local" as IPAddress
 
-const testDisk2 = testSetup.testDisk2
-const testEngine2Name = testDisk2.name as Hostname
-const testEngine2Address = testDisk2.name + ".local" as IPAddress
+// const testDisk2 = testSetup.testDisk2
+// const testEngine2Name = testDisk2.name as Hostname
+// const testEngine2Address = testDisk2.name + ".local" as IPAddress
 
-import { network1 } from './03-test-engine-1.js'
-import { network2 } from './04-test-engine-2.js'
-import { AppnetName, Hostname, IPAddress, InterfaceName } from '../src/data/CommonTypes.js';
+// // import { network1 } from './03-test-engine-1.js'
+// // import { network2 } from './04-test-engine-2.js'
+// import { AppnetName, Hostname, IPAddress, InterfaceName } from '../src/data/CommonTypes.js';
 
 
 
-describe.skip('Two remote engines - ', () => {
+// describe.skip('Two remote engines - ', () => {
 
-    before(function () {
+//     before(function () {
 
-    })
+//     })
 
-    it(`test engine 1 must appear in the network data of test engine 2`, async function () {
-        // const remoteEngine1 = Object.keys(network2.engines).find(engId => network2.engines[engId].hostName === testEngine1Name)
-        const remoteEngine1 = findEngineByHostname(network2, testEngine1Name) 
-        expect(remoteEngine1).to.exist
-    })
+//     it(`test engine 1 must appear in the network data of test engine 2`, async function () {
+//         // const remoteEngine1 = Object.keys(network2.engines).find(engId => network2.engines[engId].hostname === testEngine1Name)
+//         const remoteEngine1 = findEngineByHostname(network2, testEngine1Name) 
+//         expect(remoteEngine1).to.exist
+//     })
 
-    it(`test engine 2 must appear in the network data of test engine 1`, async function () {
-        // const remoteEngine2 = Object.keys(network1.engines).find(engId => network1.engines[engId].hostName === testEngine2Name)
-        const remoteEngine2 = findEngineByHostname(network1, testEngine2Name) 
-        expect(remoteEngine2).to.exist
-    })
+//     it(`test engine 2 must appear in the network data of test engine 1`, async function () {
+//         // const remoteEngine2 = Object.keys(network1.engines).find(engId => network1.engines[engId].hostname === testEngine2Name)
+//         const remoteEngine2 = findEngineByHostname(network1, testEngine2Name) 
+//         expect(remoteEngine2).to.exist
+//     })
 
-    it(`the two engineSet objects should be deeply equal`, async function () {
-        expect(network1.appnet.engines).to.deep.equal(network2.appnet.engines)
-    })
+//     it(`the two engineSet objects should be deeply equal`, async function () {
+//         expect(network1.appnet.engines).to.deep.equal(network2.appnet.engines)
+//     })
 
-    // These tests can not run if we allow the test master to be a non-priviliged engine - these are on an isolated network and can not detect other engines
-    // it('the test machine must have auto-detected the remote engine using mDNS', async function () {
-    //     // This means that our local network has the engine
-    //     const appnet = findNetworkByName(testNet)
-    //     const engine = getLocalEngine()
-    //     // appnet.data.engines must contain - besides the local engine - an object with the same name as testEngine1
-    //     expect(appnet.data).to.have.lengthOf(2)
-    //     const remoteEngine = appnet.data.find(eng => eng.hostName === testEngine1Name)
-    //     expect(remoteEngine).to.exist
-    // })
+//     // These tests can not run if we allow the test master to be a non-priviliged engine - these are on an isolated network and can not detect other engines
+//     // it('the test machine must have auto-detected the remote engine using mDNS', async function () {
+//     //     // This means that our local network has the engine
+//     //     const appnet = findNetworkByName(testNet)
+//     //     const engine = getLocalEngine()
+//     //     // appnet.data.engines must contain - besides the local engine - an object with the same name as testEngine1
+//     //     expect(appnet.data).to.have.lengthOf(2)
+//     //     const remoteEngine = appnet.data.find(eng => eng.hostname === testEngine1Name)
+//     //     expect(remoteEngine).to.exist
+//     // })
 
-    // it('the auto-detected remote engine must have the right properties', async function () {
-    //     const appnet = findNetworkByName(testNet)
-    //     const remoteEngine = appnet.data.find(eng => eng.hostName === testEngine1Name)
-    //     // We can find the required values in testDisk1 if they are defined there  Otherwise, we just expect them to be non-empty
-    //     expect(remoteEngine.version).to.not.be.empty
-    //     if (testDisk1.version) {
-    //         expect(remoteEngine.version).to.eql(testDisk1.version)
-    //     }
-    //     expect(remoteEngine.hostOS).to.not.be.empty
-    //     if (testDisk1.hostOS) {
-    //         expect(remoteEngine.hostOS).to.eql(testDisk1.hostOS)
-    //     }
-    //     expect(remoteEngine.lastBooted).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
-    //     expect(remoteEngine.interfaces).to.have.property(testInterface)
-    //     expect(remoteEngine.interfaces[testInterface].name).to.eql(testInterface)
-    //     expect(remoteEngine.interfaces[testInterface].ip4).to.not.be.empty
-    //     expect(isIP4(remoteEngine.interfaces[testInterface].ip4)).to.be.true
-    //     // The ip address must correspond to the resolution of testEngine1Address
-    //     expect(remoteEngine.interfaces[testInterface].ip4).to.eql(await findIp(testEngine1Address))
-    //     expect(remoteEngine.interfaces[testInterface].netmask).to.not.be.empty
-    //     expect(isNetmask(remoteEngine.interfaces[testInterface].netmask)).to.be.true
-    // })
+//     // it('the auto-detected remote engine must have the right properties', async function () {
+//     //     const appnet = findNetworkByName(testNet)
+//     //     const remoteEngine = appnet.data.find(eng => eng.hostname === testEngine1Name)
+//     //     // We can find the required values in testDisk1 if they are defined there  Otherwise, we just expect them to be non-empty
+//     //     expect(remoteEngine.version).to.not.be.empty
+//     //     if (testDisk1.version) {
+//     //         expect(remoteEngine.version).to.eql(testDisk1.version)
+//     //     }
+//     //     expect(remoteEngine.hostOS).to.not.be.empty
+//     //     if (testDisk1.hostOS) {
+//     //         expect(remoteEngine.hostOS).to.eql(testDisk1.hostOS)
+//     //     }
+//     //     expect(remoteEngine.lastBooted).to.be.greaterThan(1716099940264) // should be bigger than the moment of this coding which is May 19, 2024
+//     //     expect(remoteEngine.interfaces).to.have.property(testInterface)
+//     //     expect(remoteEngine.interfaces[testInterface].name).to.eql(testInterface)
+//     //     expect(remoteEngine.interfaces[testInterface].ip4).to.not.be.empty
+//     //     expect(isIP4(remoteEngine.interfaces[testInterface].ip4)).to.be.true
+//     //     // The ip address must correspond to the resolution of testEngine1Address
+//     //     expect(remoteEngine.interfaces[testInterface].ip4).to.eql(await findIp(testEngine1Address))
+//     //     expect(remoteEngine.interfaces[testInterface].netmask).to.not.be.empty
+//     //     expect(isNetmask(remoteEngine.interfaces[testInterface].netmask)).to.be.true
+//     // })
 
-    after(function () {
-        // Close the network
-        // disconnectNetwork(network1, testInterface)
-        // disconnectNetwork(network2, testInterface)
-    })
+//     after(function () {
+//         // Close the network
+//         // disconnectNetwork(network1, testInterface)
+//         // disconnectNetwork(network2, testInterface)
+//     })
 
-})
+// })

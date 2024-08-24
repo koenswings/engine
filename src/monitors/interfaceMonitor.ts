@@ -25,6 +25,10 @@ export const enableInterfaceMonitor = async (store:Store, ifaceNames:InterfaceNa
     // Monitor the interface for changes
     const onNetworkChange = (data) => {
 
+        // TODO - We should filter out the interfaces that are not in the list of monitored interfaces
+        // const changedInterfaces = Object.keys(data).filter((ifaceName) => {
+        //     return monitorAll || ifaceNames.includes(ifaceName as InterfaceName)
+        // })
         const changedInterfaces = Object.keys(data)
         log(`New data for interfaces ${changedInterfaces}: ${JSON.stringify(data)}`)
 
@@ -95,9 +99,10 @@ const processInterface = (store:Store, data:any, ifaceName:InterfaceName):void =
                 const oldcidr = iface.cidr
                 if (oldIp4 !== ip4) {
                     log(`Changing the IP address on interface ${ifaceName} from ${oldIp4} to ${ip4}`)
+                    // OLD - Do this when we want to create websocket servers for each restricted interface
                     // Close the existing server
-                    closeRunningServer(store, oldIp4)
-                    createRunningServer(store, ip4)
+                    // closeRunningServer(store, oldIp4)
+                    // createRunningServer(store, ip4)
                     // Update the network interface with the new data
                     iface.ip4 = ip4
                 }

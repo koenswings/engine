@@ -1,4 +1,4 @@
-import { $, os } from 'zx';
+import { $, chalk, os } from 'zx';
 import { deepPrint, log, sameNet } from '../utils/utils.js';
 import { readMeta, DiskMeta } from './Meta.js';
 import { Version, DockerMetrics, DockerLogs, DockerEvents, Command, Hostname, Timestamp, InterfaceName, DiskID, IPAddress, NetMask, CIDR, EngineID, DeviceName} from './CommonTypes.js';
@@ -10,10 +10,12 @@ import { addEngineToAppnet } from './Appnet.js';
 import { bind } from '../valtio-yjs/index.js';
 import { App } from './App.js';
 import { Instance } from './Instance.js';
+import { Network } from './Network.js';
+import { get } from 'http';
 
 export interface Engine {
     id: EngineID,
-    hostName?: Hostname;
+    hostname?: Hostname;
     version?: Version;
     hostOS?: string;
     dockerMetrics?: DockerMetrics;
@@ -102,11 +104,12 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
     }
 
     const $localEngine = proxy<Engine>({
-        id: meta.id as EngineID,
+        //id: "ENGINE_"+meta.id as EngineID,
+        id: meta.engineId as EngineID,
         disks: proxy<{[key:DiskID]:boolean}>({}) 
      })
     // $localEngine.id = meta.id as EngineID
-    $localEngine.hostName = os.hostname() as Hostname
+    $localEngine.hostname = os.hostname() as Hostname
     $localEngine.version = meta.version
     $localEngine.hostOS = os.type()
     $localEngine.dockerMetrics = {
@@ -126,35 +129,43 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
     $localEngine.commands = []
     //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
+    // Bind it to all networks
+    bindEngine($localEngine, store.networks)
+
     // Store the engine
     store.engineDB[$localEngine.id] = $localEngine
 
-    // Bind to networks and maintain the lists
+    // Add it to the list of engines
+    // Since we have DIFFERENT AppNet objects for each Network, we need to add the engine to each AppNet
     store.networks.forEach((network) => {
-        // Bind the localEngine to the network
-        const yLocalEngine = network.doc.getMap($localEngine.id)
-        network.unbind = bind($localEngine as Record<string, any>, yLocalEngine)
-        log(`Bound local engine ${$localEngine.id} to network ${network.appnet.name}`)
-
         // Add the localEngine to the engines set of the network
-        // Since we have DIFFERENT AppNet objects for each Network, we need to add the engine to each AppNet
         addEngineToAppnet(network.appnet, $localEngine.id)        
-
-        // Bind the proxy for the disk Ids array to a corresponding Yjs Map
-        bind($localEngine.disks, network.doc.getMap(`${$localEngine.id}_disks`))
     })
 
     return $localEngine
 }
 
+export const bindEngine = ($engine:Engine, networks:Network[]):void => {
+    networks.forEach((network) => {
+        // Bind the $engine proxy to the network
+        const yEngine = network.doc.getMap($engine.id)
+        network.unbind = bind($engine as Record<string, any>, yEngine)
+        log(`Bound engine ${$engine.id} to network ${network.appnet.name}`)
+
+        // Bind the proxy for the disk Ids array to a corresponding Yjs Map
+        bind($engine.disks, network.doc.getMap(`${$engine.id}_disks`))
+    })
+}
+
 
 export const getDisks = (store:Store, engine: Engine):Disk[] => {
-    return Object.keys(engine.disks).map(diskId => store.diskDB[diskId])
+    const diskIds = Object.keys(engine.disks) as DiskID[]
+    return diskIds.map(diskId => getDisk(store, diskId))
 }
 
 
 export const addCommand = (engine: Engine, command: Command):void => {
-    log(`Adding command ${command} to engine ${engine.hostName}`)
+    log(`Adding command ${command} to engine ${engine.hostname}`)
     if (engine.commands) engine.commands.push(command)
 }
 
@@ -223,12 +234,12 @@ export const addDisk = (engine: Engine, disk: Disk):void => {
     engine.disks[disk.id] = true
 }
 
-export const removeDisk = (engine: Engine, diskId: DiskID):void => {
+export const removeDisk = (engine: Engine, disk: Disk):void => {
     // const index = engine.disks.indexOf(disk)
     // if (index > -1) {
     //   engine.disks.splice(index, 1)
     // }
-    delete engine.disks[diskId]
+    delete engine.disks[disk.id]
 }
 
 export const removeDiskByName = (store:Store, engine: Engine, diskName: Hostname):void => {
@@ -321,14 +332,24 @@ export const getEngineApps = (store:Store, engine: Engine):App[] => {
 
 export const getEngineInstances = (store:Store, engine: Engine):Instance[] => {
     return getDisks(store, engine).reduce(
-      (acc, diskId) => {
-        return acc.concat((getInstances(store, diskId)))
+      (acc, disk) => {
+        return acc.concat((getInstances(store, disk)))
       },
       [] as Instance[])
 }
 
 export const rebootEngine = (engine: Engine) => {
-    log(`Rebooting engine ${engine.hostName}`)
+    log(`Rebooting engine ${engine.hostname}`)
     $`sudo reboot now`
 }
 
+export const inspectEngine = (store:Store, engine: Engine) => {
+    log(chalk.bgBlackBright(`Networks: ${deepPrint(store.networks, 2)}`))
+    log(chalk.bgBlackBright(`Engine: ${deepPrint(engine)}`))
+    const disks = getDisks(store, engine)
+    log(chalk.bgBlackBright(`Disks: ${deepPrint(disks)}`))
+    const apps = getEngineApps(store, engine)
+    log(chalk.bgBlackBright(`Apps: ${deepPrint(apps)}`))
+    const instances = getEngineInstances(store, engine)
+    log(chalk.bgBlackBright(`Instances: ${deepPrint(instances)}`))
+}

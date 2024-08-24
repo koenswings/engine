@@ -30,6 +30,7 @@
   "author": "Koen Swings",
   "license": "MIT",
   "devDependencies": {
+    "@ts-morph/common": "^0.24.0",
     "@types/chai": "^4.3.16",
     "@types/mocha": "^10.0.6",
     "@types/netmask": "^2.0.5",
@@ -38,6 +39,7 @@
     "mocha": "^10.4.0",
     "netmask": "^2.0.2",
     "nodemon": "^3.0.1",
+    "ts-morph": "^23.0.0",
     "ts-node": "^10.9.1",
     "typescript": "5.3.0-dev.20230830"
   },

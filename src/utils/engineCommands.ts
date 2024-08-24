@@ -73,7 +73,7 @@ const buildInstanceOnDisk = async (store:Store, instanceName: InstanceName, appN
     if (disk && disk.device) {
         device = disk.device
     } else {
-        console.log(chalk.red(`Disk ${diskName} not found on engine ${getLocalEngine(store).hostName}`))
+        console.log(chalk.red(`Disk ${diskName} not found on engine ${getLocalEngine(store).hostname}`))
         return
     }
     buildInstance(instanceName, appName, gitAccount, gitTag as Version, device)

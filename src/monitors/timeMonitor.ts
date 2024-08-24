@@ -1,5 +1,6 @@
 
 import { Timestamp } from '../data/CommonTypes.js'
+import { inspectEngine } from '../data/Engine.js'
 import { store, Store, getLocalEngine } from '../data/Store.js'
 import { log, contains, deepPrint } from '../utils/utils.js'
 import { Array } from 'yjs'
@@ -70,12 +71,15 @@ export const changeTest = (store:Store) => {
     }
 }
 
+let runs = 0
+
 export const generateHeartBeat = () => {
+    runs++
     const localEngine = getLocalEngine(store)
     if (localEngine && localEngine.lastRun) {
         localEngine.lastRun =  (new Date()).getTime() as Timestamp
         log(`UPDATING ENGINE LASTRUN TO ${localEngine.lastRun}`)
-        log(deepPrint(localEngine))
+        inspectEngine(store, localEngine)
     } else {
         log(`HEARTBEAT: Engine not yet available or has no lastRun property ********`)
     }

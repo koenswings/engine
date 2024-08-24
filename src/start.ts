@@ -16,10 +16,11 @@ import { config } from './data/Config.js'
 import { initialiseLocalEngine } from './data/Engine.js'
 import { AppnetName, IPAddress, PortNumber } from './data/CommonTypes.js'
 import { store } from './data/Store.js'
+import { enableIndexServer, enableInstanceSetMonitor } from './monitors/instancesMonitor.js'
 
 let server
 
-export const startEngine = async ():Promise<void> => {
+export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
     log(`Hello from ${os.hostname()}!`)
     log(`The current time is ${new Date()}`)
@@ -118,7 +119,7 @@ export const startEngine = async ():Promise<void> => {
 
     await sleep(1000)
     log(chalk.bgMagenta('STARTING MULTICAST DNS MONITOR'))
-    enableMulticastDNSEngineMonitor(store)
+    if (!disableMDNS) enableMulticastDNSEngineMonitor(store)
 
 
     await sleep(1000)
@@ -133,6 +134,17 @@ export const startEngine = async ():Promise<void> => {
     log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
     generateHeartBeat()
     enableTimeMonitor(60000, generateHeartBeat)
+
+    sleep(1000)
+
+    log(chalk.bgMagenta('STARTING INSTANCES MONITOR'))
+    store.networks.forEach((network) => {
+        enableInstanceSetMonitor(store, network)
+    })
+
+    sleep(1000)
+    log(chalk.bgMagenta('STARTING THE INDEX SERVER FOR APPNET'))
+    enableIndexServer(store, 'appnet' as AppnetName)
 
 
     // log('STARTING MONITOR OF ETH0')

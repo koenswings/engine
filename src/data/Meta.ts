@@ -1,10 +1,11 @@
 import { $, YAML } from 'zx'
 import { fileExists, log } from '../utils/utils.js'
-import { DiskID, Hostname, Timestamp, Version } from './CommonTypes.js'
+import { DiskID, EngineID, Hostname, Timestamp, Version } from './CommonTypes.js'
 
 export interface DiskMeta {
-    name: Hostname
-    id: DiskID
+    hostname: Hostname
+    engineId: EngineID
+    diskId: DiskID
     created: Timestamp
     version: Version
   }

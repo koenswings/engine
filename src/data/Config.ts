@@ -168,6 +168,7 @@ export interface TestDisk {
 }
 
 export interface TestApp {
+  id: string,
   name: string,
   version: string,
   title: string,

@@ -5,7 +5,8 @@ import { $, YAML } from 'zx'
 import { Disk, createOrUpdateDisk as createOrUpdateDisk, updateAppsAndInstances } from '../data/Disk.js'
 import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
 import { Store, getLocalEngine } from '../data/Store.js'
-import { DeviceName, DiskID, Hostname } from '../data/CommonTypes.js'
+import { DeviceName, DiskID, EngineID, Hostname, InstanceID } from '../data/CommonTypes.js'
+import { removeInstanceFromAppnet } from '../data/Appnet.js';
 
 
 export const enableUsbDeviceMonitor = async (store:Store) => {
@@ -21,21 +22,25 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     })
 
     // Statically analyse the devices in /dev/disk/by-label
-    const actualDevices = await (await $`ls /dev/disk/by-label`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
-    log(`Actual devices: ${actualDevices}`)
-    const existingDevices = Object.keys(localEngine.disks).map(diskID => store.diskDB[diskID].device).filter(device => device !== undefined)
-    log(`Existing devices: ${existingDevices}`)
-    existingDevices.forEach(device => {
-        if (!actualDevices.includes(device)) {
-            log(`Removing device ${device}`)
-            // Remove the disk from the store
-            const disk = findDiskByDevice(store, localEngine, device as DeviceName)
-            if (disk) {
-                removeDisk(localEngine, disk.id)
-                log(`Disk ${device} removed from local engine`)
-            }
-        }
-    })
+    // if (!(localEngine.hostName == 'dev' as Hostname)) {     // QUICK HACK TO AVOID PROBLEMS ON THE DEV ENGINE
+    // log(`Engine hostname is ${localEngine.hostname}`)
+    // if (!(localEngine.id == '123456mac' as EngineID)) {     // QUICK HACK TO AVOID PROBLEMS ON THE DEV ENGINE
+    //     const actualDevices = (await $`ls /dev/disk/by-label`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
+    //     log(`Actual devices: ${actualDevices}`)
+    //     const existingDevices = Object.keys(localEngine.disks).map(diskID => store.diskDB[diskID].device).filter(device => device !== undefined)
+    //     log(`Existing devices: ${existingDevices}`)
+    //     existingDevices.forEach(device => {
+    //         if (!actualDevices.includes(device)) {
+    //             log(`Removing device ${device}`)
+    //             // Remove the disk from the store
+    //             const disk = findDiskByDevice(store, localEngine, device as DeviceName)
+    //             if (disk) {
+    //                 removeDisk(localEngine, disk.id)
+    //                 log(`Disk ${device} removed from local engine`)
+    //             }
+    //         }
+    //     })
+    // }
 
     watcher
         .on('add', async function (path) {
@@ -79,8 +84,8 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                     // }                    
                     const meta:DiskMeta | undefined = await readMeta(device)
                     if (meta) {
-                        const diskName = meta.name as Hostname
-                        const diskID = meta.id as DiskID
+                        const diskName = meta.hostname as Hostname
+                        const diskID = meta.diskId as DiskID
                         const diskCreated = meta.created
                         const diskCreatedTime = new Date(diskCreated)
                         log(`Found an appnet disk on device ${device} with name ${diskName} and created on ${diskCreatedTime}`)
@@ -111,8 +116,15 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                 // Remove the disk from the store
                 const disk = findDiskByDevice(store, localEngine, device as DeviceName)
                 if (disk) {
-                    removeDisk(localEngine, disk.id)
-                    log(`Disk ${device} removed from store`)
+                    removeDisk(localEngine, disk)
+                    // Remove all instances from the appnet
+                    const instances = Object.keys(disk.instances) as InstanceID[]
+                    instances.forEach(instanceID => {
+                        store.networks.forEach(network => {
+                            removeInstanceFromAppnet(network.appnet, instanceID)
+                        })
+                    })
+                    log(`Disk ${device} removed from engine ${localEngine.hostname}`)
                 }
 
                 // Unmount

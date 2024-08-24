@@ -2,6 +2,7 @@
 import { $, question, chalk, cd, argv } from 'zx';
 import * as readline from 'readline';
 import { Network, connectEngine, createNetwork, getEngines, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
+import { getEngine } from '../src/data/Store.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { deepPrint } from '../src/utils/utils.js';
 
@@ -9,7 +10,7 @@ import pack from '../package.json' assert { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
 
-import { getEngine, getNetworks, store } from '../src/data/Store.js';
+import { getNetworks, store } from '../src/data/Store.js';
 import { CommandDefinition } from '../src/data/CommandDefinition.js';
 import { create } from 'domain';
 import { AppName, AppnetName, Command, EngineID, Hostname, InstanceName, InterfaceName, Version } from '../src/data/CommonTypes.js';
@@ -142,7 +143,7 @@ const lsInstances = ():void => {
 const enableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
     console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${networkName}`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostName === engineName)
+    const engine = getEngines(network).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}` as Command)
     } else {
@@ -154,7 +155,7 @@ const enableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, ifac
 const disableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
     console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${networkName}`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostName === engineName)
+    const engine = getEngines(network).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}` as Command)
     } else {
@@ -174,7 +175,7 @@ const disableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, ifa
 const createInstance =  (engineName: Hostname, instanceName: InstanceName, typeName:AppName, version:Version, diskName:Hostname):void => {
     console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostName === engineName)
+    const engine = getEngines(network).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `createInstance ${instanceName} ${typeName} ${version} ${diskName}` as Command)
     } else {
@@ -185,7 +186,7 @@ const createInstance =  (engineName: Hostname, instanceName: InstanceName, typeN
 const startInstance =  (engineName: Hostname, instanceName: InstanceName, diskName:Hostname):void => {
     console.log(`Starting instance '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostName === engineName)
+    const engine = getEngines(network).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `startInstance ${instanceName} ${diskName}` as Command)
     } else {
@@ -196,7 +197,7 @@ const startInstance =  (engineName: Hostname, instanceName: InstanceName, diskNa
 const runInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
     console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostName === engineName)
+    const engine = getEngines(network).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `runInstance ${instanceName} ${diskName}` as Command)
     } else {
@@ -207,7 +208,7 @@ const runInstance = (engineName: Hostname, instanceName: InstanceName, diskName:
 const stopInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
     console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostName === engineName)
+    const engine = getEngines(network).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `stopInstance ${instanceName} ${diskName}` as Command)
     } else {

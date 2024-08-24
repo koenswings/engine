@@ -1,8 +1,8 @@
-import { Engine, setRestrictedInterfaces } from './Engine.js'
+import { Engine, bindEngine, setRestrictedInterfaces } from './Engine.js'
 import { ConnectionResult, Network, connectEngine, createNetwork } from './Network.js'
 import os from 'os'
 import { Interface } from './Engine.js'
-import { Disk } from './Disk.js'
+import { Disk, bindDisk } from './Disk.js'
 import { proxy } from 'valtio'
 import { deepPrint, log } from '../utils/utils.js'
 import { readMeta, DiskMeta } from './Meta.js';
@@ -10,10 +10,12 @@ import { firstBoot } from '../y-websocket/yjsUtils.js'
 import { config } from './Config.js'
 import { enableWebSocketMonitor } from '../monitors/webSocketMonitor.js'
 import { Server } from 'http'
-import { App } from './App.js'
-import { Instance } from './Instance.js'
+import { App, bindApp } from './App.js'
+import { Instance, bindInstance } from './Instance.js'
 import { AppID, AppnetName, DiskID, EngineID, IPAddress, InstanceID, InterfaceName, PortNumber } from './CommonTypes.js'
 import { Appnet } from './Appnet.js'
+import { Map } from 'yjs'
+import { bind } from '../valtio-yjs/index.js'
 
 
 // **********
@@ -99,7 +101,8 @@ const getLocalEngineId = async ():Promise<EngineID> => {
         console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
         process.exit(1)
     }
-    return meta.id
+    //return "ENGINE_"+meta.id as EngineID
+    return meta.engineId as EngineID
 }
 
 export const initialiseStore = async ():Promise<Store> => {
@@ -165,20 +168,48 @@ export const getLocalEngine = (store:Store):Engine => {
     return store.engineDB[store.localEngine]
 }
 
-export const getEngine = (store: Store, engineId: EngineID):Engine | undefined => {
-    return store.engineDB[engineId]
+export const getEngine = (store: Store, engineId: EngineID):Engine  => {
+    if (store.engineDB.hasOwnProperty(engineId)) {
+        return store.engineDB[engineId]
+    } else {
+        const $engine = proxy({id: engineId}) as Engine
+        store.engineDB[engineId] = $engine
+        bindEngine($engine, store.networks)
+        return $engine
+    }
 }
 
-export const getDisk = (store: Store, diskId: DiskID):Disk | undefined => {
-    return store.diskDB[diskId]
+export const getDisk = (store: Store, diskId: DiskID):Disk  => {
+    if (store.diskDB.hasOwnProperty(diskId)) {
+        return store.diskDB[diskId]
+    } else {
+        const $disk = proxy({id: diskId}) as Disk
+        store.diskDB[diskId] = $disk
+        bindDisk($disk, store.networks)
+        return $disk
+    }
 }
 
-export const getApp = (store: Store, appId: AppID):App | undefined => {
-    return store.appDB[appId]
+export const getApp = (store: Store, appId: AppID):App  => {
+    if (store.appDB.hasOwnProperty(appId)) {
+        return store.appDB[appId]
+    } else {
+        const $app = proxy({id: appId}) as App
+        store.appDB[appId] = $app
+        bindApp($app, store.networks)
+        return $app
+    }
 }
 
-export const getInstance = (store: Store, instanceId: InstanceID):Instance | undefined => {
-    return store.instanceDB[instanceId]
+export const getInstance = (store: Store, instanceId: InstanceID):Instance => {
+    if (store.instanceDB.hasOwnProperty(instanceId)) {
+        return store.instanceDB[instanceId]
+    } else {
+        const $instance = proxy({id: instanceId}) as Instance
+        store.instanceDB[instanceId] = $instance
+        bindInstance($instance, store.networks)
+        return $instance
+    }
 }
 
 export const findNetworkByName = (networkName: AppnetName): Network | undefined => {

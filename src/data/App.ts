@@ -3,6 +3,8 @@ import { Version, URL, AppID, AppName, Hostname, DeviceName } from './CommonType
 import { log } from '../utils/utils.js';
 import { proxy } from 'valtio';
 import { Store, store } from './Store.js';
+import { Network } from './Network.js';
+import { bind } from '../valtio-yjs/index.js';
 
 export interface App {
     id: AppID;
@@ -28,7 +30,7 @@ export const createOrUpdateApp = async (store:Store, appFullName:AppName, diskNa
         // Read the compose.yaml file in the app folder
         const appComposeFile = await $`cat /disks/${device}/apps/${appFullName}/compose.yaml`
         const appCompose = YAML.parse(appComposeFile.stdout)
-        const appId = appName as string
+        const appId = appVersion as string + '_of_' + appName as string
         app = {
             id: appId as AppID,
             name: appName,
@@ -72,10 +74,19 @@ export const createOrUpdateApp = async (store:Store, appFullName:AppName, diskNa
         // Create the app
         log
         const $app = proxy<App>(app)
+        // Bind it to all networks
+        bindApp($app, store.networks)
         // Add the app to the store
         store.appDB[app.id] = $app
         return $app
     }
 }
   
-  
+export const bindApp = ($app:App, networks:Network[]):void => {
+    networks.forEach((network) => {
+        // Bind the $engine proxy to the network
+        const yEngine = network.doc.getMap($app.id)
+        network.unbind = bind($app as Record<string, any>, yEngine)
+        log(`Bound app ${$app.id} to network ${network.appnet.name}`)
+    })
+}

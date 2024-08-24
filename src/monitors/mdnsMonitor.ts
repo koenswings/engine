@@ -25,7 +25,7 @@ const discoveredEngines: DiscoveredEngine[] = []
 
 export const startAdvertising = (store: Store, networkName: AppnetName, restrictedInterfaces: InterfaceName[]): void => {
     const engine = getLocalEngine(store)
-    const engineName = engine.hostName
+    const engineName = engine.hostname
     const engineVersion = engine.version
     const responder = ciao.getResponder()
     let service
