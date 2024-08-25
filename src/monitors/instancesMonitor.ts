@@ -1,6 +1,6 @@
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
-import { Store, getEngine } from '../data/Store.js'
+import { Store, getEngine, getInstance, store } from '../data/Store.js'
 import { Engine } from '../data/Engine.js'
 import { Network } from '../data/Network.js'
 import { AppnetName, EngineID, InstanceID } from '../data/CommonTypes.js'
@@ -8,6 +8,7 @@ import { handleCommand } from '../utils/commandHandler.js'
 import { engineCommands } from '../utils/engineCommands.js'
 import { fs } from 'zx'
 import http from 'http'
+import { getEngineOfInstance } from '../data/Instance.js'
 
 
 
@@ -21,18 +22,27 @@ export const enableInstanceSetMonitor = (store:Store, network:Network):void => {
     log(`Added INSTANCESET MONITOR to network ${network.appnet.name}`)
 }
 
-const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):void => {
+export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):void => {
     // Generate the HTML for the instances
     const html = `<!DOCTYPE html>
     <html>
         <head>
             <title>Instances</title>
+            <meta http-equiv="refresh" content="5"> 
         </head>
         <body>
-            <h1>Instances</h1>
+            <h1>Apps</h1>
             <ul>
                 ${instanceIds.map((instanceId) => {
-                    return `<li>${instanceId}</li>`
+                    // Find the engine hostname for the instance and generate a url using the hostname and the port number of the instance
+                    const instance = getInstance(store, instanceId)
+                    const engine = getEngineOfInstance(store, instance)
+                    if (!engine) {
+                        return `<li>Instance ${instanceId} not found</li>`
+                    }
+                    const hostname = engine.hostname
+                    const port = instance.port
+                    return `<li><a href="http://${hostname}.local:${port}">${instanceId}</a></li>`
                 }).join('\n')}
             </ul>
         </body>
@@ -44,6 +54,7 @@ const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):void => {
 
 export const enableIndexServer = (store:Store, appnetName:AppnetName):void => {
     // Start an HTTP server that serves the index.html file of the specified appnet
+    generateHTML([], appnetName)
     const server = http.createServer((req, res) => {
         res.writeHead(200, {'Content-Type': 'text/html'})
         fs.readFile(`${appnetName}.html`, (err, data) => {

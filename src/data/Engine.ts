@@ -344,7 +344,7 @@ export const rebootEngine = (engine: Engine) => {
 }
 
 export const inspectEngine = (store:Store, engine: Engine) => {
-    log(chalk.bgBlackBright(`Networks: ${deepPrint(store.networks, 2)}`))
+    log(chalk.bgBlackBright(`Appnets: ${deepPrint(store.networks.map(network => network.appnet))}`))
     log(chalk.bgBlackBright(`Engine: ${deepPrint(engine)}`))
     const disks = getDisks(store, engine)
     log(chalk.bgBlackBright(`Disks: ${deepPrint(disks)}`))

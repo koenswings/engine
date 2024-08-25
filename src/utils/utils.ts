@@ -23,6 +23,21 @@ export const setVerbosity = (level:number):void => {
   verbosityLevel = level
 }
 
+// // Execute promises sequentially
+// export const sequential = (promises) => {
+//   return promises.reduce((promise, func) => {
+//     return promise.then(func)
+//   }, Promise.resolve())
+// }
+
+// export const executePromisesSequentially = async (promises) => {
+//     for (let promise of promises) {
+//       await promise
+//     }
+// }
+
+
+
 
 
 

@@ -1,11 +1,11 @@
 import { $, YAML, chalk, fs, os } from "zx";
 import { deepPrint, log } from "../utils/utils.js";
-import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname } from "./CommonTypes.js";
-import { Store, getLocalEngine } from "./Store.js";
-import { Disk } from "./Disk.js";
-import { findDiskByName, getEngineInstances } from "./Engine.js";
+import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
+import { Store, getDisk, getEngine, getLocalEngine } from "./Store.js";
+import { Disk, addInstance } from "./Disk.js";
+import { Engine, findDiskByName, getEngineInstances } from "./Engine.js";
 import { proxy } from "valtio";
-import { Network } from "./Network.js";
+import { Network, getEngines } from "./Network.js";
 import { bind } from "../valtio-yjs/index.js";
 
 export interface Instance {
@@ -23,7 +23,7 @@ export interface Instance {
   lastStarted: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
   upgradable: boolean;
   backUpEnabled: boolean;
-  //disk: Disk;
+  diskId: DiskID;
 }
 
 export type Status = 'Initializing' | 'Running' | 'Pauzed' | 'Error';
@@ -144,6 +144,7 @@ export const createOrUpdateInstance = async (store: Store, instanceName: Instanc
       id: instanceId as InstanceID,
       instanceOf: compose['x-app'].version + "_of_" + compose['x-app'].name as AppID,
       name: instanceName,
+      diskId: disk.id,
       status: 'Initializing',
       port: 0 as PortNumber,
       serviceImages: servicesImages,
@@ -172,6 +173,7 @@ export const createOrUpdateInstance = async (store: Store, instanceName: Instanc
     const existingInstance = store.instanceDB[instance.id]
     existingInstance.instanceOf = instance.instanceOf
     existingInstance.name = instance.name
+    existingInstance.diskId = instance.diskId
     existingInstance.status = instance.status
     existingInstance.port = instance.port
     existingInstance.serviceImages = instance.serviceImages
@@ -206,7 +208,7 @@ export const bindInstance = ($instance:Instance, networks:Network[]):void => {
 }
 
 
-export const startInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
+export const startAndAddInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
   console.log(`Starting instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostname}'.`)
 
   try {
@@ -220,7 +222,7 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     // The port is in use by another app if an app can be found in networkdata with the same port
     let port = 3000
     const instances = getEngineInstances(store, getLocalEngine(store))
-    console.log(`Instances: ${deepPrint(instances)}.`)
+    console.log(`Searching for an available port number for instance ${instance.name}. Current instances: ${deepPrint(instances)}.`)
     while (true) {
       const inst = instances.find(instance => instance && instance.port == port)
       if (inst) {
@@ -229,7 +231,7 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
         break
       }
     }
-    console.log(`Port: ${port}`)
+    console.log(`Found a port number for instance ${instance.name}: ${port}`)
     instance.port = port as PortNumber
 
     // ALternative is to check the system for an occupied port
@@ -283,6 +285,9 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     console.log(chalk.red('Error starting app instance'))
     console.error(e)
   }
+
+  addInstance(store, disk, instance)
+
 }
 
 export const createInstanceContainers = async (store: Store, instance: Instance, disk: Disk) => {
@@ -374,4 +379,11 @@ export const stopInstance = async (store: Store, instance: Instance, disk: Disk)
     console.log(chalk.red(`Error stopping app instance ${instance.name}`))
     console.error(e)
   }
+}
+
+
+export const getEngineOfInstance = (store: Store, instance: Instance): Engine => {
+  const disk = getDisk(store, instance.diskId)
+  const engine = getEngine(store, disk.engineId)
+  return engine 
 }

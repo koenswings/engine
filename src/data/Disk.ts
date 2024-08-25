@@ -1,12 +1,12 @@
 import { $, YAML, chalk, os } from 'zx';
 import { deepPrint, log } from '../utils/utils.js';
 import { App, createOrUpdateApp } from './App.js'
-import { Instance, createOrUpdateInstance, startInstance } from './Instance.js'
+import { Instance, createOrUpdateInstance, startAndAddInstance } from './Instance.js'
 import { proxy } from 'valtio';
 import { ID } from 'yjs';
 import { UUID } from 'crypto';
 import { uuidv4 } from 'lib0/random.js';
-import { AppID, AppName, DeviceName, DiskID, Hostname, InstanceID, InstanceName, Timestamp, Version } from './CommonTypes.js';
+import { AppID, AppName, DeviceName, DiskID, EngineID, Hostname, InstanceID, InstanceName, Timestamp, Version } from './CommonTypes.js';
 import { Store, getApp, getInstance } from './Store.js';
 import { bind } from '../valtio-yjs/index.js';
 import { Network } from './Network.js';
@@ -20,6 +20,7 @@ export interface Disk {
     id: DiskID;
     name: Hostname;
     device: DeviceName;
+    engineId: EngineID;
     // type: DiskType;
     created: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
     lastDocked: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
@@ -134,7 +135,7 @@ export const removeInstanceByName = (store: Store, disk: Disk, instanceName: Ins
     }
 }
 
-export const createOrUpdateDisk = (store: Store, device: DeviceName, diskId: DiskID, diskName: Hostname, created: Timestamp): Disk => {
+export const createOrUpdateDisk = (store: Store, engineId: EngineID, device: DeviceName, diskId: DiskID, diskName: Hostname, created: Timestamp): Disk => {
     if (store.diskDB[diskId]) {
         log(`Updating disk ${diskName} on device ${device}`)
         const disk = store.diskDB[diskId]
@@ -149,6 +150,7 @@ export const createOrUpdateDisk = (store: Store, device: DeviceName, diskId: Dis
             id: diskId,
             name: diskName,
             device: device,
+            engineId: engineId,
             created: created,
             lastDocked: new Date().getTime() as Timestamp,
             removable: false,
@@ -204,19 +206,27 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     // Call addApp for each folder found in /disks/diskName/apps
     const apps = (await $`ls /disks/${disk.device}/apps`).stdout.split('\n')
     log(`App folders found on disk ${disk.name}: ${apps}`)
-    await Promise.all(apps.map(async (appFolder) => {
-        if (!(appFolder === "")) {
-            const appName = appFolder as AppName
-            const app: App | undefined = await createOrUpdateApp(store, appName, disk.name, disk.device)
-            if (app) {
-                // addApp(store, disk, app)
-                log(`Adding app ${app.name} to disk ${disk.name}`)
-                // disk.apps[app.id] = true
-                addApp(disk, app)
-                actualApps.push(app)
-            }
-        }
-    }))
+    for (let app of apps) {
+      await updateApp(store, disk, app  as AppName, actualApps)
+    }
+
+    // OLD CODE
+    // await Promise.all(apps.map(async (appFolder) => {
+    //     if (!(appFolder === "")) {
+    //         const appName = appFolder as AppName
+    //         const app: App | undefined = await createOrUpdateApp(store, appName, disk.name, disk.device)
+    //         if (app) {
+    //             // addApp(store, disk, app)
+    //             log(`Adding app ${app.name} to disk ${disk.name}`)
+    //             // disk.apps[app.id] = true
+    //             addApp(disk, app)
+    //             actualApps.push(app)
+    //         }
+    //     }
+    // }))
+
+    log(`Checking if actual apps got updated: ${actualApps}`)
+
     // Remove apps that are no longer on disk
     previousApps.forEach((app) => {
         if (!actualApps.includes(app)) {
@@ -231,23 +241,30 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     // Call startInstance for each folder found in /instances
     const instances = (await $`ls /disks/${disk.device}/instances`).stdout.split('\n')
     log(`Instances found on disk ${disk.name}: ${instances}`)
-    await Promise.all(instances.map(async (instanceFolder) => {
-        if (!(instanceFolder === "")) {
-            const instanceName = instanceFolder as InstanceName
-            const instance = await createOrUpdateInstance(store, instanceName, disk)
-            // log(`Instance ${instance.name} found on disk ${diskName}`)
-            if (instance) {
-                //log(deepPrint(disk))
-                // addInstance(store, disk, instance)
-                //log(deepPrint(disk))
-                log(`Adding instance ${instance.name} to disk ${disk.name}`)
-                // disk.instances[instance.id] = true
-                actualInstances.push(instance)
-                await startInstance(store, instance, disk)
-                addInstance(store, disk, instance)
-            }
-        }
-    }))
+    for (let instance of instances) {
+        await updateInstance(store, disk, instance  as InstanceName, actualInstances)
+      }
+
+    // OLD CODE
+    // await Promise.all(instances.map(async (instanceFolder) => {
+    //     if (!(instanceFolder === "")) {
+    //         const instanceName = instanceFolder as InstanceName
+    //         const instance = await createOrUpdateInstance(store, instanceName, disk)
+    //         // log(`Instance ${instance.name} found on disk ${diskName}`)
+    //         if (instance) {
+    //             //log(deepPrint(disk))
+    //             // addInstance(store, disk, instance)
+    //             //log(deepPrint(disk))
+    //             log(`Adding instance ${instance.name} to disk ${disk.name}`)
+    //             // disk.instances[instance.id] = true
+    //             actualInstances.push(instance)
+    //             await startAndAddInstance(store, instance, disk)
+    //         }
+    //     }
+    // }))
+
+    log(`Checking if actual instances got updated: ${actualInstances}`)
+    
     // Remove instances that are no longer on disk
     previousInstances.forEach((instance) => {
         if (!actualInstances.includes(instance)) {
@@ -256,3 +273,24 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     })
 }
 
+export const updateApp = async (store: Store, disk: Disk, appName: AppName, actualApps:App[]): Promise<void> => {
+    const app: App | undefined = await createOrUpdateApp(store, appName, disk.name, disk.device)
+    if (app) {
+        // addApp(store, disk, app)
+        log(`Adding app ${app.name} to disk ${disk.name}`)
+        // disk.apps[app.id] = true
+        addApp(disk, app)
+        actualApps.push(app)
+    }
+}
+
+export const updateInstance = async (store: Store, disk: Disk, instanceName: InstanceName, actualInstances:Instance[]): Promise<void> => {
+        if (!(instanceName === "")) {
+            const instance = await createOrUpdateInstance(store, instanceName, disk)
+            if (instance) {
+                log(`Adding instance ${instance.name} to disk ${disk.name}`)
+                actualInstances.push(instance)
+                await startAndAddInstance(store, instance, disk)
+            }
+        }
+}

@@ -43,7 +43,13 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     // Process the config
     const settings = config.settings
 
+    // Start the app index server
+    log(chalk.bgMagenta('STARTING THE INDEX SERVER FOR APPNET'))
+    enableIndexServer(store, 'appnet' as AppnetName)
+
+
     // Start the websocket servers
+    await sleep(1000)
     log(chalk.bgMagenta('STARTING THE WEBSOCKET SERVERS'))
     server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
 
@@ -105,6 +111,12 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     log(chalk.bgMagenta('STARTING A COMMANDS MONITOR ON THE LOCAL ENGINE'))
     enableEngineCommandsMonitor(localEngine)
 
+    await sleep(1000)
+    log(chalk.bgMagenta('STARTING INSTANCES MONITOR'))
+    store.networks.forEach((network) => {
+        enableInstanceSetMonitor(store, network)
+    })
+
 
     // Start the interface monitors
     await sleep(1000)
@@ -135,16 +147,9 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     generateHeartBeat()
     enableTimeMonitor(60000, generateHeartBeat)
 
-    sleep(1000)
 
-    log(chalk.bgMagenta('STARTING INSTANCES MONITOR'))
-    store.networks.forEach((network) => {
-        enableInstanceSetMonitor(store, network)
-    })
 
-    sleep(1000)
-    log(chalk.bgMagenta('STARTING THE INDEX SERVER FOR APPNET'))
-    enableIndexServer(store, 'appnet' as AppnetName)
+
 
 
     // log('STARTING MONITOR OF ETH0')

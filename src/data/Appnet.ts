@@ -27,6 +27,7 @@ export const initialiseAppnetData = async (name: AppnetName, doc:Doc): Promise<A
     
     // Bind the proxy for the engine Ids array to a corresponding Yjs Map
     bind($appnet.engines, doc.getMap(`APPNET_${$appnet.name}_engineSet`))
+    bind($appnet.instances, doc.getMap(`APPNET_${$appnet.name}_instanceSet`))
 
     return $appnet
 }

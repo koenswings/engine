@@ -90,7 +90,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                         const diskCreatedTime = new Date(diskCreated)
                         log(`Found an appnet disk on device ${device} with name ${diskName} and created on ${diskCreatedTime}`)
                         // Add the disk to the store
-                        const disk:Disk = createOrUpdateDisk(store, device, diskID, diskName, diskCreated)
+                        const disk:Disk = createOrUpdateDisk(store, localEngine.id, device, diskID, diskName, diskCreated)
                         await updateAppsAndInstances(store, disk)
                         log(`Adding the disk ${disk.name} to the local engine`)
                         addDisk(localEngine, disk)

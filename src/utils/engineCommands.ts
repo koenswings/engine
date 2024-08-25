@@ -1,4 +1,4 @@
-import { buildInstance, startInstance, runInstance, stopInstance  } from '../data/Instance.js'
+import { buildInstance, startAndAddInstance, runInstance, stopInstance  } from '../data/Instance.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
 import { $, YAML, chalk } from 'zx';
@@ -104,7 +104,7 @@ export const engineCommands: CommandDefinition[] = [
     },
     {
         name: "startInstance",
-        execute: startInstance,
+        execute: startAndAddInstance,
         args: [{ type: "string" }, { type: "string" }],
     },
     {
