@@ -1,4 +1,2 @@
 #!/bin/sh
-
-cd "$(dirname "$0")"
-../node_modules/.bin/tsx  build-image.ts $@
+./node_modules/.bin/tsx  script/build-image.ts $@

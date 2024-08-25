@@ -4,6 +4,7 @@ import YAML from 'yaml'
 import { generateHostName } from '../src/utils/nameGenerator.js'
 //import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
+
 import { uuid } from '../src/utils/utils.js'
 
 // TODO
@@ -103,22 +104,22 @@ const engineParentPath = enginePath.substring(0, enginePath.lastIndexOf("/"))
 
 // Sync the assets folder to the remote machine
 const syncEngine = async () => {
-    console.log(chalk.blue('Syncing the engine to the remote machine'));
+    console.log(chalk.blue('Syncing the engine to the remote machine'))
     try {
         // Check if the gh_token.txt file exists in the build_image_assets folder
         // If it does not exist, ask the user to provide the GitHub token and write it to the file
         // If it does exist, read the token from the file
-        if (!fs.existsSync('./build_image_assets/gh_token.txt')) {
+        if (!fs.existsSync('./script/build_image_assets/gh_token.txt')) {
           githubToken = await question('Enter the GitHub token: ');
-            fs.writeFileSync('./build_image_assets/gh_token.txt', githubToken);
+            fs.writeFileSync('./script/build_image_assets/gh_token.txt', githubToken);
         } else {
-            githubToken = fs.readFileSync('./build_image_assets/gh_token.txt', 'utf8');
+            githubToken = fs.readFileSync('./script/build_image_assets/gh_token.txt', 'utf8');
             // console.log(`The GitHub token is: ${githubToken}`);
         }
         //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
         //await $`rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
         // Call the sync-engine script
-        await $`./sync-engine --user ${user} --host ${machine}`;
+        await $`./script/sync-engine --user ${user} --machine ${machine}`;
         // await $`rsync -av --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r --perms --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
         // await $`rsync -av --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
         // await $`sudo rsync -v -r --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
@@ -593,13 +594,15 @@ const installZerotier = async () => {
 }
 
 const addMetadata = async () => {
+  const id = uuid()
   const diskMetadata = {
-    name: hostname,
+    hostname: hostname,
     created: new Date().getTime(),
     version: version,
-    id: uuid()
+    engineId: id+"-engine",
+    diskId: id+"-disk",
   }
-  await $`echo ${YAML.stringify(diskMetadata)} > /META.yaml`
+  await $`sudo echo ${YAML.stringify(diskMetadata)} > /META.yaml`
 }
     
 

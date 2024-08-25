@@ -39,7 +39,7 @@ const enginePath = "/home/pi/engine"
 
 // Sync the assets folder to the remote machine
 const syncEngine = async () => {
-    console.log(chalk.blue('Syncing the engine to the remote machine'));
+    console.log(chalk.blue(`Syncing the engine to user ${user} on remote machine ${machine}`));
     try {
         //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${machine}:~/tmp/build_image_assets`;
         await $`rsync -av --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r --perms --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' --exclude='yjs-db' ./ ${user}@${machine}:${enginePath}`
