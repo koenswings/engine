@@ -602,7 +602,16 @@ const addMetadata = async () => {
     engineId: id+"-engine",
     diskId: id+"-disk",
   }
-  await $`sudo echo ${YAML.stringify(diskMetadata)} > /META.yaml`
+  // await $`sudo echo ${YAML.stringify(diskMetadata)} > /META.yaml`
+  // Write the contents of the diskMetadata object to the /META.yaml file
+  console.log(chalk.blue('Adding metadata...'));
+  try {
+      await $$`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
+  } catch (e) {
+    console.log(chalk.red('Error adding metadata'));
+    console.error(e);
+    process.exit(1);
+  }
 }
     
 
