@@ -700,14 +700,15 @@ const build = async () => {
     // Only required for production build - for dev build, we sync the engine from the development machine
     // await cloneRepo(releaseSpecified)
 
+
+    // Add the metadata
+    await addMetadata()
+    
     // Start the engine
     await startEngine(productionMode)
 
     // Run the rpi4-usb script
     await usbGadget()
-
-    // Add the metadata
-    await addMetadata()
 
     // Reboot the system
     await rebootSystem()

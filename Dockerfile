@@ -35,7 +35,7 @@ RUN apt-get install -y usbutils udev
 RUN apt-get install -y libavahi-compat-libdnssd-dev
 
 # Create a META.yaml file in the root location
-RUN echo "name: dev_engine, id: 1234567890, created: 1718271140002, version: "1.0" > /META.yaml
+RUN echo "hostname: dev_engine, engineId: 1234567890-engine, deviceId: 1234567890-device, created: 1718271140002, version: '1.0' > /META.yaml"
 
 # Initialise pnpm 
 # All packages will be added to /pnpm, outside the /app folder
