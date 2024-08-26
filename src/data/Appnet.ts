@@ -3,6 +3,7 @@ import { AppnetName, EngineID, InstanceID } from "./CommonTypes.js"
 import { Engine, initialiseLocalEngine } from "./Engine.js"
 import { Doc } from "yjs"
 import { bind } from "../valtio-yjs/index.js"
+import { log } from "console"
 
 /**
  * Appnet is the root object for all data distributed over the network
@@ -49,10 +50,12 @@ export const getAppnetEngineCount = (appNet: Appnet): number => {
 }
 
 export const addInstanceToAppnet = (appNet: Appnet, instanceId: InstanceID):void => {
+    log(`Adding instance ${instanceId} to appnet ${appNet.name}`)
     appNet.instances[instanceId] = true
 }
 
 export const removeInstanceFromAppnet = (appNet: Appnet, instanceId: InstanceID):void => {
+    log(`Removing instance ${instanceId} from appnet ${appNet.name}`)
     delete appNet.instances[instanceId]
 }
 

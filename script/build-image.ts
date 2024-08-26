@@ -1,11 +1,11 @@
-import { $, ssh, argv, cd, chalk, fs, question } from 'zx'
+import { $, ssh, argv, cd, chalk, fs, question, YAML } from 'zx'
 import pack from '../package.json' assert { type: "json" }
-import YAML from 'yaml'
 import { generateHostName } from '../src/utils/nameGenerator.js'
 //import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
 
 import { uuid } from '../src/utils/utils.js'
+import { copy } from 'lib0/array.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project
@@ -595,18 +595,31 @@ const installZerotier = async () => {
 
 const addMetadata = async () => {
   const id = uuid()
-  const diskMetadata = {
-    hostname: hostname,
-    created: new Date().getTime(),
-    version: version,
-    engineId: id+"-engine",
-    diskId: id+"-disk",
-  }
+  // const diskMetadata = {
+  //   hostname: hostname,
+  //   created: new Date().getTime(),
+  //   version: version,
+  //   engineId: id+"-engine",
+  //   diskId: id+"-disk",
+  // }
   // await $`sudo echo ${YAML.stringify(diskMetadata)} > /META.yaml`
   // Write the contents of the diskMetadata object to the /META.yaml file
   console.log(chalk.blue('Adding metadata...'));
   try {
-      await $$`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
+      // Convert the diskMetadata object to a YAML string 
+      // const diskMetadataYAML = YAML.stringify(diskMetadata)
+      // fs.writeFileSync('./script/build_image_assets/META.yaml', diskMetadataYAML)
+      // // Copy the META.yaml file to the remote machine using zx
+      // await copyAsset('META.yaml', '/')
+      // await $$`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
+
+      await $$`sudo echo 'hostname: ${hostname}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'created: ${new Date().getTime()}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'version: ${version}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'engineId: ${id}-engine' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'diskId: ${id}-disk' >> ${enginePath}/META.yaml`
+      // Move the META.yaml file to the root directory
+      await $$`sudo mv ${enginePath}/META.yaml /META.yaml`
   } catch (e) {
     console.log(chalk.red('Error adding metadata'));
     console.error(e);
@@ -703,7 +716,7 @@ const build = async () => {
 
     // Add the metadata
     await addMetadata()
-    
+
     // Start the engine
     await startEngine(productionMode)
 

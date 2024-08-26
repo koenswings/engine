@@ -3,7 +3,7 @@ import { log, deepPrint } from '../utils/utils.js'
 import { Store, getEngine, getInstance, store } from '../data/Store.js'
 import { Engine } from '../data/Engine.js'
 import { Network } from '../data/Network.js'
-import { AppnetName, EngineID, InstanceID } from '../data/CommonTypes.js'
+import { AppnetName, EngineID, InstanceID, PortNumber } from '../data/CommonTypes.js'
 import { handleCommand } from '../utils/commandHandler.js'
 import { engineCommands } from '../utils/engineCommands.js'
 import { fs } from 'zx'
@@ -52,8 +52,9 @@ export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):vo
     fs.writeFileSync(`${appnetName}.html`, html)
 }   
 
-export const enableIndexServer = (store:Store, appnetName:AppnetName):void => {
+export const enableIndexServer = (store:Store, appnetName:AppnetName, port?:PortNumber):void => {
     // Start an HTTP server that serves the index.html file of the specified appnet
+    const portNumber = port || 80
     generateHTML([], appnetName)
     const server = http.createServer((req, res) => {
         res.writeHead(200, {'Content-Type': 'text/html'})
@@ -67,7 +68,7 @@ export const enableIndexServer = (store:Store, appnetName:AppnetName):void => {
             res.end()
         })
     })
-    server.listen(80)
-    log(`Started HTTP server for network ${appnetName} on port 80`)
+    server.listen(port)
+    log(`Started HTTP server for network ${appnetName} on port ${portNumber}`)
 }
 

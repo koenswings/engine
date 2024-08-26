@@ -239,6 +239,7 @@ export const removeDisk = (engine: Engine, disk: Disk):void => {
     // if (index > -1) {
     //   engine.disks.splice(index, 1)
     // }
+    log(`Removing disk ${disk.id} from engine ${engine.hostname}`)
     delete engine.disks[disk.id]
 }
 
@@ -323,11 +324,17 @@ export const getInterfacesToRemoteEngine = (engine: Engine, remoteIp: IPAddress)
 // }
 
 export const getEngineApps = (store:Store, engine: Engine):App[] => {
-    return getDisks(store, engine).reduce(
+    const apps = getDisks(store, engine).reduce(
         (acc, disk) => {
             return acc.concat(getApps(store, disk))
         },
         [] as App[])
+    // Remove all duplicates (apps with the same id)
+    return apps.filter((app, index, self) =>
+        index === self.findIndex((t) => (
+            t.id === app.id
+        ))
+    )
 }
 
 export const getEngineInstances = (store:Store, engine: Engine):Instance[] => {

@@ -1,7 +1,7 @@
 import { $, YAML, chalk, os } from 'zx';
 import { deepPrint, log } from '../utils/utils.js';
 import { App, createOrUpdateApp } from './App.js'
-import { Instance, createOrUpdateInstance, startAndAddInstance } from './Instance.js'
+import { Instance, Status, createOrUpdateInstance, startAndAddInstance } from './Instance.js'
 import { proxy } from 'valtio';
 import { ID } from 'yjs';
 import { UUID } from 'crypto';
@@ -97,7 +97,8 @@ export const findInstanceOfApp = (store: Store, disk: Disk, appId: AppID): Insta
 export const addInstance = (store:Store, disk: Disk, instance: Instance): void => {
     disk.instances[instance.id] = true
     store.networks.forEach((network) => {
-        if (instance.status == 'Running' ) addInstanceToAppnet(network.appnet, instance.id)
+        log(`Trying to add instance ${instance.name} with status ${instance.status} to appnet ${network.appnet.name}`)
+        if (instance.status == 'Running' as Status ) addInstanceToAppnet(network.appnet, instance.id)
     })
 }
 
@@ -137,15 +138,16 @@ export const removeInstanceByName = (store: Store, disk: Disk, instanceName: Ins
 
 export const createOrUpdateDisk = (store: Store, engineId: EngineID, device: DeviceName, diskId: DiskID, diskName: Hostname, created: Timestamp): Disk => {
     if (store.diskDB[diskId]) {
-        log(`Updating disk ${diskName} on device ${device}`)
+        log(`Updating disk ${diskId} on engine ${engineId}`)
         const disk = store.diskDB[diskId]
+        disk.engineId = engineId
         disk.name = diskName
         disk.device = device
         disk.created = created
         disk.lastDocked = new Date().getTime() as Timestamp
         return disk
     } else {
-        log(`Creating disk ${diskName} on device ${device}`)
+        log(`Creating disk ${diskName} on engine ${engineId}`)
         const disk: Disk = {
             id: diskId,
             name: diskName,
@@ -225,7 +227,7 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     //     }
     // }))
 
-    log(`Checking if actual apps got updated: ${actualApps}`)
+    log(`Checking if actual apps got updated: ${deepPrint(actualApps, 2)}`)
 
     // Remove apps that are no longer on disk
     previousApps.forEach((app) => {
@@ -263,7 +265,7 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     //     }
     // }))
 
-    log(`Checking if actual instances got updated: ${actualInstances}`)
+    log(`Checking if actual instances got updated: ${deepPrint(actualInstances, 2)}`)
     
     // Remove instances that are no longer on disk
     previousInstances.forEach((instance) => {
@@ -274,13 +276,15 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
 }
 
 export const updateApp = async (store: Store, disk: Disk, appName: AppName, actualApps:App[]): Promise<void> => {
-    const app: App | undefined = await createOrUpdateApp(store, appName, disk.name, disk.device)
-    if (app) {
-        // addApp(store, disk, app)
-        log(`Adding app ${app.name} to disk ${disk.name}`)
-        // disk.apps[app.id] = true
-        addApp(disk, app)
-        actualApps.push(app)
+    if (!(appName === "")) {
+        const app: App | undefined = await createOrUpdateApp(store, appName, disk.name, disk.device)
+        if (app) {
+            // addApp(store, disk, app)
+            log(`Adding app ${app.name} to disk ${disk.name}`)
+            // disk.apps[app.id] = true
+            addApp(disk, app)
+            actualApps.push(app)
+        }
     }
 }
 

@@ -220,33 +220,36 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
     // Generate a port  number for the app  and assign it to the variable port
     // Start from port number 3000 and check if the port is already in use by another app
     // The port is in use by another app if an app can be found in networkdata with the same port
+    // let port = 3000
+    // const instances = getEngineInstances(store, getLocalEngine(store))
+    // console.log(`Searching for an available port number for instance ${instance.name}. Current instances: ${deepPrint(instances)}.`)
+    // while (true) {
+    //   const inst = instances.find(instance => instance && instance.port == port)
+    //   if (inst) {
+    //     port++
+    //   } else {
+    //     break
+    //   }
+    // }
+
+
+    // Alternative is to check the system for an occupied port
+    // await $`netstat -tuln | grep ${port}`
     let port = 3000
+    let portInUse = true
     const instances = getEngineInstances(store, getLocalEngine(store))
-    console.log(`Searching for an available port number for instance ${instance.name}. Current instances: ${deepPrint(instances)}.`)
-    while (true) {
-      const inst = instances.find(instance => instance && instance.port == port)
-      if (inst) {
-        port++
-      } else {
-        break
-      }
+    while (portInUse) {
+        const portInUseResult = await $`netstat -tuln | grep ${port}`
+        const inst = instances.find(instance => instance && instance.port == port)
+        if ((portInUseResult.exitCode === 0) || inst) {
+            port++
+        } else {
+            portInUse = false
+        }
     }
+
     console.log(`Found a port number for instance ${instance.name}: ${port}`)
     instance.port = port as PortNumber
-
-    // ALternative is to check the system for an occupied port
-    // await $`netstat -tuln | grep ${port}`
-    // But this prevents us from finding apps that are stopped by the user
-    // let port = 3000
-    // let portInUse = true
-    // while (portInUse) {
-    //     try {
-    //         await $`nc -z localhost ${port}`
-    //         port++
-    //     } catch (e) {
-    //         portInUse = false
-    //     }
-    // }
 
     // Write a .env file in which you define the port variable
     // Do it
