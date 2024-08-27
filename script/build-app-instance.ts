@@ -40,7 +40,7 @@ if (argv.h || argv.help) {
   console.log(`Options:`)
   console.log(`  -h, --help           display help for command`)  
   console.log(`  --version            output the version number of command`)
-  console.log(`  --instance <string>  the name of the instance (default: <appName> with additional index number if needed)`)
+  console.log(`  --instance <string>  a user-presented name for the instance (default: <appName>)`)
   console.log(`  --disk <string>      the device name of the mounted disk in which the instance will be created (default: ${defaultDisk})`)
   console.log(`  --git <string>       the git account to pull the app from (default: ${defaults.gitAccount})`)
   console.log(`  --tag <string>       the git tag to pull the app from (default is latest_dev which retrieves the latest version on the main branch)`)
@@ -61,16 +61,16 @@ const apps = argv._
 //   exitWithError("Error: You must specify one app");
 // }
 assert(apps.length == 1, "Error: You must specify the app that you want to create an instance of")
-const app = apps[0] as AppName
+const appName = apps[0] as AppName
 
 
 // Now override the default configuration using the command line
 const gitAccount = argv.g || argv.git || defaults.gitAccount
-const instance = argv.i || argv.instance || app
+const instanceName = argv.i || argv.instance || appName
 const gitTag = argv.t || argv.tag || "latest_dev"
 const disk = argv.d || argv.disk || defaultDisk
 
-console.log(`Building instance ${instance} of app ${app} on disk ${disk} from git account ${gitAccount} with tag ${gitTag}...`)
+console.log(`Building instance ${instanceName} of app ${appName} on disk ${disk} from git account ${gitAccount} with tag ${gitTag}...`)
 
 try {
 
@@ -79,11 +79,11 @@ try {
     exitWithError(`Error: Disk ${disk} not found on this machine`)
   }
 
-  buildInstance(instance, app, gitAccount, gitTag, disk)
+  buildInstance(instanceName, appName, gitAccount, gitTag, disk)
 
 } catch (error) {
 
-  exitWithError(`Error when building ${app}\n${error.message}`);
+  exitWithError(`Error when building ${appName}\n${error.message}`);
 
 }
 

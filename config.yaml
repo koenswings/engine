@@ -30,7 +30,7 @@ testSetup:
   testDisk1:
     name: loving-jennings
     apps:
-      - id: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0_of_kolibri
+      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         name: kolibri
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
@@ -43,7 +43,7 @@ testSetup:
         category: education
         icon: icon.png
         author: Koen Swings
-      - id: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0_of_kolibri
+      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         name: kolibri-2
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
@@ -56,7 +56,7 @@ testSetup:
         category: education
         icon: icon.png
         author: Koen Swings
-      - id: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0_of_kolibri
+      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         name: kolibri-3
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
@@ -69,7 +69,7 @@ testSetup:
         category: education
         icon: icon.png
         author: Koen Swings
-      - id: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0_of_kolibri
+      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         name: kolibri_test
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri

@@ -10,7 +10,7 @@ import { store } from '../src/data/Store.js';
 import { AppID, AppName, AppnetName, Hostname, IPAddress, InterfaceName, Version } from '../src/data/CommonTypes.js';
 import exp from 'constants';
 import { findDiskByName, getDisks, getEngineApps, getEngineInstances, inspectEngine } from '../src/data/Engine.js';
-import { findAppByNameAndVersion, findInstanceOfApp, getApps } from '../src/data/Disk.js';
+import { findApp, findInstanceOfApp, getApps } from '../src/data/Disk.js';
 
 
 const testSetup = config.testSetup
@@ -247,7 +247,7 @@ describe(`The Test Master must be able to connect to Test Engine 1 on address ${
                 it(`Each app in the test setup must be present in the disk object`, async function () {
                     if (!remoteEngine || !disk) this.skip()
                     testDisk1.apps.forEach(app => {
-                        const appInDisk = findAppByNameAndVersion(store, disk, app.name as AppName, app.version as Version)
+                        const appInDisk = findApp(store, disk, app.id as AppID)
                         expect(appInDisk).to.exist
                         expect(appInDisk).to.eql(app)
                     })

@@ -20,17 +20,28 @@ export interface App {
 
 type AppCategory = 'Productivity' | 'Utilities' | 'Games';
 
-export const createOrUpdateApp = async (store:Store, appFullName:AppName, diskName:Hostname, device:DeviceName) => {
+export const createAppId = (appName: AppName, version: Version): AppID => {
+    return appName + "-" + version as AppID
+  }
+  
+export const extractAppName = (appId: AppID): AppName => {
+    return appId.split('-')[0] as AppName
+}
+
+export const extractAppVersion = (appId: AppID): Version => {
+    return appId.split('-')[1] as Version
+}
+
+export const createOrUpdateApp = async (store:Store, appId:AppID, diskName:Hostname, device:DeviceName) => {
     let app: App
     try {
         // The full name of the app is <appName>-<version>
-        const appParts = appFullName.split('-')
-        const appName = appParts[0] as AppName
-        const appVersion = appParts[1] as Version
+        const appName = extractAppName(appId)
+        const appVersion = extractAppVersion(appId)
+
         // Read the compose.yaml file in the app folder
-        const appComposeFile = await $`cat /disks/${device}/apps/${appFullName}/compose.yaml`
+        const appComposeFile = await $`cat /disks/${device}/apps/${appId}/compose.yaml`
         const appCompose = YAML.parse(appComposeFile.stdout)
-        const appId = appVersion as string + '_of_' + appName as string
         app = {
             id: appId as AppID,
             name: appName,
@@ -53,13 +64,13 @@ export const createOrUpdateApp = async (store:Store, appFullName:AppName, diskNa
         // app.icon = appCompose['x-app'].icon
         // app.author = appCompose['x-app'].author
     } catch (e) {
-        log(chalk.red(`Error creating app ${appFullName} from disk ${diskName}`))
+        log(chalk.red(`Error creating app ${appId} from disk ${diskName}`))
         console.error(e)
         return undefined
     }
     if (store.appDB[app.id]) {
         // Update the app
-        log(chalk.green(`Updating app ${appFullName} on disk ${diskName}`))
+        log(chalk.green(`Updating app ${appId} on disk ${diskName}`))
         const existingApp = store.appDB[app.id]
         existingApp.name = app.name
         existingApp.version = app.version

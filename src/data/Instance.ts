@@ -1,5 +1,5 @@
 import { $, YAML, chalk, fs, os } from "zx";
-import { deepPrint, log } from "../utils/utils.js";
+import { deepPrint, log, uuid } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
 import { Store, getDisk, getEngine, getLocalEngine, store } from "./Store.js";
 import { Disk, addInstance } from "./Disk.js";
@@ -8,6 +8,7 @@ import { proxy } from "valtio";
 import { Network, getEngines } from "./Network.js";
 import { bind } from "../valtio-yjs/index.js";
 import { create } from "domain";
+import { createAppId } from "./App.js";
 
 export interface Instance {
   id: InstanceID;
@@ -36,6 +37,8 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling
 
+  let instanceId
+
   try {
 
     // Read the meta file on the disk and extract the disk id
@@ -45,8 +48,8 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
       console.log(chalk.red(`Disk ${device} not found on engine ${getLocalEngine(store).hostname}`))
       return
     } else {
-      console.log(`Changing instance name to ${instanceName}`)
-      instanceName = createInstanceId(instanceName, disk.id).toString() as InstanceName
+      instanceId = createInstanceId(instanceName, appName, disk.id).toString() as InstanceID
+      log(`Instance ID: ${instanceId}`)
     } 
 
 
@@ -87,37 +90,39 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     // STEP 2 - App Instance creation
     // **************************
 
+    // OLD
     // Create the app instance
     // If there is already a instance with the name instanceName, try instanceName-1, instanceName-2, etc.
-    let instanceNumber = 1
-    let baseInstanceName = instanceName 
-    while (true) {
-      try {
-        await $`mkdir /disks/${device}/instances/${instanceName}`
-        break
-      } catch (e) {
-        instanceNumber++
-        instanceName = `${baseInstanceName}-${instanceNumber}` as InstanceName
-      }
-    }
+    // let instanceNumber = 1
+    // let baseInstanceName = instanceName 
+    // while (true) {
+    //   try {
+    //     await $`mkdir /disks/${device}/instances/${instanceName}`
+    //     break
+    //   } catch (e) {
+    //     instanceNumber++
+    //     instanceName = `${baseInstanceName}-${instanceNumber}` as InstanceName
+    //   }
+    // }
     // Again use /. to specify the content of the dir, not the dir itself 
-    await $`cp -fr /tmp/apps/${appName}/. /disks/${device}/instances/${instanceName}/`
+    await $`cp -fr /tmp/apps/${appName}/. /disks/${device}/instances/${instanceId}/`
 
     // If the app has an init_data.tar.gz file, unpack it in the app folder
-    if (fs.existsSync(`/disks/${device}/instances/${instanceName}/init_data.tar.gz`)) {
-      await $`tar -xzf /disks/${device}/instances/${instanceName}/init_data.tar.gz -C /disks/${device}/instances/${instanceName}`
+    if (fs.existsSync(`/disks/${device}/instances/${instanceId}/init_data.tar.gz`)) {
+      await $`tar -xzf /disks/${device}/instances/${instanceId}/init_data.tar.gz -C /disks/${device}/instances/${instanceId}`
       // Rename the folder init_data to data
-      await $`mv /disks/${device}/instances/${instanceName}/init_data /disks/${device}/instances/${instanceName}/data`
+      await $`mv /disks/${device}/instances/${instanceId}/init_data /disks/${device}/instances/${instanceId}/data`
       // Remove the init_data.tar.gz file
-      await $`rm /disks/${device}/instances/${instanceName}/init_data.tar.gz`
+      await $`rm /disks/${device}/instances/${instanceId}/init_data.tar.gz`
     }
 
-    // Open the compose.yaml file of the app instance and add the version info to the compose file
-    const composeFile = await $`cat /disks/${device}/instances/${instanceName}/compose.yaml`
+    // Open the compose.yaml file of the app instance and add the version info to the compose file and the instance name
+    const composeFile = await $`cat /disks/${device}/instances/${instanceId}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     compose['x-app'].version = appVersion
+    compose['x-app'].instance = instanceName
     const composeYAML = YAML.stringify(compose)
-    await $`echo ${composeYAML} > /disks/${device}/instances/${instanceName}/compose.yaml`
+    await $`echo ${composeYAML} > /disks/${device}/instances/${instanceId}/compose.yaml`
 
     // Remove the temporary app folder
     await $`rm -rf /tmp/apps/${appName}`
@@ -137,32 +142,37 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     }
 
 
-    console.log(chalk.green(`Instance ${instanceName} built`))
+    console.log(chalk.green(`Instance ${instanceId} built`))
   } catch (e) {
     console.log(chalk.red('Error building app instance'))
     console.error(e)
   }
 }
 
-export const createInstanceId = (instanceName: InstanceName, diskId: DiskID): InstanceID => {
-  return instanceName + "_on_" + diskId as InstanceID
+export const createInstanceId = (instanceName: InstanceName, appName:AppName, diskId: DiskID): InstanceID => {
+  const id = uuid()
+  // return instanceName + "_on_" + diskId as InstanceID
+  return instanceName + "-" + id as InstanceID
+}
+
+export const extractInstanceName = (instanceId: InstanceID): InstanceName => {
+  // return instanceId.split('_on_')[0] as InstanceName
+  return instanceId.split('-')[0] as InstanceName
 }
 
 
-export const createOrUpdateInstance = async (store: Store, instanceFullName: InstanceID, disk:Disk): Promise<Instance | undefined> => {
+export const createOrUpdateInstance = async (store: Store, instanceId: InstanceID, disk:Disk): Promise<Instance | undefined> => {
   let instance: Instance
-  const instanceName = instanceFullName.split('_on_')[0] as InstanceName
   try {
-    const composeFile = await $`cat /disks/${disk.device}/instances/${instanceFullName}/compose.yaml`
+    const composeFile = await $`cat /disks/${disk.device}/instances/${instanceId}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     const services = Object.keys(compose.services)
     const servicesImages = services.map(service => compose.services[service].image)
     // const instanceId = createInstanceId(instanceName, disk.id)  
-    const instanceId = instanceFullName
     instance = {
       id: instanceId,
-      instanceOf: compose['x-app'].version + "_of_" + compose['x-app'].name as AppID,
-      name: instanceName,
+      instanceOf: createAppId(compose['x-app'].name, compose['x-app'].version) as AppID,
+      name: extractInstanceName(instanceId),
       diskId: disk.id,
       status: 'Initializing',
       port: 0 as PortNumber,
@@ -182,13 +192,13 @@ export const createOrUpdateInstance = async (store: Store, instanceFullName: Ins
       backUpEnabled: false
     }
   } catch (e) {
-    log(chalk.red(`Error initializing instance ${instanceFullName} on disk ${disk.id}`))
+    log(chalk.red(`Error initializing instance ${instanceId} on disk ${disk.id}`))
     console.error(e)
     return undefined
   }
   if (store.instanceDB[instance.id]) {
     // Update the app
-    log(chalk.green(`Updating instance ${instanceFullName} on disk ${disk.id}`))
+    log(chalk.green(`Updating instance ${instanceId} on disk ${disk.id}`))
     const existingInstance = store.instanceDB[instance.id]
     existingInstance.instanceOf = instance.instanceOf
     existingInstance.name = instance.name
@@ -228,7 +238,7 @@ export const bindInstance = ($instance:Instance, networks:Network[]):void => {
 
 
 export const startAndAddInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  console.log(`Starting instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostname}'.`)
+  console.log(`Starting instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
 
   try {
 
@@ -241,7 +251,7 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
     // The port is in use by another app if an app can be found in networkdata with the same port
     // let port = 3000
     // const instances = getEngineInstances(store, getLocalEngine(store))
-    // console.log(`Searching for an available port number for instance ${instance.name}. Current instances: ${deepPrint(instances)}.`)
+    // console.log(`Searching for an available port number for instance ${instance.id}. Current instances: ${deepPrint(instances)}.`)
     // while (true) {
     //   const inst = instances.find(instance => instance && instance.port == port)
     //   if (inst) {
@@ -256,10 +266,10 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
     // await $`netstat -tuln | grep ${port}`
     let port = 3000
     let portInUse = true
+    let portInUseResult
     const instances = getEngineInstances(store, getLocalEngine(store))
     while (portInUse) {
         log(`Checking if port ${port} is in use`)
-        let portInUseResult
         try {
           portInUseResult = await $`netstat -tuln | grep ${port}`
           log(`Port ${port} is in use`)
@@ -277,12 +287,12 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
         }
     }
 
-    console.log(`Found a port number for instance ${instance.name}: ${port}`)
+    console.log(`Found a port number for instance ${instance.id}: ${port}`)
     instance.port = port as PortNumber
 
     // Write a .env file in which you define the port variable
     // Do it
-    await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.name}/.env`
+    await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`
     // Do not set the instance port member here - only set it when running the app
 
     // **************************
@@ -291,7 +301,7 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
 
     // Extract the service images of the services from the compose file, and pull them
     // Open the compose.yaml file of the app instance
-    const composeFile = await $`cat /disks/${disk.device}/instances/${instance.name}/compose.yaml`
+    const composeFile = await $`cat /disks/${disk.device}/instances/${instance.id}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     const services = compose.services
     for (const serviceName in services) {
@@ -324,12 +334,12 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
 
 export const createInstanceContainers = async (store: Store, instance: Instance, disk: Disk) => {
   try {
-    log(`Creating containers of app instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostname}'.`)
-    // await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml create`
-    await $`cd /disks/${disk.device}/instances/${instance.name} && docker compose create`
+    log(`Creating containers of app instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
+    // await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml create`
+    await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose create`
     instance.status = 'Pauzed'
   } catch (e) {
-    console.log(chalk.red(`Error creating the containers of app instance ${instance.name}`))
+    console.log(chalk.red(`Error creating the containers of app instance ${instance.id}`))
     console.error(e)
   }
 }
@@ -339,10 +349,10 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
   // CODING STYLE: use try/catch for error handling
   try {
 
-    log(`Running instance '${instance.name}' on disk ${disk.name} of engine '${getLocalEngine(store).hostname}'.`)
+    log(`Running instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
 
     // Extract the port number from the .env file containing "port=<portNumber>"
-    const envContent = (await $`cat /disks/${disk.device}/instances/${instance.name}/.env`).stdout
+    const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
     // Look for a line with port=<portNumber> and extract the portNumber
     // const ports = envContent.match(/port=(\d+)/g)
     // Split using '=' and take the second element
@@ -353,19 +363,19 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
       const parsedPort = parseInt(port)
       // If parsedPort is not NaN, assign it to the instance port
       if (!isNaN(parsedPort)) {
-        log(`Port number extracted from .env file for instance ${instance.name}: ${parsedPort}`)
+        log(`Port number extracted from .env file for instance ${instance.id}: ${parsedPort}`)
         instance.port = parsedPort as PortNumber
       } else {
-        log(chalk.red(`Error parsing port number from .env file for instance ${instance.name}. Got ${parsedPort} from ${envContent} and ${port}`))
+        log(chalk.red(`Error parsing port number from .env file for instance ${instance.id}. Got ${parsedPort} from ${envContent} and ${port}`))
       }
     } else {
-      log(chalk.red(`Error extracting port number from .env file for instance ${instance.name}`))
+      log(chalk.red(`Error extracting port number from .env file for instance ${instance.id}`))
     }
 
 
     // Compose up the app
-    //await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml up -d`
-    await $`cd /disks/${disk.device}/instances/${instance.name} && docker compose up -d`
+    //await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml up -d`
+    await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose up -d`
 
     // Modify the status of the instance
     instance.status = 'Running'
@@ -384,11 +394,11 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
     // Modify the dockerEvents of the instance
     // instance.dockerEvents = { events: await $`docker events ${instanceName}` }  // This is not correct, we need to use the right container name
 
-    console.log(chalk.green(`App ${instance.name} running`))
+    console.log(chalk.green(`App ${instance.id} running`))
 
   } catch (e) {
 
-    console.log(chalk.red(`Error running app instance ${instance.name}`))
+    console.log(chalk.red(`Error running app instance ${instance.id}`))
     console.error(e)
     instance.status = 'Error'
 
@@ -396,7 +406,7 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
 }
 
 export const stopInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  console.log(`Stopping app '${instance.name}' on disk '${disk.name}' of engine '${getLocalEngine(store).hostname}'.`)
+  console.log(`Stopping app '${instance.id}' on disk '${disk.id}' of engine '${getLocalEngine(store).hostname}'.`)
 
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling
@@ -404,11 +414,11 @@ export const stopInstance = async (store: Store, instance: Instance, disk: Disk)
   try {
     // Compose stop the app
     // Do it
-    // await $`docker compose -f /disks/${disk.device}/instances/${instance.name}/compose.yaml stop`
-    await $`cd /disks/${disk.device}/instances/${instance.name} && docker compose stop`
-    console.log(chalk.green(`App ${instance.name} stopped`))
+    // await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml stop`
+    await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose stop`
+    console.log(chalk.green(`App ${instance.id} stopped`))
   } catch (e) {
-    console.log(chalk.red(`Error stopping app instance ${instance.name}`))
+    console.log(chalk.red(`Error stopping app instance ${instance.id}`))
     console.error(e)
   }
 }
