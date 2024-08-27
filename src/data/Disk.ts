@@ -227,7 +227,7 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     //     }
     // }))
 
-    log(`Checking if actual apps got updated: ${deepPrint(actualApps, 2)}`)
+    log(`Checking if actual apps got updated: ${actualApps.map(app => app.id)}`)
 
     // Remove apps that are no longer on disk
     previousApps.forEach((app) => {
@@ -244,7 +244,7 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     const instances = (await $`ls /disks/${disk.device}/instances`).stdout.split('\n')
     log(`Instances found on disk ${disk.name}: ${instances}`)
     for (let instance of instances) {
-        await updateInstance(store, disk, instance  as InstanceName, actualInstances)
+        await updateInstance(store, disk, instance  as InstanceID, actualInstances)
       }
 
     // OLD CODE
@@ -265,7 +265,7 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     //     }
     // }))
 
-    log(`Checking if actual instances got updated: ${deepPrint(actualInstances, 2)}`)
+    log(`Checking if actual instances got updated: ${actualInstances.map(instance => instance.id)}`)
     
     // Remove instances that are no longer on disk
     previousInstances.forEach((instance) => {
@@ -288,7 +288,7 @@ export const updateApp = async (store: Store, disk: Disk, appName: AppName, actu
     }
 }
 
-export const updateInstance = async (store: Store, disk: Disk, instanceName: InstanceName, actualInstances:Instance[]): Promise<void> => {
+export const updateInstance = async (store: Store, disk: Disk, instanceName: InstanceID, actualInstances:Instance[]): Promise<void> => {
         if (!(instanceName === "")) {
             const instance = await createOrUpdateInstance(store, instanceName, disk)
             if (instance) {

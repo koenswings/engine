@@ -54,7 +54,12 @@ export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):vo
 
 export const enableIndexServer = (store:Store, appnetName:AppnetName, port?:PortNumber):void => {
     // Start an HTTP server that serves the index.html file of the specified appnet
-    const portNumber = port || 80
+    let portNumber:number
+    if (port) {
+        portNumber = parseInt(port.toString())
+    } else {
+        portNumber = 80
+    }
     generateHTML([], appnetName)
     const server = http.createServer((req, res) => {
         res.writeHead(200, {'Content-Type': 'text/html'})
@@ -68,7 +73,7 @@ export const enableIndexServer = (store:Store, appnetName:AppnetName, port?:Port
             res.end()
         })
     })
-    server.listen(port)
+    server.listen(portNumber)
     log(`Started HTTP server for network ${appnetName} on port ${portNumber}`)
 }
 

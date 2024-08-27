@@ -1,12 +1,13 @@
 import { $, YAML, chalk, fs, os } from "zx";
 import { deepPrint, log } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
-import { Store, getDisk, getEngine, getLocalEngine } from "./Store.js";
+import { Store, getDisk, getEngine, getLocalEngine, store } from "./Store.js";
 import { Disk, addInstance } from "./Disk.js";
-import { Engine, findDiskByName, getEngineInstances } from "./Engine.js";
+import { Engine, findDiskByDevice, findDiskByName, getEngineInstances } from "./Engine.js";
 import { proxy } from "valtio";
 import { Network, getEngines } from "./Network.js";
 import { bind } from "../valtio-yjs/index.js";
+import { create } from "domain";
 
 export interface Instance {
   id: InstanceID;
@@ -36,6 +37,18 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
   // CODING STYLE: use try/catch for error handling
 
   try {
+
+    // Read the meta file on the disk and extract the disk id
+    // Do it
+    const disk = findDiskByDevice(store, getLocalEngine(store), device)
+    if (!disk) {
+      console.log(chalk.red(`Disk ${device} not found on engine ${getLocalEngine(store).hostname}`))
+      return
+    } else {
+      console.log(`Changing instance name to ${instanceName}`)
+      instanceName = createInstanceId(instanceName, disk.id).toString() as InstanceName
+    } 
+
 
     // Create the app infrastructure if it does not exist
     // TODO: This should be done when creating the disk
@@ -77,7 +90,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     // Create the app instance
     // If there is already a instance with the name instanceName, try instanceName-1, instanceName-2, etc.
     let instanceNumber = 1
-    let baseInstanceName = instanceName
+    let baseInstanceName = instanceName 
     while (true) {
       try {
         await $`mkdir /disks/${device}/instances/${instanceName}`
@@ -131,17 +144,23 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
   }
 }
 
+export const createInstanceId = (instanceName: InstanceName, diskId: DiskID): InstanceID => {
+  return instanceName + "_on_" + diskId as InstanceID
+}
 
-export const createOrUpdateInstance = async (store: Store, instanceName: InstanceName, disk:Disk): Promise<Instance | undefined> => {
+
+export const createOrUpdateInstance = async (store: Store, instanceFullName: InstanceID, disk:Disk): Promise<Instance | undefined> => {
   let instance: Instance
+  const instanceName = instanceFullName.split('_on_')[0] as InstanceName
   try {
-    const composeFile = await $`cat /disks/${disk.device}/instances/${instanceName}/compose.yaml`
+    const composeFile = await $`cat /disks/${disk.device}/instances/${instanceFullName}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     const services = Object.keys(compose.services)
     const servicesImages = services.map(service => compose.services[service].image)
-    const instanceId = instanceName + "_on_" + disk.id as string
+    // const instanceId = createInstanceId(instanceName, disk.id)  
+    const instanceId = instanceFullName
     instance = {
-      id: instanceId as InstanceID,
+      id: instanceId,
       instanceOf: compose['x-app'].version + "_of_" + compose['x-app'].name as AppID,
       name: instanceName,
       diskId: disk.id,
@@ -163,13 +182,13 @@ export const createOrUpdateInstance = async (store: Store, instanceName: Instanc
       backUpEnabled: false
     }
   } catch (e) {
-    log(chalk.red(`Error initializing instance ${instanceName} on disk ${disk.id}`))
+    log(chalk.red(`Error initializing instance ${instanceFullName} on disk ${disk.id}`))
     console.error(e)
     return undefined
   }
   if (store.instanceDB[instance.id]) {
     // Update the app
-    log(chalk.green(`Updating instance ${instanceName} on disk ${disk.id}`))
+    log(chalk.green(`Updating instance ${instanceFullName} on disk ${disk.id}`))
     const existingInstance = store.instanceDB[instance.id]
     existingInstance.instanceOf = instance.instanceOf
     existingInstance.name = instance.name
@@ -239,12 +258,22 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
     let portInUse = true
     const instances = getEngineInstances(store, getLocalEngine(store))
     while (portInUse) {
-        const portInUseResult = await $`netstat -tuln | grep ${port}`
-        const inst = instances.find(instance => instance && instance.port == port)
-        if ((portInUseResult.exitCode === 0) || inst) {
+        log(`Checking if port ${port} is in use`)
+        let portInUseResult
+        try {
+          portInUseResult = await $`netstat -tuln | grep ${port}`
+          log(`Port ${port} is in use`)
+          port++
+        } catch (e) {
+          log(`Port ${port} is not in use. Checking if it is used by another instance`)
+          const inst = instances.find(instance => instance && instance.port == port)
+          if (inst) {
+            log(`Port ${port} is used by another instance`)
             port++
-        } else {
+          } else {
+            log(`Port ${port} is not used by another instance`)
             portInUse = false
+          }
         }
     }
 
