@@ -36,13 +36,14 @@ export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):vo
                 ${instanceIds.map((instanceId) => {
                     // Find the engine hostname for the instance and generate a url using the hostname and the port number of the instance
                     const instance = getInstance(store, instanceId)
+                    const diskId = instance.diskId
                     const engine = getEngineOfInstance(store, instance)
                     if (!engine) {
                         return `<li>Instance ${instanceId} not found</li>`
                     }
                     const hostname = engine.hostname
                     const port = instance.port
-                    return `<li><a href="http://${hostname}.local:${port}">${instanceId}</a></li>`
+                    return `<li><a href="http://${hostname}.local:${port}">${instanceId} (${instance.name} on disk ${diskId})</a></li>`
                 }).join('\n')}
             </ul>
         </body>
