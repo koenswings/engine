@@ -120,7 +120,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     const composeFile = await $`cat /disks/${device}/instances/${instanceId}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     compose['x-app'].version = appVersion
-    compose['x-app'].instance = instanceName
+    compose['x-app'].instanceName = instanceName
     const composeYAML = YAML.stringify(compose)
     await $`echo ${composeYAML} > /disks/${device}/instances/${instanceId}/compose.yaml`
 

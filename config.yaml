@@ -30,8 +30,8 @@ testSetup:
   testDisk1:
     name: loving-jennings
     apps:
-      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        name: kolibri
+      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0  # the id of the app
+        name: kolibri-ovqmdq6vgkm0c8m7i4                      # the id of the instance
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
         description: >
@@ -44,7 +44,7 @@ testSetup:
         icon: icon.png
         author: Koen Swings
       - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        name: kolibri-2
+        name: kolibri-6y0v6kfygybm0c8m7i5
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
         description: >
@@ -57,7 +57,7 @@ testSetup:
         icon: icon.png
         author: Koen Swings
       - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        name: kolibri-3
+        name: kolibri-n2h0r6haftmm0c8m7i5
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
         description: >
@@ -70,7 +70,7 @@ testSetup:
         icon: icon.png
         author: Koen Swings
       - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        name: kolibri_test
+        name: kolibri-y3oyzhdf378m0c98chi
         version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
         title: Kolibri
         description: >

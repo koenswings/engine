@@ -8,7 +8,7 @@ import { engineCommands } from './utils/engineCommands.js'
 
 import { $, YAML, chalk, sleep } from 'zx'
 import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
-import { deepPrint, log } from './utils/utils.js'
+import { deepPrint, log, uuid } from './utils/utils.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
 import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
 import { addNetwork, findNetworkByName, getLocalEngine, initialiseStore } from './data/Store.js'
@@ -39,6 +39,7 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     log(`Temp Directory: ${os.tmpdir()}`)
     log(`Endianness: ${os.endianness()}`)
     log(`Network Hostname: ${os.hostname()}`)
+
 
     // Process the config
     const settings = config.settings
