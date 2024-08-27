@@ -152,10 +152,10 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
 export const createInstanceId = (instanceName: InstanceName, appName:AppName, diskId: DiskID): InstanceID => {
   const id = uuid()
   // return instanceName + "_on_" + diskId as InstanceID
-  return instanceName + "-" + id as InstanceID
+  return appName + "-" + id as InstanceID
 }
 
-export const extractInstanceName = (instanceId: InstanceID): InstanceName => {
+export const extractAppName = (instanceId: InstanceID): InstanceName => {
   // return instanceId.split('_on_')[0] as InstanceName
   return instanceId.split('-')[0] as InstanceName
 }
@@ -169,10 +169,11 @@ export const createOrUpdateInstance = async (store: Store, instanceId: InstanceI
     const services = Object.keys(compose.services)
     const servicesImages = services.map(service => compose.services[service].image)
     // const instanceId = createInstanceId(instanceName, disk.id)  
+    const instanceName = compose['x-app'].instanceName as InstanceName
     instance = {
       id: instanceId,
       instanceOf: createAppId(compose['x-app'].name, compose['x-app'].version) as AppID,
-      name: extractInstanceName(instanceId),
+      name: instanceName,
       diskId: disk.id,
       status: 'Initializing',
       port: 0 as PortNumber,
