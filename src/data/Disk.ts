@@ -20,7 +20,7 @@ export interface Disk {
     id: DiskID;
     name: Hostname;
     device: DeviceName;
-    engineId: EngineID;
+    engineId: EngineID;   // The engine on which this disk is inserted
     // type: DiskType;
     created: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
     lastDocked: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
@@ -98,7 +98,7 @@ export const addInstance = (store:Store, disk: Disk, instance: Instance): void =
     disk.instances[instance.id] = true
     store.networks.forEach((network) => {
         log(`Trying to add instance ${instance.id} with status ${instance.status} to appnet ${network.appnet.name}`)
-        if (instance.status == 'Running' as Status ) addInstanceToAppnet(network.appnet, instance.id)
+        if (instance.status == 'Running' as Status ) addInstanceToAppnet(network.appnet, instance)
     })
 }
 
@@ -148,34 +148,40 @@ export const createOrUpdateDisk = (store: Store, engineId: EngineID, device: Dev
         return disk
     } else {
         log(`Creating disk ${diskName} on engine ${engineId}`)
+        // const disk: Disk = {
+        //     id: diskId,
+        //     name: diskName,
+        //     device: device,
+        //     engineId: engineId,
+        //     created: created,
+        //     lastDocked: new Date().getTime() as Timestamp,
+        //     removable: false,
+        //     upgradable: false,
+        //     apps: proxy<{ [key: AppID]: boolean }>({}),
+        //     instances: proxy<{ [key: InstanceID]: boolean }>({})
+        // }
+
+        // Disable typescript checking for the following code 
+        // The alternative is to make all properties optional, but they will only be optional in this function
+        //@ts-ignore
         const disk: Disk = {
-            id: diskId,
-            name: diskName,
-            device: device,
-            engineId: engineId,
-            created: created,
-            lastDocked: new Date().getTime() as Timestamp,
-            removable: false,
-            upgradable: false,
-            apps: proxy<{ [key: AppID]: boolean }>({}),
-            instances: proxy<{ [key: InstanceID]: boolean }>({})
+            id: diskId
         }
-        // Class variation
-        // const disk: Disk = new Disk ()
-        // disk.name = diskName
-        // disk.device = device
-        // disk.type = 'Apps'
-        // disk.created = created
-        // disk.lastDocked = new Date().getTime()
-        // disk.removable = false
-        // disk.upgradable = false
-        // disk.apps = []
-        // disk.instances = []
+        
         // Add the disk to the local engine
         const $disk = proxy<Disk>(disk)
 
         // Bind it to all networks
         bindDisk($disk, store.networks)
+
+        // Update the disk
+        disk.name = diskName
+        disk.device = device
+        disk.engineId = engineId
+        disk.created = created
+        disk.lastDocked = new Date().getTime() as Timestamp
+        disk.removable = false
+        disk.upgradable = false
 
         // Store the disk
         store.diskDB[$disk.id] = $disk
@@ -190,6 +196,10 @@ export const bindDisk = ($disk:Disk, networks:Network[]):void => {
         const yDisk = network.doc.getMap($disk.id)
         network.unbind = bind($disk as Record<string, any>, yDisk)
         log(`Bound disk ${$disk.id} to network ${network.appnet.name}`)
+
+        // Initialize the apps and instances Ids array
+        $disk.apps = proxy<{ [key: AppID]: boolean }>({}),
+        $disk.instances = proxy<{ [key: InstanceID]: boolean }>({})
 
         // Bind the proxy for the apps and instances Ids array to a corresponding Yjs Map
         bind($disk.apps, network.doc.getMap(`${$disk.id}_apps`))

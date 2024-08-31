@@ -7,13 +7,13 @@ import { config } from '../data/Config.js';
 import { connectEngine } from '../data/Network.js'
 import ciao from '@homebridge/ciao'
 import { getInterfacesToRemoteEngine } from '../data/Engine.js';
-import { AppnetName, InterfaceName } from '../data/CommonTypes.js';
+import { AppnetName, EngineID, InterfaceName } from '../data/CommonTypes.js';
 
 // log(`***node-dns-sd*** Starting mDnsSd Monitoring`)
 // log(Netmask)
 
 // Create an eventEmitter object that emits events when a new engine is discovered on a specified network
-export const engineMonitor = new events.EventEmitter();
+// export const engineMonitor = new events.EventEmitter();
 
 interface DiscoveredEngine {
     address: string,
@@ -39,6 +39,7 @@ export const startAdvertising = (store: Store, networkName: AppnetName, restrict
             port: 1234, // optional, can also be set via updatePort() before advertising
             txt: {
                 name: engineName,
+                id: engine.id,
                 version: engineVersion,
                 appnet: networkName,
             }
@@ -52,6 +53,7 @@ export const startAdvertising = (store: Store, networkName: AppnetName, restrict
             restrictedAddresses: restrictedInterfaces,
             txt: {
                 name: engineName,
+                id: engine.id,
                 version: engineVersion,
                 appnet: networkName,
             }
@@ -63,26 +65,27 @@ export const startAdvertising = (store: Store, networkName: AppnetName, restrict
         log(`Service published for appnet ${networkName})`);
     })
 
+    // OLD
     // Register a callback on the mdnsMonitor for new engines on this interface and network
-    engineMonitor.on(`new_engine_on_network_${networkName}`, (device) => {
-        log(chalk.bgMagenta(`Engine ${device.modelName} discovered on network ${networkName}`))
-        const network = findNetworkByName(networkName)
-        if (network) {
+    // engineMonitor.on(`new_engine_on_network_${networkName}`, (device) => {
+    //     log(chalk.bgMagenta(`Engine ${device.modelName} discovered on network ${networkName}`))
+    //     const network = findNetworkByName(networkName)
+    //     if (network) {
 
-            // Access control
-            const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-            const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(network.store), device.address)
-            // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
-            const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface.name))
-            const accessGranted = networkInterfaces.length > 0
+    //         // Access control
+    //         const restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
+    //         const interfacesToRemoteEngine = getInterfacesToRemoteEngine(getLocalEngine(network.store), device.address)
+    //         // Check if there is an overlap between the restricted interfaces and the interfaces to the remote engine
+    //         const networkInterfaces = interfacesToRemoteEngine.filter((iface) => restrictedInterfaces.includes(iface.name))
+    //         const accessGranted = networkInterfaces.length > 0
 
-            // If access is granted, connect the engine
-            if (accessGranted) {
-                connectEngine(network, device.address)
-            }
-        }
+    //         // If access is granted, connect the engine
+    //         if (accessGranted) {
+    //             connectEngine(network, device.address)
+    //         }
+    //     }
 
-    })
+    // })
 
     // The following comments show or past failed attempts to advertise the engine using the mdns package
     // ********* MDNS Advertisement (error) *********
@@ -152,6 +155,7 @@ const discoverEngines = (): void => {
                     // log(chalk.bgMagenta(`Adding engine ${device.familyName} to the list of engines`))
                     //log(chalk.bgBlackBright(`Adding engine: ${deepPrint(device, 1)}`))
                     const appnet = txtRecord.appnet
+                    const engineId = txtRecord.id
                     // Emit an event for the network
                     log(chalk.bgMagenta(`Engine ${device.modelName} is on network ${appnet}`))
                     const network = findNetworkByName(appnet)
@@ -167,7 +171,7 @@ const discoverEngines = (): void => {
 
                         // If access is granted, connect the engine
                         if (accessGranted) {
-                            connectEngine(network, device.address)
+                            connectEngine(network, engineId as EngineID, device.address)
                         }
                     }
 

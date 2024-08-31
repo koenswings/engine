@@ -4,6 +4,7 @@ import { Engine, initialiseLocalEngine } from "./Engine.js"
 import { Doc } from "yjs"
 import { bind } from "../valtio-yjs/index.js"
 import { log } from "console"
+import { Instance } from "./Instance.js"
 
 /**
  * Appnet is the root object for all data distributed over the network
@@ -16,14 +17,14 @@ export interface Appnet {
     engines: {[key: EngineID]: boolean}
 
     // The set of ids for all running instances in the network
-    instances: {[key: InstanceID]: boolean}
+    instances: {[key: InstanceID]: Instance}
 }
 
 export const initialiseAppnetData = async (name: AppnetName, doc:Doc): Promise<Appnet> => {
     const $appnet = proxy<Appnet>({
         name: name,
         engines: proxy<{[key:EngineID]:boolean}>({}),
-        instances: proxy<{[key:InstanceID]:boolean}>({})
+        instances: proxy<{[key:InstanceID]:Instance}>({})
     })
     
     // Bind the proxy for the engine Ids array to a corresponding Yjs Map
@@ -49,9 +50,9 @@ export const getAppnetEngineCount = (appNet: Appnet): number => {
     return Object.keys(appNet.engines).length
 }
 
-export const addInstanceToAppnet = (appNet: Appnet, instanceId: InstanceID):void => {
-    log(`Adding instance ${instanceId} to appnet ${appNet.name}`)
-    appNet.instances[instanceId] = true
+export const addInstanceToAppnet = (appNet: Appnet, instance: Instance):void => {
+    log(`Adding instance ${instance.id} to appnet ${appNet.name}`)
+    appNet.instances[instance.id] = instance
 }
 
 export const removeInstanceFromAppnet = (appNet: Appnet, instanceId: InstanceID):void => {

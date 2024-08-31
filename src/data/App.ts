@@ -68,29 +68,38 @@ export const createOrUpdateApp = async (store:Store, appId:AppID, diskName:Hostn
         console.error(e)
         return undefined
     }
+
+    let $app: App
     if (store.appDB[app.id]) {
         // Update the app
-        log(chalk.green(`Updating app ${appId} on disk ${diskName}`))
-        const existingApp = store.appDB[app.id]
-        existingApp.name = app.name
-        existingApp.version = app.version
-        existingApp.title = app.title
-        existingApp.description = app.description
-        existingApp.url = app.url
-        existingApp.category = app.category
-        existingApp.icon = app.icon
-        existingApp.author = app.author
-        return existingApp
+        log(chalk.green(`Updating existing app ${appId} on disk ${diskName}`))
+        $app = store.appDB[app.id]
     } else {
         // Create the app
-        log
-        const $app = proxy<App>(app)
+        log(chalk.green(`Creating new app ${appId} on disk ${diskName}`))
+        // @ts-ignore
+        $app = proxy<App>({
+            id: app.id
+        })
+
         // Bind it to all networks
         bindApp($app, store.networks)
+
         // Add the app to the store
         store.appDB[app.id] = $app
-        return $app
     }
+
+    // Update its properties
+    $app.name = app.name
+    $app.version = app.version
+    $app.title = app.title
+    $app.description = app.description
+    $app.url = app.url
+    $app.category = app.category
+    $app.icon = app.icon
+    $app.author = app.author
+
+    return $app
 }
   
 export const bindApp = ($app:App, networks:Network[]):void => {

@@ -9,6 +9,7 @@ import { Network, getEngines } from "./Network.js";
 import { bind } from "../valtio-yjs/index.js";
 import { create } from "domain";
 import { createAppId } from "./App.js";
+import { Docker } from "node-docker-api";
 
 export interface Instance {
   id: InstanceID;
@@ -197,35 +198,41 @@ export const createOrUpdateInstance = async (store: Store, instanceId: InstanceI
     console.error(e)
     return undefined
   }
+
+  let $instance: Instance
   if (store.instanceDB[instance.id]) {
     // Update the app
     log(chalk.green(`Updating instance ${instanceId} on disk ${disk.id}`))
-    const existingInstance = store.instanceDB[instance.id]
-    existingInstance.instanceOf = instance.instanceOf
-    existingInstance.name = instance.name
-    existingInstance.diskId = instance.diskId
-    existingInstance.status = instance.status
-    existingInstance.port = instance.port
-    existingInstance.serviceImages = instance.serviceImages
-    existingInstance.dockerMetrics = instance.dockerMetrics
-    existingInstance.dockerLogs = instance.dockerLogs
-    existingInstance.dockerEvents = instance.dockerEvents
-    existingInstance.created = instance.created
-    existingInstance.lastBackedUp = instance.lastBackedUp
-    existingInstance.lastStarted = instance.lastStarted
-    existingInstance.upgradable = instance.upgradable
-    existingInstance.backUpEnabled = instance.backUpEnabled
-    return existingInstance
+    $instance = store.instanceDB[instance.id]
   } else {
     // Create the app
-    log
-    const $instance = proxy<Instance>(instance)
+    log(chalk.green(`Creating new instance ${instanceId} on disk ${disk.id}`))
+    // @ts-ignore
+    $instance = proxy<Instance>({
+      id: instance.id
+    })
     // Bind it to all networks
     bindInstance($instance, store.networks)
     // Add the app to the store
     store.instanceDB[instance.id] = $instance
-    return $instance
   }
+
+  $instance.instanceOf = instance.instanceOf
+  $instance.name = instance.name
+  $instance.diskId = instance.diskId
+  $instance.status = instance.status
+  $instance.port = instance.port
+  $instance.serviceImages = instance.serviceImages
+  $instance.dockerMetrics = instance.dockerMetrics
+  $instance.dockerLogs = instance.dockerLogs
+  $instance.dockerEvents = instance.dockerEvents
+  $instance.created = instance.created
+  $instance.lastBackedUp = instance.lastBackedUp
+  $instance.lastStarted = instance.lastStarted
+  $instance.upgradable = instance.upgradable
+  $instance.backUpEnabled = instance.backUpEnabled
+
+  return $instance
 }
 
 export const bindInstance = ($instance:Instance, networks:Network[]):void => {
@@ -263,29 +270,43 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
     // }
 
 
-    // Alternative is to check the system for an occupied port
-    // await $`netstat -tuln | grep ${port}`
-    let port = 3000
-    let portInUse = true
-    let portInUseResult
-    const instances = getEngineInstances(store, getLocalEngine(store))
-    while (portInUse) {
-        log(`Checking if port ${port} is in use`)
-        try {
-          portInUseResult = await $`netstat -tuln | grep ${port}`
-          log(`Port ${port} is in use`)
-          port++
-        } catch (e) {
-          log(`Port ${port} is not in use. Checking if it is used by another instance`)
-          const inst = instances.find(instance => instance && instance.port == port)
-          if (inst) {
-            log(`Port ${port} is used by another instance`)
+    // Find the container
+    const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    const containers = await docker.container.list()
+    containers.forEach(container => {
+      console.log(container.data['Names'][0])
+    })
+    const container = containers.find(container => container.data['Names'][0].includes(instance.id))
+    let port
+    if (container) {
+      port = parseInt(container.data['Ports'][0]['PublicPort'])
+      log(`Found a container for instance ${instance.id} running on port ${port}`)
+    } else {
+      log(`No container found for instance ${instance.id}. Generating a new port number.`)
+      // Alternative is to check the system for an occupied port
+      // await $`netstat -tuln | grep ${port}`
+      port = 3000
+      let portInUse = true
+      let portInUseResult
+      const instances = getEngineInstances(store, getLocalEngine(store))
+      while (portInUse) {
+          log(`Checking if port ${port} is in use`)
+          try {
+            portInUseResult = await $`netstat -tuln | grep ${port}`
+            log(`Port ${port} is in use`)
             port++
-          } else {
-            log(`Port ${port} is not used by another instance`)
-            portInUse = false
+          } catch (e) {
+            log(`Port ${port} is not in use. Checking if it is used by another instance`)
+            const inst = instances.find(instance => instance && instance.port == port)
+            if (inst) {
+              log(`Port ${port} is used by another instance`)
+              port++
+            } else {
+              log(`Port ${port} is not used by another instance`)
+              portInUse = false
+            }
           }
-        }
+      }
     }
 
     console.log(`Found a port number for instance ${instance.id}: ${port}`)

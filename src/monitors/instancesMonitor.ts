@@ -13,6 +13,11 @@ import { getEngineOfInstance } from '../data/Instance.js'
 
 
 export const enableInstanceSetMonitor = (store:Store, network:Network):void => {
+
+    // Generate HTML for the current instances
+    const instanceIds = Object.keys(network.appnet.instances) as InstanceID[]
+    generateHTML(instanceIds, network.appnet.name)
+
     // Monitor the engineSet for changes
     subscribe(network.appnet.instances, (value) => {
         log(`INSTANCESET MONITOR: The instanceSet of network ${network.appnet.name} was modified as follows: ${deepPrint(value)}`)
@@ -61,7 +66,8 @@ export const enableIndexServer = (store:Store, appnetName:AppnetName, port?:Port
     } else {
         portNumber = 80
     }
-    generateHTML([], appnetName)
+    // If the file `${appnetName}.html` does not exist, generate it
+    if (!fs.existsSync(`${appnetName}.html`)) generateHTML([], appnetName)
     const server = http.createServer((req, res) => {
         res.writeHead(200, {'Content-Type': 'text/html'})
         fs.readFile(`${appnetName}.html`, (err, data) => {

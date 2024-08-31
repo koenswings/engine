@@ -13,7 +13,8 @@ import { firstBoot } from '../y-websocket/yjsUtils.js';
 import { Disk } from './Disk.js';
 import { App } from './App.js';
 import { Instance } from './Instance.js';
-import { Appnet, initialiseAppnetData } from './Appnet.js';
+import { Appnet, addEngineToAppnet, initialiseAppnetData, removeEngineFromAppnet } from './Appnet.js';
+import { add } from 'lib0/math.js';
 // import { IndexeddbPersistence } from 'y-indexeddb'
 
 
@@ -142,7 +143,7 @@ export const createNetwork = async (store:Store, networkName: AppnetName): Promi
 //   // Set the bind property of network
 // }
 
-export const connectEngine = (network: Network, address: IPAddress, timeout?:boolean): Promise<ConnectionResult> => {
+export const connectEngine = (network: Network, engineId:EngineID, address: IPAddress, timeout?:boolean): Promise<ConnectionResult> => {
   const networkDoc = network.doc
 
   // UPDATE001: Decomment the following code in case we want to only open sockets on the interfaces that we monitor
@@ -168,8 +169,12 @@ export const connectEngine = (network: Network, address: IPAddress, timeout?:boo
     wsProvider.on('status', (event: ConnectionResult) => {
       if (event.status === 'connected') {
         log(`${event.status} to ${address}:1234`)
+        // Add the engine to the network
+        addEngineToAppnet(network.appnet, engineId)
       } else if (event.status === 'disconnected') {
         log(`${event.status} from ${address}:1234`)
+        // Remove the engine from the network
+        removeEngineFromAppnet(network.appnet, engineId)
       } else if (event.status === 'reconnection-failure-3') {
         log(`Reconnection to ${address}:1234-on failed 3 times.`)
         if (timeout) {

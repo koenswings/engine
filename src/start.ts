@@ -17,6 +17,7 @@ import { initialiseLocalEngine } from './data/Engine.js'
 import { AppnetName, IPAddress, PortNumber } from './data/CommonTypes.js'
 import { store } from './data/Store.js'
 import { enableIndexServer, enableInstanceSetMonitor } from './monitors/instancesMonitor.js'
+import { Docker } from 'node-docker-api'
 
 let server
 
@@ -39,7 +40,6 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     log(`Temp Directory: ${os.tmpdir()}`)
     log(`Endianness: ${os.endianness()}`)
     log(`Network Hostname: ${os.hostname()}`)
-
 
     // Process the config
     const settings = config.settings

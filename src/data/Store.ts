@@ -278,7 +278,7 @@ export const addNetwork = async (store:Store, networkName: AppnetName): Promise<
     log(`Network ${network.name} added to the store`)
 
     // Connect it to the local websockets server
-    return connectEngine(network, "127.0.0.1" as IPAddress)
+    return connectEngine(network, store.localEngine,  "127.0.0.1" as IPAddress)
 }
 
 export const createRunningServer = (store:Store, ip: IPAddress):void => {

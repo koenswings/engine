@@ -1,12 +1,12 @@
 import { $, chalk, os } from 'zx';
 import { deepPrint, log, sameNet } from '../utils/utils.js';
 import { readMeta, DiskMeta } from './Meta.js';
-import { Version, DockerMetrics, DockerLogs, DockerEvents, Command, Hostname, Timestamp, InterfaceName, DiskID, IPAddress, NetMask, CIDR, EngineID, DeviceName} from './CommonTypes.js';
+import { Version, DockerMetrics, DockerLogs, DockerEvents, Command, Hostname, Timestamp, InterfaceName, DiskID, IPAddress, NetMask, CIDR, EngineID, DeviceName, InstanceID} from './CommonTypes.js';
 import { Disk, getApps, getInstances } from './Disk.js';
 import { proxy } from 'valtio';
 import { config } from './Config.js';
 import { Store, getDisk } from './Store.js';
-import { addEngineToAppnet } from './Appnet.js';
+import { addEngineToAppnet, removeInstanceFromAppnet } from './Appnet.js';
 import { bind } from '../valtio-yjs/index.js';
 import { App } from './App.js';
 import { Instance } from './Instance.js';
@@ -103,12 +103,18 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
         process.exit(1)
     }
 
+    // @ts-ignore
     const $localEngine = proxy<Engine>({
         //id: "ENGINE_"+meta.id as EngineID,
         id: meta.engineId as EngineID,
-        disks: proxy<{[key:DiskID]:boolean}>({}) 
+        commands: []
+        //disks: proxy<{[key:DiskID]:boolean}>({}) 
      })
-    // $localEngine.id = meta.id as EngineID
+
+    // Bind it to all networks
+    bindEngine($localEngine, store.networks)
+
+    // Update the local engine object
     $localEngine.hostname = os.hostname() as Hostname
     $localEngine.version = meta.version
     $localEngine.hostOS = os.type()
@@ -126,11 +132,9 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
     // $localEngine.disks = proxy<{[key:DiskID]:boolean}>({}) 
     $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
     $localEngine.connectedInterfaces = {}
-    $localEngine.commands = []
+    // $localEngine.commands = []
     //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
 
-    // Bind it to all networks
-    bindEngine($localEngine, store.networks)
 
     // Store the engine
     store.engineDB[$localEngine.id] = $localEngine
@@ -151,6 +155,9 @@ export const bindEngine = ($engine:Engine, networks:Network[]):void => {
         const yEngine = network.doc.getMap($engine.id)
         network.unbind = bind($engine as Record<string, any>, yEngine)
         log(`Bound engine ${$engine.id} to network ${network.appnet.name}`)
+
+        // Create a proxy for the disks array
+        $engine.disks = proxy<{[key:DiskID]:boolean}>({}) 
 
         // Bind the proxy for the disk Ids array to a corresponding Yjs Map
         bind($engine.disks, network.doc.getMap(`${$engine.id}_disks`))
@@ -234,13 +241,23 @@ export const addDisk = (engine: Engine, disk: Disk):void => {
     engine.disks[disk.id] = true
 }
 
-export const removeDisk = (engine: Engine, disk: Disk):void => {
+export const removeDisk = (store:Store, engine: Engine, disk: Disk):void => {
     // const index = engine.disks.indexOf(disk)
     // if (index > -1) {
     //   engine.disks.splice(index, 1)
     // }
-    log(`Removing disk ${disk.id} from engine ${engine.hostname}`)
+    log(`Removing disk ${disk.id} from engine ${engine.hostname} and all its instances form the networks`)
     delete engine.disks[disk.id]
+    // Remove all instances from the appnet if the disk still has the engine as its parent (it might have been inserted elsewhere)
+    // TODO - This is sensitive to race conditions: suppose the disk is being inserted into another engine at the same time
+    if (disk.engineId === engine.id) {
+        const instances = Object.keys(disk.instances) as InstanceID[]
+        instances.forEach(instanceID => {
+            store.networks.forEach(network => {
+                removeInstanceFromAppnet(network.appnet, instanceID)
+            })
+        })
+    }
 }
 
 export const removeDiskByName = (store:Store, engine: Engine, diskName: Hostname):void => {
