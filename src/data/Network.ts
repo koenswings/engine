@@ -1,7 +1,7 @@
 import { Doc, Map } from 'yjs'
 import { WebsocketProvider } from '../y-websocket/y-websocket.js'
 import { Engine, getDisks, getEngineApps, getEngineInstances } from './Engine.js'
-import { deepPrint, log } from '../utils/utils.js';
+import { deepPrint, getKeys, log } from '../utils/utils.js';
 import { proxy } from 'valtio';
 import { bind } from '../valtio-yjs/index.js';
 import { pEvent } from 'p-event';
@@ -170,11 +170,11 @@ export const connectEngine = (network: Network, engineId:EngineID, address: IPAd
       if (event.status === 'connected') {
         log(`${event.status} to ${address}:1234`)
         // Add the engine to the network
-        addEngineToAppnet(network.appnet, engineId)
+        // addEngineToAppnet(network.appnet, engineId)
       } else if (event.status === 'disconnected') {
         log(`${event.status} from ${address}:1234`)
         // Remove the engine from the network
-        removeEngineFromAppnet(network.appnet, engineId)
+        // removeEngineFromAppnet(network.appnet, engineId)
       } else if (event.status === 'reconnection-failure-3') {
         log(`Reconnection to ${address}:1234-on failed 3 times.`)
         if (timeout) {
@@ -196,7 +196,7 @@ export const connectEngine = (network: Network, engineId:EngineID, address: IPAd
         //   log(`Local engine ${localEngineHostName} already in networkData`)
         // }
       } else {
-        log(`Unhandled status ${event.status} for connection to ${address}:1234`)
+        // log(`Unhandled status ${event.status} for connection to ${address}:1234`)
       }
     })
     log(`Created an Yjs websocket client connection on adddress ws://${address}:1234 with room name ${network.name}`)
@@ -232,7 +232,7 @@ export const isEngineConnected = (network: Network, ip: IPAddress):boolean => {
 export const getEngines = (network: Network):Engine[] => {
   //return network.doc.getArray('engineIds').toArray() as string[]
   const appnet = network.appnet
-  const engineIds = Object.keys(appnet.engines) as EngineID[]
+  const engineIds = getKeys(appnet.engines) as EngineID[]
   return engineIds.flatMap(engineId => {
     const engine = getEngine(network.store, engineId)
     if (engine) {
@@ -261,6 +261,10 @@ export const getEngines = (network: Network):Engine[] => {
 
 export const findEngineByHostname = (network: Network, engineName: Hostname):Engine | undefined => {
   return getEngines(network).find(engine => engine.hostname === engineName)
+}
+
+export const findEngineById = (network: Network, engineId: EngineID):Engine | undefined => {
+  return getEngines(network).find(engine => engine.id === engineId)
 }
 
 // export const getNetworkApps = (network: Network) => {

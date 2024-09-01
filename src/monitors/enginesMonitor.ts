@@ -1,5 +1,5 @@
 import { subscribe } from 'valtio'
-import { log, deepPrint } from '../utils/utils.js'
+import { log, deepPrint, getKeys } from '../utils/utils.js'
 import { Store, getEngine } from '../data/Store.js'
 import { Engine } from '../data/Engine.js'
 import { Network } from '../data/Network.js'
@@ -11,7 +11,7 @@ import { engineCommands } from '../utils/engineCommands.js'
 export const enableEngineSetMonitor = (store:Store, network:Network):void => {
     const networkName = network.name
     // Enable engine monitors for all existing engines in engineSet
-    const engineIds = Object.keys(network.appnet.engines) as EngineID[]
+    const engineIds = getKeys(network.appnet.engines) as EngineID[]
     engineIds.forEach((engineId) => {
         const engine = getEngine(store, engineId)
         if (engine) {

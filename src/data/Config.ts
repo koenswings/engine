@@ -107,6 +107,7 @@ export interface ScriptDefaults {
   machine: string,
   password: string,
   engine: string,
+  engineId: string,
   network: string,
   language: string,
   keyboard: string,
@@ -160,7 +161,9 @@ export interface TestSetup {
 }
 
 export interface TestDisk {
-  name: string,
+  diskId: string,
+  engineId: string,
+  engineName: string,
   apps: TestApp[],
   // Optional properties for version, hostOS
   version?: string,

@@ -12,8 +12,9 @@ import { bind } from '../valtio-yjs/index.js';
 import { Network } from './Network.js';
 import { Engine } from './Engine.js';
 import { add } from 'lib0/math.js';
-import { addInstanceToAppnet, removeInstanceFromAppnet } from './Appnet.js';
-
+import { addInstanceToAppnet, removeInstanceFromAppnet } from './Appnet.js'
+import { enableDiskMonitor } from '../monitors/diskMonitor.js';
+import { dummyKey, getKeys } from '../utils/utils.js';
 
 
 export interface Disk {
@@ -34,9 +35,8 @@ export interface Disk {
 // type DiskType = 'Apps' | 'Backup';
 
 
-
 export const getApps = (store: Store, disk: Disk): App[] => {
-    const appIds = Object.keys(disk.apps) as AppID[]
+    const appIds = getKeys(disk.apps) as AppID[]
     return appIds.map(appId => getApp(store, appId))
 }
 
@@ -60,7 +60,7 @@ export const findApp = (store: Store, disk: Disk, appId: AppID): App | undefined
 // }
 
 export const getInstances = (store: Store, disk: Disk): Instance[] => {
-    const instanceIds = Object.keys(disk.instances) as InstanceID[]
+    const instanceIds = getKeys(disk.instances) as InstanceID[]
     return instanceIds.map(instanceId => getInstance(store, instanceId))
 }
 
@@ -120,6 +120,7 @@ export const addApp = (disk: Disk, app: App): void => {
 }
 
 export const removeApp = (store: Store, disk: Disk, appId: AppID): void => {
+    log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Removing app ${appId} from disk ${disk.name}`)
     const app = findApp(store, disk, appId)
     if (app) {
         delete disk.apps[app.id]
@@ -127,6 +128,7 @@ export const removeApp = (store: Store, disk: Disk, appId: AppID): void => {
 }
 
 export const removeInstance = (store: Store, disk: Disk, instanceId: InstanceID): void => {
+    log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Removing instance ${instanceId} from disk ${disk.name}`)
     const instance = findInstance(store, disk, instanceId)
     if (instance) {
         delete disk.instances[instance.id]
@@ -175,16 +177,18 @@ export const createOrUpdateDisk = (store: Store, engineId: EngineID, device: Dev
         bindDisk($disk, store.networks)
 
         // Update the disk
-        disk.name = diskName
-        disk.device = device
-        disk.engineId = engineId
-        disk.created = created
-        disk.lastDocked = new Date().getTime() as Timestamp
-        disk.removable = false
-        disk.upgradable = false
+        $disk.name = diskName
+        $disk.device = device
+        $disk.engineId = engineId
+        $disk.created = created
+        $disk.lastDocked = new Date().getTime() as Timestamp
+        $disk.removable = false
+        $disk.upgradable = false
 
         // Store the disk
         store.diskDB[$disk.id] = $disk
+
+        enableDiskMonitor($disk)
 
         return $disk
     }
@@ -192,18 +196,27 @@ export const createOrUpdateDisk = (store: Store, engineId: EngineID, device: Dev
 
 export const bindDisk = ($disk:Disk, networks:Network[]):void => {
     networks.forEach((network) => {
+        const dummy = {}
+        dummy[dummyKey] = true
+        const dummy2 = {}
+        dummy2[dummyKey] = true
+
         // Bind the $disk proxy to the network
         const yDisk = network.doc.getMap($disk.id)
         network.unbind = bind($disk as Record<string, any>, yDisk)
         log(`Bound disk ${$disk.id} to network ${network.appnet.name}`)
 
         // Initialize the apps and instances Ids array
-        $disk.apps = proxy<{ [key: AppID]: boolean }>({}),
-        $disk.instances = proxy<{ [key: InstanceID]: boolean }>({})
+        const apps = proxy<{ [key: AppID]: boolean }>(dummy)
+        const instances = proxy<{ [key: InstanceID]: boolean }>(dummy2)
 
         // Bind the proxy for the apps and instances Ids array to a corresponding Yjs Map
-        bind($disk.apps, network.doc.getMap(`${$disk.id}_apps`))
-        bind($disk.instances, network.doc.getMap(`${$disk.id}_instances`))
+        bind(apps, network.doc.getMap(`${$disk.id}_apps`))
+        bind(instances, network.doc.getMap(`${$disk.id}_instances`))
+
+        // Set the apps and instances Ids array
+        $disk.apps = apps
+        $disk.instances = instances
     })
 }
 

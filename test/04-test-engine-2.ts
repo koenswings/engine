@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngineByHostname } from '../src/data/Network.js';
+import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngineByHostname, findEngineById } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
@@ -7,9 +7,9 @@ import { config } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 import { subscribe } from 'valtio';
 import { store } from '../src/data/Store.js';
-import { AppID, AppName, AppnetName, Hostname, IPAddress, InterfaceName, Version } from '../src/data/CommonTypes.js';
+import { AppID, AppName, AppnetName, DiskID, EngineID, Hostname, IPAddress, InterfaceName, Version } from '../src/data/CommonTypes.js';
 import exp from 'constants';
-import { findDiskByName, getDisks, getEngineApps, getEngineInstances, inspectEngine } from '../src/data/Engine.js';
+import { findDiskById, findDiskByName, getDisks, getEngineApps, getEngineInstances, inspectEngine } from '../src/data/Engine.js';
 import { findApp, findInstanceOfApp, getApps } from '../src/data/Disk.js';
 
 
@@ -18,8 +18,7 @@ const testSetup = config.testSetup
 const testNet = testSetup.appnet as AppnetName
 const testInterface = testSetup.interface as InterfaceName
 const testDisk2 = testSetup.testDisk2
-const testEngine2Name = testDisk2.name as Hostname
-const testEngine2Address = testDisk2.name + ".local" as IPAddress
+const testEngine2Address = testDisk2.engineName + ".local" as IPAddress
 
 
 let remoteEngine, disk, connection2Promise, network
@@ -68,7 +67,7 @@ describe(`The Test Master must be able to connect to Test Engine 2 on address ${
         this.timeout(0)
         if (!network) this.skip()
 
-        connection2Promise = connectEngine(network, testEngine2Address, true)
+        connection2Promise = connectEngine(network, testDisk2.engineId as EngineID,  testEngine2Address, true)
         expect(connection2Promise).to.exist
 
         // The promise must resolve to a ConnectionResult
@@ -94,7 +93,7 @@ describe(`The Test Master must be able to connect to Test Engine 2 on address ${
         if (!network || !network.appnet) this.skip()
 
         // Give the syncing some time in case this test is executed immediately after startup
-        remoteEngine = findEngineByHostname(network, testEngine2Name)
+        remoteEngine = findEngineById(network, testDisk2.engineId as EngineID)
         inspectEngine(store, remoteEngine)
         expect(remoteEngine).to.exist
 
@@ -151,7 +150,7 @@ describe(`The Test Master must be able to connect to Test Engine 2 on address ${
         //console.dir(networkData2, {depth: 3, colors: true})
         //log(chalk.bgBlackBright("\n" + deepPrint(networkData1, 4)))
         // We must find an Engine object in networkData2 with the same name as testEngine2
-        it(`the right name ${testEngine2Name}`, async function () {
+        it(`the right id ${testDisk2.engineId as EngineID}`, async function () {
             if (!remoteEngine) this.skip()
             //remoteEngine = findEngineByHostname(network2, testEngine2Name)
             //log(chalk.bgBlackBright(`^^^^^^^^^^^^^Network2: ${deepPrint(network2)}`))
@@ -215,10 +214,10 @@ describe(`The Test Master must be able to connect to Test Engine 2 on address ${
             })
         })
 
-        describe(`a disk called ${testDisk2.name}: `, async function () {
+        describe(`a disk with id ${testDisk2.diskId}: `, async function () {
             it(`that exists`, async function () {
                 if (!remoteEngine) this.skip()
-                disk = findDiskByName(store, remoteEngine, testDisk2.name as Hostname)
+                disk = findDiskById(store, remoteEngine, testDisk2.diskId as DiskID)
                 log(chalk.bgBlackBright(`++++++++++++++++++++++++Disk: ${deepPrint(disk)}`))    
                 expect(disk).to.exist
             })

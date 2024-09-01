@@ -1,5 +1,5 @@
 import { subscribe } from 'valtio'
-import { log, deepPrint } from '../utils/utils.js'
+import { log, deepPrint, getKeys } from '../utils/utils.js'
 import { Store, getEngine, getInstance, store } from '../data/Store.js'
 import { Engine } from '../data/Engine.js'
 import { Network } from '../data/Network.js'
@@ -15,14 +15,14 @@ import { getEngineOfInstance } from '../data/Instance.js'
 export const enableInstanceSetMonitor = (store:Store, network:Network):void => {
 
     // Generate HTML for the current instances
-    const instanceIds = Object.keys(network.appnet.instances) as InstanceID[]
+    const instanceIds = getKeys(network.appnet.instances) as InstanceID[]
     generateHTML(instanceIds, network.appnet.name)
 
     // Monitor the engineSet for changes
     subscribe(network.appnet.instances, (value) => {
         log(`INSTANCESET MONITOR: The instanceSet of network ${network.appnet.name} was modified as follows: ${deepPrint(value)}`)
-        const instanceIds = Object.keys(network.appnet.instances) as InstanceID[]
-        generateHTML(instanceIds, network.appnet.name)
+        const instanceIds = getKeys(network.appnet.instances) as InstanceID[]
+        //generateHTML(instanceIds, network.appnet.name)
     })
     log(`Added INSTANCESET MONITOR to network ${network.appnet.name}`)
 }

@@ -28,7 +28,9 @@ testSetup:
   appnet: appnet
   interface: eth0
   testDisk1:
-    name: loving-jennings
+    diskId: loving-jennings-disk
+    engineId: loving-jennings-engine
+    engineName: loving-jennings
     apps:
       - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0  # the id of the app
         name: kolibri-ovqmdq6vgkm0c8m7i4                      # the id of the instance
@@ -83,7 +85,9 @@ testSetup:
         icon: icon.png
         author: Koen Swings
   testDisk2:
-    name: eager-wu
+    diskId: eager-wu-disk
+    engineId: eager-wu-engine
+    engineName: eager-wu
     apps:
       - name: kolibri
         version: 1.0-0.15.5-dev

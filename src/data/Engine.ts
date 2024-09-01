@@ -1,5 +1,5 @@
 import { $, chalk, os } from 'zx';
-import { deepPrint, log, sameNet } from '../utils/utils.js';
+import { deepPrint, dummyKey, getKeys, log, sameNet } from '../utils/utils.js';
 import { readMeta, DiskMeta } from './Meta.js';
 import { Version, DockerMetrics, DockerLogs, DockerEvents, Command, Hostname, Timestamp, InterfaceName, DiskID, IPAddress, NetMask, CIDR, EngineID, DeviceName, InstanceID} from './CommonTypes.js';
 import { Disk, getApps, getInstances } from './Disk.js';
@@ -151,13 +151,16 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
 
 export const bindEngine = ($engine:Engine, networks:Network[]):void => {
     networks.forEach((network) => {
+        const dummy = {}
+        dummy[dummyKey] = true
+        
         // Bind the $engine proxy to the network
         const yEngine = network.doc.getMap($engine.id)
         network.unbind = bind($engine as Record<string, any>, yEngine)
         log(`Bound engine ${$engine.id} to network ${network.appnet.name}`)
 
         // Create a proxy for the disks array
-        $engine.disks = proxy<{[key:DiskID]:boolean}>({}) 
+        $engine.disks = proxy<{[key:DiskID]:boolean}>(dummy) 
 
         // Bind the proxy for the disk Ids array to a corresponding Yjs Map
         bind($engine.disks, network.doc.getMap(`${$engine.id}_disks`))
@@ -166,7 +169,7 @@ export const bindEngine = ($engine:Engine, networks:Network[]):void => {
 
 
 export const getDisks = (store:Store, engine: Engine):Disk[] => {
-    const diskIds = Object.keys(engine.disks) as DiskID[]
+    const diskIds = getKeys(engine.disks) as DiskID[]
     return diskIds.map(diskId => getDisk(store, diskId))
 }
 
@@ -183,7 +186,7 @@ export const findDisk = (store:Store, engine: Engine, diskId: DiskID): Disk | un
 }
 
 // export const findDiskByName = (store:Store, engine: Engine, diskName: Hostname): Disk | undefined => {
-//     const diskIds = Object.keys(engine.disks) as DiskID[]
+//     const diskIds = getKeys(engine.disks) as DiskID[]
 //     const diskId = diskIds.find(diskId => {
 //         const disk = getDisk(store, diskId)
 //         return disk && disk.name === diskName
@@ -195,8 +198,12 @@ export const findDiskByName = (store:Store, engine: Engine, diskName: Hostname):
     return getDisks(store, engine).find(disk => disk.name === diskName)
 }
 
+export const findDiskById = (store:Store, engine: Engine, diskId: DiskID): Disk | undefined => {
+    return getDisks(store, engine).find(disk => disk.id === diskId)
+}
+
 // export const findDiskByDevice = (store:Store, engine: Engine, device: string):Disk | undefined => {
-//     const diskIds = Object.keys(engine.disks) as DiskID[]
+//     const diskIds = getKeys(engine.disks) as DiskID[]
 //     const diskId = diskIds.find(diskId => {
 //         const disk = getDisk(store, diskId)
 //         return disk && disk.device === device
@@ -210,7 +217,7 @@ export const findDiskByDevice = (store:Store, engine: Engine, device: DeviceName
 
 
 // export const getDiskNames = (store:Store, engine:Engine) => {
-//     const diskIds = Object.keys(engine.disks) as DiskID[]
+//     const diskIds = getKeys(engine.disks) as DiskID[]
 //     return diskIds.flatMap(diskId => {
 //         const disk = getDisk(store, diskId)
 //         return disk ? disk.name : []
@@ -225,7 +232,7 @@ export const getDiskNames = (store:Store, engine:Engine):Hostname[] => {
 //     log(`Updating disk ${disk.name} of engine ${engine.hostName}:`)
 
 //     // Check if engine already has the disk
-//     const diskIds = Object.keys(engine.disks) as DiskID[]
+//     const diskIds = getKeys(engine.disks) as DiskID[]
 //     const existingDisk = findDisk(store, engine, disk.id)
 //     if (existingDisk) {
 //         log(`Engine ${engine.hostName} already has disk ${disk.name}. Merging the new disk with the existing disk.`)
@@ -251,7 +258,7 @@ export const removeDisk = (store:Store, engine: Engine, disk: Disk):void => {
     // Remove all instances from the appnet if the disk still has the engine as its parent (it might have been inserted elsewhere)
     // TODO - This is sensitive to race conditions: suppose the disk is being inserted into another engine at the same time
     if (disk.engineId === engine.id) {
-        const instances = Object.keys(disk.instances) as InstanceID[]
+        const instances = getKeys(disk.instances) as InstanceID[]
         instances.forEach(instanceID => {
             store.networks.forEach(network => {
                 removeInstanceFromAppnet(network.appnet, instanceID)
@@ -310,7 +317,7 @@ export const findConnectedInterface = (engine: Engine, ifaceName: InterfaceName)
 }
 
 export const getConnectedInterfaces = (engine: Engine):InterfaceName[] => {
-    return engine.connectedInterfaces ? Object.keys(engine.connectedInterfaces) as InterfaceName[] : []
+    return engine.connectedInterfaces ? getKeys(engine.connectedInterfaces) as InterfaceName[] : []
 }
 
 export const getInterfacesToRemoteEngine = (engine: Engine, remoteIp: IPAddress):Interface[] => {
@@ -331,7 +338,7 @@ export const getInterfacesToRemoteEngine = (engine: Engine, remoteIp: IPAddress)
 
 
 // export const getEngineApps = (store:Store, engine: Engine) => {
-//     const diskIds = Object.keys(engine.disks) as DiskID[]
+//     const diskIds = getKeys(engine.disks) as DiskID[]
 //     return diskIds.reduce(
 //       (acc, diskId) => {
 //         const disk = getDisk(store, diskId)

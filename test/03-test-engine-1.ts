@@ -1,5 +1,5 @@
 import { $, chalk, question, sleep } from 'zx'
-import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngineByHostname } from '../src/data/Network.js';
+import { ConnectionResult, Network, createNetwork, connectEngine, getEngines, findEngineByHostname, findEngineById } from '../src/data/Network.js';
 import { deepPrint, findIp, isIP4, isNetmask, prompt } from '../src/utils/utils.js';
 import { log } from '../src/utils/utils.js';
 import { expect } from 'chai';
@@ -7,9 +7,9 @@ import { config } from '../src/data/Config.js';
 import { findNetworkByName, getLocalEngine } from '../src/data/Store.js';
 import { subscribe } from 'valtio';
 import { store } from '../src/data/Store.js';
-import { AppID, AppName, AppnetName, Hostname, IPAddress, InterfaceName, Version } from '../src/data/CommonTypes.js';
+import { AppID, AppName, AppnetName, DiskID, EngineID, Hostname, IPAddress, InterfaceName, Version } from '../src/data/CommonTypes.js';
 import exp from 'constants';
-import { findDiskByName, getDisks, getEngineApps, getEngineInstances, inspectEngine } from '../src/data/Engine.js';
+import { findDiskById, findDiskByName, getDisks, getEngineApps, getEngineInstances, inspectEngine } from '../src/data/Engine.js';
 import { findApp, findInstanceOfApp, getApps } from '../src/data/Disk.js';
 
 
@@ -18,8 +18,7 @@ const testSetup = config.testSetup
 const testNet = testSetup.appnet as AppnetName
 const testInterface = testSetup.interface as InterfaceName
 const testDisk1 = testSetup.testDisk1
-const testEngine1Name = testDisk1.name as Hostname
-const testEngine1Address = testDisk1.name + ".local" as IPAddress
+const testEngine1Address = testDisk1.engineName + ".local" as IPAddress
 
 
 let remoteEngine, disk, connection1Promise, network
@@ -61,14 +60,14 @@ describe(`The Test Master must be able to connect to Test Engine 1 on address ${
     // })
 
     // it(`Before the connection, the engineSet of the network must not yet contain test engine 1`, async function () {
-    //     expect(findEngineByHostname(network1, testEngine1Name)).to.not.exist
+    //     expect(findEngineByHostname(network1, testEngine1Id)).to.not.exist
     // })
 
     it('The test machine must be able to make the connection to test engine 1 ', async function () {
         this.timeout(0)
         if (!network) this.skip()
 
-        connection1Promise = connectEngine(network, testEngine1Address, true)
+        connection1Promise = connectEngine(network, testDisk1.engineId as EngineID, testEngine1Address, true)
         expect(connection1Promise).to.exist
 
         // The promise must resolve to a ConnectionResult
@@ -94,7 +93,7 @@ describe(`The Test Master must be able to connect to Test Engine 1 on address ${
         if (!network || !network.appnet) this.skip()
 
         // Give the syncing some time in case this test is executed immediately after startup
-        remoteEngine = findEngineByHostname(network, testEngine1Name)
+        remoteEngine = findEngineById(network, testDisk1.engineId as EngineID)
         inspectEngine(store, remoteEngine)
         expect(remoteEngine).to.exist
 
@@ -151,9 +150,9 @@ describe(`The Test Master must be able to connect to Test Engine 1 on address ${
         //console.dir(networkData1, {depth: 3, colors: true})
         //log(chalk.bgBlackBright("\n" + deepPrint(networkData1, 4)))
         // We must find an Engine object in networkData1 with the same name as testEngine1
-        it(`the right name ${testEngine1Name}`, async function () {
+        it(`the right id ${testDisk1.engineId as EngineID}`, async function () {
             if (!remoteEngine) this.skip()
-            //remoteEngine = findEngineByHostname(network1, testEngine1Name)
+            //remoteEngine = findEngineByHostname(network1, testEngine1Id)
             //log(chalk.bgBlackBright(`^^^^^^^^^^^^^Network1: ${deepPrint(network1)}`))
             expect(remoteEngine).to.exist
         })
@@ -184,7 +183,7 @@ describe(`The Test Master must be able to connect to Test Engine 1 on address ${
 
             it(`that exists`, async function () {
                 if (!remoteEngine) this.skip()
-                // remoteEngine = findEngineByHostname(network1, testEngine1Name)
+                // remoteEngine = findEngineByHostname(network1, testEngine1Id)
                 //console.log(`Remote engine: ${deepPrint(remoteEngine)}`)
                 //console.log(testInterface)
                 expect(remoteEngine.connectedInterfaces).to.have.property(testInterface)
@@ -215,10 +214,10 @@ describe(`The Test Master must be able to connect to Test Engine 1 on address ${
             })
         })
 
-        describe(`a disk called ${testDisk1.name}: `, async function () {
+        describe(`a disk with id ${testDisk1.diskId}: `, async function () {
             it(`that exists`, async function () {
                 if (!remoteEngine) this.skip()
-                disk = findDiskByName(store, remoteEngine, testDisk1.name as Hostname)
+                disk = findDiskById(store, remoteEngine, testDisk1.diskId as DiskID)
                 log(chalk.bgBlackBright(`++++++++++++++++++++++++Disk: ${deepPrint(disk)}`))    
                 expect(disk).to.exist
             })

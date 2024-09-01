@@ -1,5 +1,5 @@
 import chokidar from 'chokidar'
-import { fileExists, log } from '../utils/utils.js'
+import { fileExists, getKeys, log } from '../utils/utils.js'
 import { readMeta, DiskMeta } from '../data/Meta.js';
 import { $, YAML } from 'zx'
 import { Disk, createOrUpdateDisk as createOrUpdateDisk, updateAppsAndInstances } from '../data/Disk.js'
@@ -25,7 +25,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     // if (!(localEngine.id == '123456mac' as EngineID)) {     // QUICK HACK TO AVOID PROBLEMS ON THE DEV ENGINE
     //     const actualDevices = (await $`ls /dev/disk/by-label`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
     //     log(`Actual devices: ${actualDevices}`)
-    //     const previousDevices = Object.keys(localEngine.disks).map(diskID => store.diskDB[diskID].device).filter(device => device !== undefined)
+    //     const previousDevices = getKeys(localEngine.disks).map(diskID => store.diskDB[diskID].device).filter(device => device !== undefined)
     //     log(`Existing devices: ${previousDevices}`)
     //     previousDevices.forEach(device => {
     //         if (!actualDevices.includes(device)) {
@@ -47,7 +47,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
         // Check if the device begins with "sd", is then followed by a letter and ends with the number 2
         // We need the m flag - see https://regexr.com/7rvpq
         if (device.match(/^sd[a-z]2$/m)) {
-            log(`USB device ${device} has been added`)
+            log(`Processing the addition of USB device ${device}`)
             try {
                 // Check if the mount point exists. Run "mount -t ext4" and check if the output contains the string "/dev/<device> on /disks/<device> type ext4". 
                 const mountOutput = await $`mount -t ext4`
@@ -109,7 +109,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
         const device = path.split('/').pop()
         // Check if the device begins with "sd" and ends with a letter
         if (device && device.match(/^sd[a-z]2$/m)) {
-            log(`USB device ${device} has been removed`)
+            log(`Processing the removal of USB device ${device}`)
             // Remove the disk from the store
             const disk = findDiskByDevice(store, localEngine, device as DeviceName)
             if (disk) {
@@ -143,27 +143,31 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     }
 
     // PROBLEM - How do we know the device of a previous disk that has not yet been created
-    const previousDiskIds = Object.keys(localEngine.disks) as DiskID[]
+    const previousDiskIds = getKeys(localEngine.disks) as DiskID[]
     log(`Previous disk IDs: ${previousDiskIds}`)
-    const previousDevices = Object.keys(localEngine.disks).map(diskID => getDisk(store, diskID as DiskID).device).filter(device => device !== undefined)
+    const previousDevices = getKeys(localEngine.disks).map(diskID => getDisk(store, diskID as DiskID).device).filter(device => device !== undefined)
     log(`Previous devices: ${previousDevices}`)
     const actualDevices = (await $`ls /dev/engine`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
     log(`Actual devices: ${actualDevices}`)
-    actualDevices.forEach(device => {
-        addDevice(`/dev/engine/${device}`)
-    })
 
-    previousDevices.forEach(device => {
+    // WRONG! The watcher that we create later will always start with the actual devices
+    // actualDevices.forEach(device => {
+    // for (let device of actualDevices) {
+    //         await addDevice(`/dev/engine/${device}`)
+    // }
+
+    // previousDevices.forEach(device => {
+    for (let device of previousDevices) {
         if (!actualDevices.includes(device)) {
             log(`Removing device ${device}`)
             // Remove the disk from the store
             const disk = findDiskByDevice(store, localEngine, device as DeviceName)
             if (disk) {
-                removeDisk(store, localEngine, disk)
+                await removeDisk(store, localEngine, disk)
                 log(`Disk ${disk.id} removed from local engine`)
             }
         }
-    })
+    }
 
     // Watch the /dev/engine directory for changes
     const watchDir = '/dev/engine'

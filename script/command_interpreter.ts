@@ -17,6 +17,7 @@ import { AppName, AppnetName, Command, EngineID, Hostname, InstanceName, Interfa
 
 const defaults  = config.defaults
 const engineAddress = argv.e || argv.engine || defaults.engine
+const engineId = argv.i || argv.id || defaults.engineId
 const networkName = argv.n || argv.network || defaults.network as AppnetName
 
 // **********************
@@ -31,6 +32,7 @@ if (argv.h || argv.help) {
     console.log(`  -v, --version           output the version number`)
     console.log(`  -n, --network <string>  the network we want to join (default: ${defaults.network})`)
     console.log(`  -e, --engine <string>   the engine (address) we want to connect to (default: ${defaults.engine})`)
+    console.log(`  -i, --id <string>   the engine (id) we want to connect to (default: ${defaults.engineId})`)
     console.log(``)
     process.exit(0)
 }
@@ -46,7 +48,7 @@ if (argv.v || argv.version) {
 // ************************
 
 const network: Network = await createNetwork(store, networkName)
-await connectEngine(network, engineAddress)
+await connectEngine(network, engineId, engineAddress)
 
 
 

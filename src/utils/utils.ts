@@ -4,6 +4,13 @@ import { config, writeConfig } from '../data/Config.js';
 import { DiskID, Hostname, IPAddress, NetMask, Timestamp, Version } from '../data/CommonTypes.js';
 import { isIP } from 'net';
 
+// Dummy key
+export const dummyKey = "_dummy"
+
+export const getKeys = (obj) => {
+  return Object.keys(obj).filter(key => !(key === `${dummyKey}`))
+}
+
 // Read verbosityLevel from the environmnet
 const verbosity = process.env.VERBOSITY || ""
 export let verbosityLevel = parseInt(verbosity) || 0
