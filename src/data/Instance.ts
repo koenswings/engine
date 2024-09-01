@@ -44,14 +44,15 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
 
     // Read the meta file on the disk and extract the disk id
     // Do it
-    const disk = findDiskByDevice(store, getLocalEngine(store), device)
-    if (!disk) {
-      console.log(chalk.red(`Disk ${device} not found on engine ${getLocalEngine(store).hostname}`))
-      return
-    } else {
-      instanceId = createInstanceId(instanceName, appName, disk.id).toString() as InstanceID
-      log(`Instance ID: ${instanceId}`)
-    } 
+    // const disk = findDiskByDevice(store, getLocalEngine(store), device)
+    // if (!disk) {
+    //   console.log(chalk.red(`Disk ${device} not found on engine ${getLocalEngine(store).hostname}`))
+    //   return
+    // } else {
+    //   instanceId = createInstanceId(instanceName, appName, disk.id).toString() as InstanceID
+    //   log(`Instance ID: ${instanceId}`)
+    // } 
+    const instanceId = createInstanceId(appName).toString() as InstanceID
 
 
     // Create the app infrastructure if it does not exist
@@ -150,7 +151,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
   }
 }
 
-export const createInstanceId = (instanceName: InstanceName, appName:AppName, diskId: DiskID): InstanceID => {
+export const createInstanceId = (appName:AppName): InstanceID => {
   const id = uuid()
   // return instanceName + "_on_" + diskId as InstanceID
   return appName + "-" + id as InstanceID

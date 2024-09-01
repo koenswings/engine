@@ -79,6 +79,8 @@ try {
     exitWithError(`Error: Disk ${disk} not found on this machine`)
   }
 
+  
+
   buildInstance(instanceName, appName, gitAccount, gitTag, disk)
 
 } catch (error) {

@@ -165,7 +165,8 @@ export const store = await initialiseStore()
 // }
 
 export const getLocalEngine = (store:Store):Engine => {
-    return store.engineDB[store.localEngine]
+    //return store.engineDB[store.localEngine]
+    return getEngine(store, store.localEngine)
 }
 
 export const getEngine = (store: Store, engineId: EngineID):Engine  => {
