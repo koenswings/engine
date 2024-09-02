@@ -229,10 +229,14 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     const actualApps:App[] = []
 
     // Call addApp for each folder found in /disks/diskName/apps
-    const appIds = (await $`ls /disks/${disk.device}/apps`).stdout.split('\n')
-    log(`App ids found on disk ${disk.name}: ${appIds}`)
-    for (let appId of appIds) {
-      await updateApp(store, disk, appId  as AppID, actualApps)
+    // First check if it has an apps folder
+    if (await $`test -d /disks/${disk.device}/apps`.then(() => true).catch(() => false)) {
+        log(`Apps folder found on disk ${disk.name}`)
+        const appIds = (await $`ls /disks/${disk.device}/apps`).stdout.split('\n')
+        log(`App ids found on disk ${disk.name}: ${appIds}`)
+        for (let appId of appIds) {
+        await updateApp(store, disk, appId  as AppID, actualApps)
+        }
     }
 
     // OLD CODE
@@ -265,11 +269,13 @@ export const updateAppsAndInstances = async (store: Store, disk: Disk): Promise<
     const actualInstances:Instance[] = []
 
     // Call startInstance for each folder found in /instances
-    const instanceIds = (await $`ls /disks/${disk.device}/instances`).stdout.split('\n')
-    log(`Instance Ids found on disk ${disk.name}: ${instanceIds}`)
-    for (let instanceId of instanceIds) {
-        await updateInstance(store, disk, instanceId  as InstanceID, actualInstances)
-      }
+    if (await $`test -d /disks/${disk.device}/instances`.then(() => true).catch(() => false)) {
+        const instanceIds = (await $`ls /disks/${disk.device}/instances`).stdout.split('\n')
+        log(`Instance Ids found on disk ${disk.name}: ${instanceIds}`)
+        for (let instanceId of instanceIds) {
+            await updateInstance(store, disk, instanceId  as InstanceID, actualInstances)
+        }
+    }
 
     // OLD CODE
     // await Promise.all(instances.map(async (instanceFolder) => {

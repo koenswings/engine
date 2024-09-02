@@ -33,19 +33,14 @@ const defaultDisk = devices[0]
 
 // Check for the help flag and print usage if help is requested
 if (argv.h || argv.help) {
-  console.log(`Builds an instance of an app on the specified disk.`)
-  console.log(`Usage: build_app_instance.ts [options] <app>` )
-  console.log(`with ` )
-  console.log(`  <app> is the name of the app to build an instance of`)
-  console.log(`  it must be stored in a repository on github with name app-<appName>`)
+  console.log(`Turns a disk into a non-bootable app disk`)
+  console.log(`Usage: build-app-disk.ts [options]` )
   console.log(``)
   console.log(`Options:`)
   console.log(`  -h, --help           display help for command`)  
   console.log(`  --version            output the version number of command`)
-  console.log(`  --instance <string>  a user-presented name for the instance (default: <appName>)`)
   console.log(`  --disk <string>      the device name of the mounted disk in which the instance will be created (default: ${defaultDisk})`)
-  console.log(`  --git <string>       the git account to pull the app from (default: ${defaults.gitAccount})`)
-  console.log(`  --tag <string>       the git tag to pull the app from (default is latest_dev which retrieves the latest version on the main branch)`)
+  console.log(`  --name <string>      a name for the disk (default is a generated id)`)
   console.log(``)
   process.exit(0)
 }
@@ -57,25 +52,32 @@ if (argv.v || argv.version) {
 }
 
 
-// Check app argument
-const apps = argv._
-// if (apps.length == 0) {
-//   exitWithError("Error: You must specify one app");
-// }
-assert(apps.length == 1, "Error: You must specify the app that you want to create an instance of")
-const appName = apps[0] as AppName
+const addMetadata = async (name:string) => {
+  console.log(chalk.blue('Adding metadata...'));
+  try {
+      // Convert the diskMetadata object to a YAML string 
+      // const diskMetadataYAML = YAML.stringify(diskMetadata)
+      // fs.writeFileSync('./script/build_image_assets/META.yaml', diskMetadataYAML)
+      // // Copy the META.yaml file to the remote machine using zx
+      // await copyAsset('META.yaml', '/')
+      // await $$`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
 
+      await $`sudo echo 'hostname: ${name}' >> ${metaPath}/META.yaml`
+      await $`sudo echo 'created: ${new Date().getTime()}' >> ${metaPath}/META.yaml`
+      await $`sudo echo 'diskId: ${name}-disk' >> ${metaPath}/META.yaml`
+      // Move the META.yaml file to the root directory
+      await $`sudo mv ${metaPath}/META.yaml /META.yaml`
+  } catch (e) {
+    console.log(chalk.red('Error adding metadata'));
+    console.error(e);
+    process.exit(1);
+  }
+}
 
-// Now override the default configuration using the command line
-const gitAccount = argv.g || argv.git || defaults.gitAccount
-const instanceName = argv.i || argv.instance || appName
-const gitTag = argv.t || argv.tag || "latest_dev"
 const disk = argv.d || argv.disk || defaultDisk
-
-
-
-
-console.log(`Building instance ${instanceName} of app ${appName} on disk ${disk} from git account ${gitAccount} with tag ${gitTag}...`)
+const name = argv.n || argv.name || uuid()
+    
+console.log(`Building an app disk with name ${name}...`)
 
 try {
 
@@ -84,11 +86,11 @@ try {
     exitWithError(`Error: Disk ${disk} not found on this machine`)
   }
 
-  buildInstance(instanceName, appName, gitAccount, gitTag, disk)
+  await addMetadata(name)
 
 } catch (error) {
 
-  exitWithError(`Error when building ${appName}\n${error.message}`);
+  exitWithError(`Error when building appDisk\n${error.message}`);
 
 }
 
