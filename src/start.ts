@@ -130,9 +130,12 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
         enableInterfaceMonitor(store, settings.interfaces)
     }
 
-    await sleep(1000)
-    log(chalk.bgMagenta('STARTING MULTICAST DNS MONITOR'))
-    if (!disableMDNS) enableMulticastDNSEngineMonitor(store)
+    const configMDNS = config.settings.mdns
+    if (!disableMDNS && configMDNS) {
+        await sleep(1000)
+        log(chalk.bgMagenta('STARTING MULTICAST DNS MONITOR'))
+        enableMulticastDNSEngineMonitor(store)
+    }
 
 
     await sleep(1000)

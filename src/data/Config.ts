@@ -25,6 +25,7 @@ export interface Config {
 }
 
 export interface Settings {
+  mdns: boolean,
   localEngineName?: string,
   appnets?: AppnetConfig[],     // When no appnets are specified, a default will be created called "appnet"
   interfaces?: InterfaceName[]  // When no interfaces are specified, all interfaces are monitored and there is no interface acces control

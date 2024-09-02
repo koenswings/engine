@@ -1,4 +1,5 @@
 settings:
+  mdns: false
   localEngineName: c3325f72e49c
   appnets:
     - name: appnet

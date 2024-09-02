@@ -33,7 +33,7 @@ const defaults  = config.defaults
 const user = argv.u || argv.user || defaults.user
 const machine = argv.m || argv.machine || defaults.machine
 const password = argv.p || argv.password || defaults.password
-const hostname = argv.h || argv.hostname || generateHostName()
+const hostname = argv.hostname || generateHostName()
 const language = argv.l || argv.language || defaults.language
 const keyboard = argv.k || argv.keyboard || defaults.keyboard
 const timezone = argv.t || argv.timezone || defaults.timezone
@@ -75,7 +75,7 @@ if (argv.h || argv.help) {
   console.log(`  -m, --machine <string>  the remote machine to connect to (default: raspberrypi.local)`)
   console.log(`  -u, --user <string>     the user to use to connect to the remote machine (default: ${defaults.user})`)
   console.log(`  -p, --password <string> the password to use to connect to the remote machine (default: ${defaults.password})`)
-  console.log(`  -h, --hostname <string> the hostname to set on the remote machine (default: a name that is generated)`)
+  console.log(`  --hostname <string>     the hostname to set on the remote machine (default: a name that is generated)`)
   console.log(`  -l, --language <string> the language to set on the remote machine (default: ${defaults.language})`)
   console.log(`  -k, --keyboard <string> the keyboard layout to set on the remote machine (default: ${defaults.keyboard})`)
   console.log(`  -t, --timezone <string> the timezone to set on the remote machine (default: ${defaults.timezone})`)
@@ -275,6 +275,9 @@ const setHostname = async () => {
     console.log(chalk.blue(`Setting hostname to ${hostname}`));
     try {
       await $$`sudo hostnamectl set-hostname ${hostname}`;
+      // await $$`sudo hostname ${hostname}`
+      // Now replace the hostname in the /etc/hosts file
+      await $$`sudo sed -i "s/raspberrypi/${hostname}/g" /etc/hosts`
     }   catch (e) {
       console.log(chalk.red('Error setting hostname'));
       console.error(e);

@@ -22,7 +22,7 @@ export const enableInstanceSetMonitor = (store:Store, network:Network):void => {
     subscribe(network.appnet.instances, (value) => {
         log(`INSTANCESET MONITOR: The instanceSet of network ${network.appnet.name} was modified as follows: ${deepPrint(value)}`)
         const instanceIds = getKeys(network.appnet.instances) as InstanceID[]
-        //generateHTML(instanceIds, network.appnet.name)
+        generateHTML(instanceIds, network.appnet.name)
     })
     log(`Added INSTANCESET MONITOR to network ${network.appnet.name}`)
 }
