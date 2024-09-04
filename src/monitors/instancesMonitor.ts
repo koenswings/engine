@@ -48,7 +48,7 @@ export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):vo
                     }
                     const hostname = engine.hostname
                     const port = instance.port
-                    return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a></li>\n<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a> (alternative)</li>`
+                    return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a></li> or use <a href="http://${hostname}.local:${port}">this</a></li>`
                 }).join('\n')}
             </ul>
         </body>
