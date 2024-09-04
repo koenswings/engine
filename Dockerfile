@@ -34,6 +34,9 @@ RUN apt-get install -y usbutils udev
 # Install the avahi dns_sd compat library and its header files 
 RUN apt-get install -y libavahi-compat-libdnssd-dev
 
+# hdparm for reading a unique SSD id
+RUN apt-get install -y hdparm
+
 # Create a META.yaml file in the root location
 RUN echo "hostname: dev_engine, engineId: 1234567890-engine, deviceId: 1234567890-device, created: 1718271140002, version: '1.0' > /META.yaml"
 

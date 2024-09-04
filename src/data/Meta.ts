@@ -1,6 +1,7 @@
 import { $, YAML } from 'zx'
 import { fileExists, log } from '../utils/utils.js'
-import { DiskID, EngineID, Hostname, Timestamp, Version } from './CommonTypes.js'
+import { DeviceName, DiskID, EngineID, Hostname, Timestamp, Version } from './CommonTypes.js'
+import { Device } from 'usb'
 
 export interface DiskMeta {
     hostname: Hostname
@@ -33,3 +34,15 @@ export interface DiskMeta {
     }
   }
   
+  export const readDiskId = async (device: DeviceName):Promise<DiskID | undefined> => {
+    const sn = (await $`hdparm -I /dev/${device} | grep 'Serial\ Number'`).stdout
+    const id = sn.trim().split(':')
+    if (id.length === 2) {
+      return id[1].trim() as DiskID
+    } else {
+      return undefined
+    }
+  }
+
+
+

@@ -1,6 +1,6 @@
 import chokidar from 'chokidar'
 import { fileExists, getKeys, log } from '../utils/utils.js'
-import { readMeta, DiskMeta } from '../data/Meta.js';
+import { readMeta, DiskMeta, readDiskId } from '../data/Meta.js';
 import { $, YAML } from 'zx'
 import { Disk, createOrUpdateDisk as createOrUpdateDisk, updateAppsAndInstances } from '../data/Disk.js'
 import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
@@ -78,21 +78,42 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                 //     addDisk(localEngine, disk)
                 // } else {
                 //     log('Not an app disk')
-                // }                    
+                // }         
+                
+                let diskName
+                let diskCreated 
+                let diskCreatedTime
+                let diskId:DiskID
+                let diskIdOrUndefined = await readDiskId(device)
                 const meta:DiskMeta | undefined = await readMeta(device)
-                if (meta) {
-                    const diskName = meta.hostname as Hostname
-                    const diskId = meta.diskId as DiskID
-                    const diskCreated = meta.created
-                    const diskCreatedTime = new Date(diskCreated)
-                    log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with name ${diskName}, id ${diskId} and created on ${diskCreatedTime}`)
+                if (diskIdOrUndefined || meta) {
+                    if (diskIdOrUndefined && meta) {
+                        diskId = diskIdOrUndefined
+                        diskName = diskId.toString() as Hostname
+                        diskCreated = meta.created
+                        diskCreatedTime = new Date(diskCreated)
+                        log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a META file and a hardware ID with name ${diskName}, id ${diskId} and created on ${diskCreatedTime}`)
+                    } else if (diskIdOrUndefined) {
+                        diskId = diskIdOrUndefined
+                        diskName = diskId.toString() as Hostname
+                        diskCreated = 0
+                        diskCreatedTime = new Date(diskCreated)
+                        log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a hardware ID with name ${diskName}, id ${diskId}`)
+                    } else if (meta) {
+                        diskName = meta.hostname as Hostname
+                        diskId = meta.diskId as DiskID
+                        diskCreated = meta.created
+                        diskCreatedTime = new Date(diskCreated)
+                        log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a META file with name ${diskName}, id ${diskId} and created on ${diskCreatedTime}`)
+                    }
                     // Add the disk to the store
+                    // @ts-ignore
                     const disk:Disk = createOrUpdateDisk(store, localEngine.id, device, diskId, diskName, diskCreated)
                     await updateAppsAndInstances(store, disk)
                     log(`Adding the disk ${disk.name} to the local engine`)
                     addDisk(localEngine, disk)
                 } else {
-                    log('Not an app disk')
+                    log('Could not find an id or a META file.  Not an app disk')
                 }
             } catch (e) {
                 log(`Error mounting device ${device}`)
