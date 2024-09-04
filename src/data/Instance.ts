@@ -272,6 +272,7 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
 
 
     // Find the container
+    log(`Running containers:`)
     const docker = new Docker({ socketPath: '/var/run/docker.sock' });
     const containers = await docker.container.list()
     containers.forEach(container => {
@@ -438,7 +439,7 @@ export const stopInstance = async (store: Store, instance: Instance, disk: Disk)
     // Compose stop the app
     // Do it
     // await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml stop`
-    await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose stop`
+    await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose down`
     console.log(chalk.green(`App ${instance.id} stopped`))
   } catch (e) {
     console.log(chalk.red(`Error stopping app instance ${instance.id}`))

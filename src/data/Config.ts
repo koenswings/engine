@@ -120,7 +120,8 @@ export interface ScriptDefaults {
   argon: boolean,
   zerotier: boolean,
   raspap: boolean,
-  gadget: boolean
+  gadget: boolean,
+  nodocker: boolean
   gitAccount: string
 }
 

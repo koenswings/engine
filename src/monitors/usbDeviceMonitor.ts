@@ -113,8 +113,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
             // Remove the disk from the store
             const disk = findDiskByDevice(store, localEngine, device as DeviceName)
             if (disk) {
-                removeDisk(store, localEngine, disk)
-
+                await removeDisk(store, localEngine, disk)
                 log(`Disk ${device} removed from engine ${localEngine.hostname}`)
             }
     
@@ -174,6 +173,35 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     const watcher = chokidar.watch(watchDir, {
         persistent: true,
     })
+
+    // Remove all mount points that are not in the actual devices
+    // TBD If this is really needed - The system seeks device names independent of the mount points and 
+    // any mount points with existing content will be shadowed by the mount
+    const previousMounts = (await $`ls /disks`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
+    log(`Previously mounted devices: ${previousMounts}`)
+    const mountOutput = await $`mount -t ext4`
+    for (let device of previousMounts) {
+        if (!actualDevices.includes(device) && !mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
+            log(`Cleaning up device ${device}`)
+            // Unmount
+            // try {
+            //     log(`Unmounting device ${device}`)
+            //     await $`umount /disks/${device}`
+            // } catch (e) {
+            //     log(`Error unmounting device ${device}`)
+            //     log(e)
+            // }
+            try {
+                log(`Removing the content in /disks/${device}`)
+                // await $`rm -fr /disks/${device}`
+            } catch (e) {
+                log(`Error removing folder ${device}`)
+                log(e)
+            }
+            log(`Device ${device} has been successfully cleaned up`)
+        }
+    }
+
 
     watcher
         .on('add', addDevice)

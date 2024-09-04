@@ -9,7 +9,7 @@ import { engineCommands } from './utils/engineCommands.js'
 import { $, YAML, chalk, sleep } from 'zx'
 import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
 import { deepPrint, log, uuid } from './utils/utils.js'
-import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
+//import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
 import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
 import { addNetwork, findNetworkByName, getLocalEngine, initialiseStore } from './data/Store.js'
 import { config } from './data/Config.js'
@@ -134,7 +134,7 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     if (!disableMDNS && configMDNS) {
         await sleep(1000)
         log(chalk.bgMagenta('STARTING MULTICAST DNS MONITOR'))
-        enableMulticastDNSEngineMonitor(store)
+        // enableMulticastDNSEngineMonitor(store)
     }
 
 

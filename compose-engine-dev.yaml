@@ -36,6 +36,9 @@ services:
       - type: bind  # Required to see newly added USB devices
         source: /dev
         target: /dev
+      - type: bind
+        source: /disks
+        target: /disks
   
 
     # Run pnpm dev on start

@@ -45,6 +45,7 @@ const argon = argv.argon || defaults.argon
 const zerotier = argv.zerotier || defaults.zerotier
 const raspap = argv.raspap || defaults.raspap
 const gadget = argv.gadget || defaults.gadget
+const nodocker = argv.nodocker || defaults.nodocker
 
 
 // ********************************************************************************************************************
@@ -87,6 +88,7 @@ if (argv.h || argv.help) {
   console.log(`  --zerotier              whether to install Zerotier (default: ${defaults.zerotier})`)
   console.log(`  --raspap                whether to install RaspAP (default: ${defaults.raspap})`)
   console.log(`  --gadget                whether to run the rpi4-usb script (default: ${defaults.gadget})`)
+  console.log(`  --nodocker              whether the engine itself will be dockerized or not (default: ${defaults.nodocker})`)
   console.log(``)
   process.exit(0)
 }
@@ -596,6 +598,60 @@ const installZerotier = async () => {
   console.log(chalk.green('Zerotier installed'));
 }
 
+const installRSync = async () => {
+  console.log(chalk.blue('Installing rsync...'));
+  try {
+      await $$`sudo apt install rsync -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing rsync'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('rsync installed'));
+} 
+
+const installNpm = async () => {
+  console.log(chalk.blue('Installing node, n, npm and pnpm...'));
+  try {
+    await $$`sudo apt install npm -y`
+    await $$`sudo npm install -g -y n pnpm`
+    await $$`sudo n 19.6.0`
+  } catch (e) {
+    console.log(chalk.red('Error installing node, n, npm and pnpm...'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('node, n, npm and pnpm installed'));
+} 
+
+const configurePnpm = async () => {
+  console.log(chalk.blue('Setting up pnpm...'));
+  try {
+    await $$`SHELL=bash PNPM_HOME=/pnpm PATH="$PNPM_HOME:$PATH" sudo pnpm setup`
+    // await $$`sudo source /home/pi/.bashrcm`
+    await $$`sudo pnpm add -g ts-node"`
+  } catch (e) {
+    console.log(chalk.red('Error setting up pnpm...'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Pnpm set up'));
+} 
+
+// const installEnv = async () => {
+//   console.log(chalk.blue('Setting the environment variables...'));
+//   try {
+//     await $$`sudo export SHELL=bash`
+//     await $$`sudo export PNPM_HOME=/pnpm`
+//     await $$`sudo export PATH="$PNPM_HOME:$PATH"`
+//   } catch (e) {
+//     console.log(chalk.red('Error setting the environment variables...'));
+//     console.error(e);
+//     process.exit(1);
+//   }
+//   console.log(chalk.green('Environment variables set'));
+// } 
+
 const addMetadata = async () => {
   const id = uuid()
   // const diskMetadata = {
@@ -711,6 +767,18 @@ const build = async () => {
         await installZerotier()
     }
 
+    if (nodocker) {
+        // Install rsync
+        await installRSync()
+        // Install npm, n and pnpm
+        await installNpm()
+        // Configure pnpm
+        await configurePnpm()
+        // Install the engine
+        await $$`cd ${enginePath} && sudo pnpm install`
+        // Start the engine
+        // await $$`cd ${enginePath} && sudo pnpm start`
+    }
     
     // Clone the engine repo
     // Only required for production build - for dev build, we sync the engine from the development machine

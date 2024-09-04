@@ -1,15 +1,15 @@
-import { $, chalk, os } from 'zx';
+import { $, chalk, os, sleep } from 'zx';
 import { deepPrint, dummyKey, getKeys, log, sameNet } from '../utils/utils.js';
 import { readMeta, DiskMeta } from './Meta.js';
 import { Version, DockerMetrics, DockerLogs, DockerEvents, Command, Hostname, Timestamp, InterfaceName, DiskID, IPAddress, NetMask, CIDR, EngineID, DeviceName, InstanceID} from './CommonTypes.js';
 import { Disk, getApps, getInstances } from './Disk.js';
 import { proxy } from 'valtio';
 import { config } from './Config.js';
-import { Store, getDisk } from './Store.js';
+import { Store, getDisk, getInstance } from './Store.js';
 import { addEngineToAppnet, removeInstanceFromAppnet } from './Appnet.js';
 import { bind } from '../valtio-yjs/index.js';
 import { App } from './App.js';
-import { Instance } from './Instance.js';
+import { Instance, stopInstance } from './Instance.js';
 import { Network } from './Network.js';
 import { get } from 'http';
 
@@ -248,23 +248,35 @@ export const addDisk = (engine: Engine, disk: Disk):void => {
     engine.disks[disk.id] = true
 }
 
-export const removeDisk = (store:Store, engine: Engine, disk: Disk):void => {
+export const removeDisk = async (store:Store, engine: Engine, disk: Disk):Promise<void> => {
     // const index = engine.disks.indexOf(disk)
     // if (index > -1) {
     //   engine.disks.splice(index, 1)
     // }
     log(`Removing disk ${disk.id} from engine ${engine.hostname} and all its instances form the networks`)
-    delete engine.disks[disk.id]
     // Remove all instances from the appnet if the disk still has the engine as its parent (it might have been inserted elsewhere)
     // TODO - This is sensitive to race conditions: suppose the disk is being inserted into another engine at the same time
     if (disk.engineId === engine.id) {
         const instances = getKeys(disk.instances) as InstanceID[]
-        instances.forEach(instanceID => {
+        for (const instanceID of instances) {
+        // instances.forEach(async instanceID => {
+        
+            // OLD
+            // Stopping an instance is not possible when its disk has already been removed
+            // const instance = getInstance(store, instanceID)
+            // await stopInstance(store, instance, disk)
+            // log(`Instance ${instance.id} stopped`)
+            
             store.networks.forEach(network => {
                 removeInstanceFromAppnet(network.appnet, instanceID)
             })
-        })
+        }
+        // HACK - wait for the containers to be removed before unmounting the disks
+        // log(`Waiting for 5 seconds before unmounting the disk`)
+        // await sleep(5000)
     }
+    delete engine.disks[disk.id]
+
 }
 
 export const removeDiskByName = (store:Store, engine: Engine, diskName: Hostname):void => {
@@ -375,12 +387,12 @@ export const rebootEngine = (engine: Engine) => {
 }
 
 export const inspectEngine = (store:Store, engine: Engine) => {
-    log(chalk.bgBlackBright(`Appnets: ${deepPrint(store.networks.map(network => network.appnet))}`))
-    log(chalk.bgBlackBright(`Engine: ${deepPrint(engine)}`))
+    log(chalk.bgGray(`Appnets: ${deepPrint(store.networks.map(network => network.appnet))}`))
+    log(chalk.bgGray(`Engine: ${deepPrint(engine)}`))
     const disks = getDisks(store, engine)
-    log(chalk.bgBlackBright(`Disks: ${deepPrint(disks)}`))
+    log(chalk.bgGray(`Disks: ${deepPrint(disks)}`))
     const apps = getEngineApps(store, engine)
-    log(chalk.bgBlackBright(`Apps: ${deepPrint(apps)}`))
+    log(chalk.bgGray(`Apps: ${deepPrint(apps)}`))
     const instances = getEngineInstances(store, engine)
-    log(chalk.bgBlackBright(`Instances: ${deepPrint(instances)}`))
+    log(chalk.bgGray(`Instances: ${deepPrint(instances)}`))
 }

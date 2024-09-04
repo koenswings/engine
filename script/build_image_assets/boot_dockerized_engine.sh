@@ -78,10 +78,21 @@ echo "**********************" >> /home/pi/boot.out
 
 vcgencmd display_power 0
 
-echo "Starting the engine" >> /home/pi/boot.out
-cd /home/pi/engine
-chmod +x startdev.sh && ./startdev.sh
-echo "DONE" >> /home/pi/boot.out
+# Check if the container engine-engine-1 is running and write a message if it is 
+if docker ps | grep -q "engine-engine-1"; then
+  echo "***********************" >> /home/pi/boot.out
+  echo "engine-engine-1 is running" >> /home/pi/boot.out
+  echo "***********************" >> /home/pi/boot.out
+fi
+
+# Check if the container engine-engine-1 is running and if it is not, compose it up
+if ! docker ps | grep -q "engine-engine-1"; then
+  echo "***********************" >> /home/pi/boot.out
+  echo "Restarting engine-engine-1" >> /home/pi/boot.out
+  echo "***********************" >> /home/pi/boot.out
+  cd /engine
+  docker compose -f compose-test.yaml up -d
+fi
 
 
 

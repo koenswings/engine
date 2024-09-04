@@ -4,9 +4,11 @@ import { Engine, initialiseLocalEngine } from "./Engine.js"
 import { Doc } from "yjs"
 import { bind } from "../valtio-yjs/index.js"
 import { log } from "console"
-import { Instance } from "./Instance.js"
+import { Instance, stopInstance } from "./Instance.js"
 import crypto from "crypto"
 import { dummyKey, getKeys } from "../utils/utils.js"
+import { store } from "./Store.js"
+import { Disk } from "./Disk.js"
 
 /**
  * Appnet is the root object for all data distributed over the network
