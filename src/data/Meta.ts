@@ -19,6 +19,7 @@ export interface DiskMeta {
     } else {
       path = `/META.yaml`
     }
+    log(`Reading metadata at path ${path}`)
     try {
       //log(`Our current dir is ${await $`pwd`} with content ${await $`ls`} and path ${path}`)
       if (await fileExists(path)) {
@@ -35,13 +36,22 @@ export interface DiskMeta {
   }
   
   export const readDiskId = async (device: DeviceName):Promise<DiskID | undefined> => {
-    const sn = (await $`hdparm -I /dev/${device} | grep 'Serial\ Number'`).stdout
-    const id = sn.trim().split(':')
-    if (id.length === 2) {
-      return id[1].trim() as DiskID
-    } else {
+    log(`Reading disk id for device ${device}`)
+    try {
+      const sn = (await $`hdparm -I /dev/${device} | grep 'Serial\ Number'`).stdout
+      log(`Serial number is ${sn}`)
+      const id = sn.trim().split(':')
+      log(`split ID is ${id}`)
+      if (id.length === 2) {
+        return id[1].trim() as DiskID
+      } else {
+        log(`Cannot read disk id for device ${device}`)
+        return undefined
+      }
+    } catch (e) {
+      log(`Error reading disk id: ${e}`)
       return undefined
-    }
+    } 
   }
 
 

@@ -11,6 +11,13 @@ export const getKeys = (obj) => {
   return Object.keys(obj).filter(key => !(key === `${dummyKey}`))
 }
 
+// Generate a random port number between 49152-65535
+export const randomPort = ():number => {
+  return Math.floor(Math.random() * 16383) + 49152
+}
+
+
+
 // Read verbosityLevel from the environmnet
 const verbosity = process.env.VERBOSITY || ""
 export let verbosityLevel = parseInt(verbosity) || 0
@@ -171,13 +178,17 @@ export const sameNet = (IP1:any, IP2:any, mask:any) => {
   }
 }
 
-export const findIp = async (address:IPAddress) => {
+export const findIp = async (address:IPAddress):Promise<IPAddress | undefined> => {
   // Use a shell command to resolve the ip address
   // REmove the trailing \n from the ip address
-  const testEngine1IP = (await $`ping -c 1 ${address} | grep PING | awk '{print $3}' | tr -d '()'`).stdout.replace(/\n$/, '')
-  if (isIPAddress(testEngine1IP)) {
-    return testEngine1IP
-  } else {
+  try {
+    const ip = (await $`ping -c 1 ${address} | grep PING | awk '{print $3}' | tr -d '()'`).stdout.replace(/\n$/, '')
+    if (isIPAddress(ip)) {
+      return ip
+    } else {
+      return undefined
+    }
+  } catch (e) {
     return undefined
   }
 }

@@ -116,7 +116,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                     log('Could not find an id or a META file.  Not an app disk')
                 }
             } catch (e) {
-                log(`Error mounting device ${device}`)
+                log(`Error recognizing device ${device}`)
                 log(e)
             }
         } else {

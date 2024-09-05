@@ -1,9 +1,9 @@
 import { subscribe } from 'valtio'
-import { log, deepPrint, getKeys } from '../utils/utils.js'
+import { log, deepPrint, getKeys, findIp } from '../utils/utils.js'
 import { Store, getEngine, getInstance, store } from '../data/Store.js'
-import { Engine } from '../data/Engine.js'
+import { Engine, getIp } from '../data/Engine.js'
 import { Network } from '../data/Network.js'
-import { AppnetName, EngineID, InstanceID, PortNumber } from '../data/CommonTypes.js'
+import { AppnetName, EngineID, IPAddress, InstanceID, InterfaceName, PortNumber } from '../data/CommonTypes.js'
 import { handleCommand } from '../utils/commandHandler.js'
 import { engineCommands } from '../utils/engineCommands.js'
 import { fs } from 'zx'
@@ -12,11 +12,11 @@ import { getEngineOfInstance } from '../data/Instance.js'
 
 
 
-export const enableInstanceSetMonitor = (store:Store, network:Network):void => {
+export const enableInstanceSetMonitor = async (store:Store, network:Network):Promise<void> => {
 
     // Generate HTML for the current instances
     const instanceIds = getKeys(network.appnet.instances) as InstanceID[]
-    generateHTML(instanceIds, network.appnet.name)
+    await generateHTML(instanceIds, network.appnet.name)
 
     // Monitor the engineSet for changes
     subscribe(network.appnet.instances, (value) => {
@@ -27,7 +27,7 @@ export const enableInstanceSetMonitor = (store:Store, network:Network):void => {
     log(`Added INSTANCESET MONITOR to network ${network.appnet.name}`)
 }
 
-export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):void => {
+export const generateHTML = async (instanceIds:InstanceID[], appnetName:AppnetName):Promise<void> => {
     // Generate the HTML for the instances
     const html = `<!DOCTYPE html>
     <html>
@@ -38,7 +38,7 @@ export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):vo
         <body>
             <h1>Apps</h1>
             <ul>
-                ${instanceIds.map((instanceId) => {
+                ${(await Promise.all(instanceIds.map(async (instanceId) =>  {
                     // Find the engine hostname for the instance and generate a url using the hostname and the port number of the instance
                     const instance = getInstance(store, instanceId)
                     const diskId = instance.diskId
@@ -48,8 +48,15 @@ export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):vo
                     }
                     const hostname = engine.hostname
                     const port = instance.port
-                    return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a></li> or use <a href="http://${hostname}.local:${port}">this</a></li>`
-                }).join('\n')}
+                    // const ip = await findIp(`${hostname}.local` as IPAddress)
+                    // HACK - Assuming engines are only used over eth0 - We should restrict the interaces and then enumerate the addresses on all restricted interfaces
+                    const ip = await getIp(engine, 'eth0' as InterfaceName)
+                    if (ip) {
+                        return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a> or use <a href="${ip}:${port}">this</a></li>`
+                    } else {
+                        return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a></li>`
+                    }
+                }))).join('\n')}
             </ul>
         </body>
     </html>`
@@ -58,7 +65,7 @@ export const generateHTML = (instanceIds:InstanceID[], appnetName:AppnetName):vo
     fs.writeFileSync(`${appnetName}.html`, html)
 }   
 
-export const enableIndexServer = (store:Store, appnetName:AppnetName, port?:PortNumber):void => {
+export const enableIndexServer = async (store:Store, appnetName:AppnetName, port?:PortNumber):Promise<void> => {
     // Start an HTTP server that serves the index.html file of the specified appnet
     let portNumber:number
     if (port) {
@@ -67,7 +74,9 @@ export const enableIndexServer = (store:Store, appnetName:AppnetName, port?:Port
         portNumber = 80
     }
     // If the file `${appnetName}.html` does not exist, generate it
-    if (!fs.existsSync(`${appnetName}.html`)) generateHTML([], appnetName)
+    if (!fs.existsSync(`${appnetName}.html`)) {
+        await generateHTML([], appnetName)
+    }
     const server = http.createServer((req, res) => {
         res.writeHead(200, {'Content-Type': 'text/html'})
         fs.readFile(`${appnetName}.html`, (err, data) => {

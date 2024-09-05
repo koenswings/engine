@@ -1,5 +1,5 @@
 import { $, YAML, chalk, fs, os } from "zx";
-import { deepPrint, log, uuid } from "../utils/utils.js";
+import { deepPrint, log, randomPort, uuid } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
 import { Store, getDisk, getEngine, getLocalEngine, store } from "./Store.js";
 import { Disk, addInstance } from "./Disk.js";
@@ -287,7 +287,8 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
       log(`No container found for instance ${instance.id}. Generating a new port number.`)
       // Alternative is to check the system for an occupied port
       // await $`netstat -tuln | grep ${port}`
-      port = 3000
+      // port = 3000
+      port = randomPort()
       let portInUse = true
       let portInUseResult
       const instances = getEngineInstances(store, getLocalEngine(store))
@@ -302,7 +303,8 @@ export const startAndAddInstance = async (store: Store, instance: Instance, disk
             const inst = instances.find(instance => instance && instance.port == port)
             if (inst) {
               log(`Port ${port} is used by another instance`)
-              port++
+              //port++
+              port = randomPort()
             } else {
               log(`Port ${port} is not used by another instance`)
               portInUse = false

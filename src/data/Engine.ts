@@ -260,7 +260,7 @@ export const removeDisk = async (store:Store, engine: Engine, disk: Disk):Promis
         const instances = getKeys(disk.instances) as InstanceID[]
         for (const instanceID of instances) {
         // instances.forEach(async instanceID => {
-        
+
             // OLD
             // Stopping an instance is not possible when its disk has already been removed
             // const instance = getInstance(store, instanceID)
@@ -344,6 +344,10 @@ export const getInterfacesToRemoteEngine = (engine: Engine, remoteIp: IPAddress)
     } else {
         return []
     }
+}
+
+export const getIp = (engine: Engine, ifaceName: InterfaceName):IPAddress | undefined => {
+    return engine.connectedInterfaces ? engine.connectedInterfaces[ifaceName]?.ip4 : undefined
 }
 
 

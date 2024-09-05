@@ -46,7 +46,7 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
     // Start the app index server
     log(chalk.bgMagenta('STARTING THE INDEX SERVER FOR APPNET'))
-    enableIndexServer(store, 'appnet' as AppnetName)
+    await enableIndexServer(store, 'appnet' as AppnetName)
 
 
     // Start the websocket servers
@@ -144,12 +144,17 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
 
     await sleep(15000)
+    generateHeartBeat()
+
+    await sleep(15000)
+    generateHeartBeat()
+
     // log(chalk.bgMagenta('STARTING CHANGE TEST'))
     // changeTest(store)
     // enableTimeMonitor(300000, changeTest)
-    log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
-    generateHeartBeat()
-    enableTimeMonitor(60000, generateHeartBeat)
+    // log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
+    // generateHeartBeat()
+    // enableTimeMonitor(60000, generateHeartBeat)
 
 
 

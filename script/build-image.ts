@@ -685,6 +685,24 @@ const addMetadata = async () => {
     process.exit(1);
   }
 }
+
+const installPm2 = async () => {
+  console.log(chalk.blue('Installing pm2...'));
+  try {
+      await $$`sudo npm install -g pm2`
+      await $$`cd ${enginePath}`
+      await $$`cd ${enginePath} && sudo pnpm tsc`
+      await $$`cd ${enginePath} && sudo pm2 start dist/src/index.js`
+      await $$`cd ${enginePath} && sudo pm2 save`
+      await $$`cd ${enginePath} && sudo pm2 startup`
+      await $$`cd ${enginePath} && sudo pm2 install pm2-logrotate`
+  } catch (e) {
+    console.log(chalk.red('Error installing pm2'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('pm2 installed'));
+}
     
 
 const build = async () => {
@@ -774,6 +792,8 @@ const build = async () => {
         await installNpm()
         // Configure pnpm
         await configurePnpm()
+        // Install pm2
+        await installPm2()
         // Install the engine
         await $$`cd ${enginePath} && sudo pnpm install`
         // Start the engine
