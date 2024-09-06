@@ -49,7 +49,7 @@ export interface DiskMeta {
         return undefined
       }
     } catch (e) {
-      log(`Error reading disk id: ${e}`)
+      log(`Error reading disk id of device ${device}: ${e}`)
       return undefined
     } 
   }

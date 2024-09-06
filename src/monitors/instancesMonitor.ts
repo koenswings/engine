@@ -52,7 +52,7 @@ export const generateHTML = async (instanceIds:InstanceID[], appnetName:AppnetNa
                     // HACK - Assuming engines are only used over eth0 - We should restrict the interaces and then enumerate the addresses on all restricted interfaces
                     const ip = await getIp(engine, 'eth0' as InterfaceName)
                     if (ip) {
-                        return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a> or use <a href="${ip}:${port}">this</a></li>`
+                        return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a> or use <a href="http://${ip}:${port}">this</a></li>`
                     } else {
                         return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId}</a></li>`
                     }
