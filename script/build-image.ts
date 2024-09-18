@@ -93,6 +93,7 @@ if (argv.h || argv.help) {
   process.exit(0)
 }
 
+
 // ********************************************************************************************************************
 // Installer Helper Functions
 // ********************************************************************************************************************
@@ -703,6 +704,21 @@ const installPm2 = async () => {
   }
   console.log(chalk.green('pm2 installed'));
 }
+
+const test = async () => {
+          // Install rsync
+          await installRSync()
+          // Install npm, n and pnpm
+          await installNpm()
+          // Configure pnpm
+          await configurePnpm()
+          // Install pm2
+          await installPm2()
+          // Install the engine
+          await $$`cd ${enginePath} && sudo pnpm install`
+          // Start the engine
+          // await $$`cd ${enginePath} && sudo pnpm start`
+}
     
 
 const build = async () => {
@@ -816,6 +832,11 @@ const build = async () => {
 
     // Reboot the system
     await rebootSystem()
+}
+
+if (argv.h || argv.help) {
+  await test()
+  process.exit(0);
 }
 
 await build()
