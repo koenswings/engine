@@ -24,7 +24,7 @@ defaults:
   zerotier: false
   raspap: false
   gadget: true
-  nodocker: true   // Whether the engine itself will be dockerized
+  nodocker: false   // Whether the engine itself will be dockerized
   gitAccount: koenswings
 testSetup:
   appnet: appnet
