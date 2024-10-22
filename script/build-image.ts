@@ -490,49 +490,14 @@ const cloneRepo = async () => {
   console.log(chalk.green('Engine repo cloned'));
 }
 
-// Write a function to compose up the engine using the correct compose file
-const startEngine = async (productionMode:boolean) => {
-  // Build the engine image
-  console.log(chalk.blue(`Building a ${productionMode ? "production" : "dev"} mode engine image...`))
-  try {
-      // Compose build
-      // (use sudo because the docker group has not been added yet - requires a reboot)
-      if (productionMode) {
-        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
-      } else {
-        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
-      }
-  } catch (e) {
-    console.log(chalk.red('Error building the engine image'));
-    console.error(e);
-    process.exit(1);
-  }
-  console.log(chalk.green('Engine image built'));
-
-  // Start the engine
-  console.log(chalk.blue('Composing up the engine...'));
-  try {
-      // Compose up 
-      // (use sudo because the docker group has not been added yet - requires a reboot)
-      if (productionMode) {
-        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
-      } else {
-        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
-      }
-  } catch (e) {
-    console.log(chalk.red('Error composing up the engine'));
-    console.error(e);
-    process.exit(1);
-  }
-  console.log(chalk.green('Engine composed up'));
-}
-
 // Write a function to install udev and the udev rules in 90-docking.rules
 const installUdev = async () => {
   console.log(chalk.blue('Installing udev and udev rules...'));
   try {
       await $$`sudo apt install udev -y`;
       await copyAsset('90-docking.rules', '/etc/udev/rules.d')
+      // Create the /disks folder for mounting the disks
+      await createDir('/disks', "0755", "0:0")
   } catch (e) {
     console.log(chalk.red('Error installing udev and udev rules'));
     console.error(e);
@@ -628,9 +593,10 @@ const installNpm = async () => {
 const configurePnpm = async () => {
   console.log(chalk.blue('Setting up pnpm...'));
   try {
-    await $$`SHELL=bash PNPM_HOME=/pnpm PATH="$PNPM_HOME:$PATH" sudo pnpm setup`
+    // await $$`SHELL=bash PNPM_HOME=/pnpm PATH=\"$PNPM_HOME:$PATH\" sudo pnpm setup`
+    await $$`sudo pnpm setup`
     // await $$`sudo source /home/pi/.bashrcm`
-    await $$`sudo pnpm add -g ts-node"`
+    // await $$`sudo pnpm add -g ts-node"`
   } catch (e) {
     console.log(chalk.red('Error setting up pnpm...'));
     console.error(e);
@@ -692,10 +658,7 @@ const installPm2 = async () => {
   try {
       await $$`sudo npm install -g pm2`
       await $$`cd ${enginePath}`
-      await $$`cd ${enginePath} && sudo pnpm tsc`
-      await $$`cd ${enginePath} && sudo pm2 start dist/src/index.js`
-      await $$`cd ${enginePath} && sudo pm2 save`
-      await $$`cd ${enginePath} && sudo pm2 startup`
+      console.log(chalk.blue('Installing pm2-logrotate...'))
       await $$`cd ${enginePath} && sudo pm2 install pm2-logrotate`
   } catch (e) {
     console.log(chalk.red('Error installing pm2'));
@@ -705,19 +668,106 @@ const installPm2 = async () => {
   console.log(chalk.green('pm2 installed'));
 }
 
+// Write a function to compose up the engine using the correct compose file
+const startEngine = async (productionMode:boolean) => {
+  // Build the engine image
+  console.log(chalk.blue(`Building a ${productionMode ? "production" : "dev"} mode engine image...`))
+  try {
+      // Compose build
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      if (productionMode) {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
+      } else {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
+      }
+  } catch (e) {
+    console.log(chalk.red('Error building the engine image'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine image built'));
+
+  // Start the engine
+  console.log(chalk.blue('Composing up the engine...'));
+  try {
+      // Compose up 
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      if (productionMode) {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
+      } else {
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
+      }
+  } catch (e) {
+    console.log(chalk.red('Error composing up the engine'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine composed up'));
+}
+
+const installEnginePM2 = async () => {
+  console.log(chalk.blue('Installing the engine...'))
+  await $$`cd ${enginePath} && sudo pnpm install_packages`
+}
+
+const buildEnginePM2 = async () => {
+  console.log(chalk.blue('Building the engine with tsc...'))
+  // await $$`sudo npm install -g tsc`
+  await $$`cd ${enginePath} && sudo pnpm build`
+}
+
+const startEnginePM2 = async (productionMode:boolean) => {
+  console.log(chalk.blue('Starting the engine with pm2...'));
+  try {
+
+        // We require idempotency - check if the engine has already started before starting and persisting it
+        try {
+            await $$`pm2 show engine`
+        } catch (e) {
+            console.log(chalk.blue(`Starting a ${productionMode ? "production" : "dev"} mode engine with pm2...`))
+            await copyAsset('pm2.config.cjs', enginePath)
+            if (productionMode) {
+                await $$`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env production`
+            } else {
+                await $$`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env development`
+            }
+            console.log(chalk.blue('Saving the pm2 process list...'))
+            await $$`cd ${enginePath} && sudo pm2 save`
+            console.log(chalk.blue('Enabling pm2 to start on boot...'))
+            await $$`cd ${enginePath} && sudo pm2 startup`
+        }
+
+
+  } catch (e) {
+
+    console.log(chalk.red('Error starting the engine with pm2'));
+    console.error(e);
+    process.exit(1);
+  
+}
+  console.log(chalk.green('Engine started with pm2'))
+  
+}
+
+
+
+
 const test = async () => {
-          // Install rsync
-          await installRSync()
-          // Install npm, n and pnpm
-          await installNpm()
-          // Configure pnpm
-          await configurePnpm()
-          // Install pm2
-          await installPm2()
-          // Install the engine
-          await $$`cd ${enginePath} && sudo pnpm install`
-          // Start the engine
-          // await $$`cd ${enginePath} && sudo pnpm start`
+  // Install rsync
+  await installRSync()
+  // Install npm, n and pnpm
+  await installNpm()
+  // Configure pnpm
+  await configurePnpm()
+    // Install pm2
+  await installPm2()
+  // Install the engine
+  await installEnginePM2()
+  // Build the engine
+  await buildEnginePM2()
+  // Start the engine
+  await startEnginePM2(productionMode)
+    // await $$`cd ${enginePath} && sudo pnpm start`
 }
     
 
@@ -801,6 +851,10 @@ const build = async () => {
         await installZerotier()
     }
 
+
+    // Add the metadata
+    await addMetadata()
+
     if (nodocker) {
         // Install rsync
         await installRSync()
@@ -811,21 +865,21 @@ const build = async () => {
         // Install pm2
         await installPm2()
         // Install the engine
-        await $$`cd ${enginePath} && sudo pnpm install`
+        await installEnginePM2()
+        // Build the engine
+        await buildEnginePM2()
         // Start the engine
-        // await $$`cd ${enginePath} && sudo pnpm start`
+        await startEnginePM2(productionMode)
+    } else {
+      // Clone the engine repo
+      // Only required for production build - for dev build, we sync the engine from the development machine
+      // await cloneRepo(releaseSpecified)
+
+      // Start the engine
+      await startEngine(productionMode)
     }
     
-    // Clone the engine repo
-    // Only required for production build - for dev build, we sync the engine from the development machine
-    // await cloneRepo(releaseSpecified)
 
-
-    // Add the metadata
-    await addMetadata()
-
-    // Start the engine
-    await startEngine(productionMode)
 
     // Run the rpi4-usb script
     await usbGadget()
@@ -834,7 +888,7 @@ const build = async () => {
     await rebootSystem()
 }
 
-if (argv.h || argv.help) {
+if (argv.test) {
   await test()
   process.exit(0);
 }
