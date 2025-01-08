@@ -1,11 +1,11 @@
 import chokidar from 'chokidar'
 import { fileExists, getKeys, log } from '../utils/utils.js'
-import { readMeta, DiskMeta, readDiskId } from '../data/Meta.js';
-import { $, YAML } from 'zx'
-import { Disk, createOrUpdateDisk as createOrUpdateDisk, updateAppsAndInstances } from '../data/Disk.js'
+import { DiskMeta, readDiskId, createMeta, readMetaUpdateId } from '../data/Meta.js';
+import { $, fs, YAML } from 'zx'
+import { Disk, createOrUpdateDisk as createOrUpdateDisk, processDisk, processAppsAndInstances } from '../data/Disk.js'
 import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
 import { Store, getDisk, getLocalEngine } from '../data/Store.js'
-import { DeviceName, DiskID, EngineID, Hostname, InstanceID } from '../data/CommonTypes.js'
+import { DeviceName, DiskID, DiskName, EngineID, Hostname, InstanceID } from '../data/CommonTypes.js'
 import { removeInstanceFromAppnet } from '../data/Appnet.js';
 import { add } from 'lib0/math.js';
 
@@ -17,7 +17,6 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     // 3. Monitor dmesg
 
     const localEngine = getLocalEngine(store)
-
 
     // Statically analyse the devices in /dev/disk/by-label
     // if (!(localEngine.hostName == 'dev' as Hostname)) {     // QUICK HACK TO AVOID PROBLEMS ON THE DEV ENGINE
@@ -40,14 +39,20 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     //     })
     // }
 
+    // Check if the device is a valid appnet disk device
+    const validDevice = function (device: string): boolean {
+        return device && (device.match(/^sd[a-z]2$/m) || device.match(/^sd[a-z]$/m)) ? true : false
+    }
+
     const addDevice = async function (path) {
-        // log(`Device ${path} has been added`)
+        log(`A disk on device ${path} has been added`)
         // Strip out the name of the device from the path and assign it to a variable
         const device = path.split('/').pop() as DeviceName
         // Check if the device begins with "sd", is then followed by a letter and ends with the number 2
         // We need the m flag - see https://regexr.com/7rvpq
-        if (device.match(/^sd[a-z]2$/m)) {
-            log(`Processing the addition of USB device ${device}`)
+        if (validDevice(device)) {
+            log(`The disk on device ${device} has a valid device name`)
+            log(`Processing the disk on device ${device}`)
             try {
                 // Check if the mount point exists. Run "mount -t ext4" and check if the output contains the string "/dev/<device> on /disks/<device> type ext4". 
                 const mountOutput = await $`mount -t ext4`
@@ -80,47 +85,71 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                 //     log('Not an app disk')
                 // }         
                 
-                let diskName
-                let diskCreated 
-                let diskCreatedTime
-                let diskId:DiskID
-                let diskIdOrUndefined = await readDiskId(device)
-                const meta:DiskMeta | undefined = await readMeta(device)
-                if (diskIdOrUndefined || meta) {
-                    if (diskIdOrUndefined && meta) {
-                        diskId = diskIdOrUndefined
-                        diskName = diskId.toString() as Hostname
-                        diskCreated = meta.created
-                        diskCreatedTime = new Date(diskCreated)
-                        log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a META file and a hardware ID with name ${diskName}, id ${diskId} and created on ${diskCreatedTime}`)
-                    } else if (diskIdOrUndefined) {
-                        diskId = diskIdOrUndefined
-                        diskName = diskId.toString() as Hostname
-                        diskCreated = 0
-                        diskCreatedTime = new Date(diskCreated)
-                        log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a hardware ID with name ${diskName}, id ${diskId}`)
-                    } else if (meta) {
-                        diskName = meta.hostname as Hostname
-                        diskId = meta.diskId as DiskID
-                        diskCreated = meta.created
-                        diskCreatedTime = new Date(diskCreated)
-                        log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a META file with name ${diskName}, id ${diskId} and created on ${diskCreatedTime}`)
+                // let diskName
+                // let diskCreated 
+                // let diskCreatedTime
+                // let diskId:DiskID
+                // let diskIdOrUndefined = await readDiskId(device)
+                // const meta:DiskMeta | undefined = await readMeta(device)
+                // if (diskIdOrUndefined || meta) {
+                //     if (diskIdOrUndefined && meta) {
+                //         diskId = diskIdOrUndefined
+                //         diskName = diskId.toString() as Hostname
+                //         diskCreated = meta.created
+                //         diskCreatedTime = new Date(diskCreated)
+                //         log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a META file and a hardware ID. The META file has name = ${diskName} and creation time = ${diskCreatedTime}. The hardware id is ${diskId}`)
+                //     } else if (diskIdOrUndefined) {
+                //         diskId = diskIdOrUndefined
+                //         diskName = diskId.toString() as Hostname
+                //         diskCreated = 0
+                //         diskCreatedTime = new Date(diskCreated)
+                //         log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a hardware ID ${diskId}. Setting the name to ${diskName} and creation time to ${diskCreatedTime}`)
+                //     } else if (meta) {
+                //         diskName = meta.diskName as DiskName
+                //         diskId = meta.diskId as DiskID
+                //         diskCreated = meta.created
+                //         diskCreatedTime = new Date(diskCreated)
+                //         log(`Found an appnet disk on device ${device} of engine ${localEngine.id} with a META file with name ${diskName}, id ${diskId} and created on ${diskCreatedTime}`)
+                //     }
+                //     // Add the disk to the store
+                //     log(`Updating the meta information of the disk in the store`)
+                //     // @ts-ignore
+                //     const disk:Disk = createOrUpdateDisk(store, localEngine.id, device, diskId, diskName, diskCreated)
+                //     log(`Processing the disk`)
+                //     await processDisk(store, disk)
+                //     log(`Adding the disk ${disk.id} to the local engine`)
+                //     addDisk(localEngine, disk)
+                // } else {
+                //     log('Could not find an id or a META file.  Not an app disk')
+                // }
+
+                // Check if the disk has a file META.yaml in the root location of the disk
+                // If so, read the YAML content from the file and parse it into the object diskMetadata
+                if (fs.existsSync(`/META.yaml`)) {
+                    // Update the METADATA
+                    // WRONG - the creation date can not be modfied
+                    log(`Found a META file on device ${device}. This disk has been processed by the system before.`)
+                    const meta:DiskMeta | undefined = await readMetaUpdateId(device)
+                    if (meta) {
+                        // Add the disk to the store
+                        log(`Updating the meta information of the disk in the store`)
+                        const disk:Disk = createOrUpdateDisk(store, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
+                        log(`Processing the disk`)
+                        await processDisk(store, disk)
+                        log(`Adding the disk ${disk.id} to the local engine`)
+                        addDisk(localEngine, disk)
+                    } else {
+                        log('Error processing the META file.')
                     }
-                    // Add the disk to the store
-                    // @ts-ignore
-                    const disk:Disk = createOrUpdateDisk(store, localEngine.id, device, diskId, diskName, diskCreated)
-                    await updateAppsAndInstances(store, disk)
-                    log(`Adding the disk ${disk.name} to the local engine`)
-                    addDisk(localEngine, disk)
                 } else {
-                    log('Could not find an id or a META file.  Not an app disk')
+                    log('Could not find a META file. This disk has not yet been processed by the system.')
                 }
             } catch (e) {
                 log(`Error recognizing device ${device}`)
                 log(e)
             }
         } else {
-            log(`Non-USB device ${device} has been added`)
+            log(`The disk on device ${device} is not on a supported device name`)
         }
     }
     
@@ -129,7 +158,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
         // Strip out the name of the device from the path and assign it to a variable
         const device = path.split('/').pop()
         // Check if the device begins with "sd" and ends with a letter
-        if (device && device.match(/^sd[a-z]2$/m)) {
+        if (validDevice(device)) {
             log(`Processing the removal of USB device ${device}`)
             // Remove the disk from the store
             const disk = findDiskByDevice(store, localEngine, device as DeviceName)

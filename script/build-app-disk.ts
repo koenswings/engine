@@ -1,5 +1,7 @@
 #! ../../node_modules/.bin/tsx
 
+// NOTE: This script is OBSOLETED. The META.yaml file is generated when the first app is put onto it 
+
 import { strict as assert } from 'assert';
 import { $, argv, chalk, cd, fs, ssh } from 'zx'
 import pack from '../package.json' assert { type: "json" }
@@ -52,6 +54,8 @@ if (argv.v || argv.version) {
 }
 
 
+// OBSOLETED
+// META.yaml is auto generated or updated upon inserting the disk
 const addMetadata = async (name:string) => {
   console.log(chalk.blue('Adding metadata...'));
   try {

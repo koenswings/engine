@@ -1,7 +1,7 @@
 import util from 'util';
 import { $, YAML, chalk, fs, question } from 'zx';
 import { config, writeConfig } from '../data/Config.js';
-import { DiskID, Hostname, IPAddress, NetMask, Timestamp, Version } from '../data/CommonTypes.js';
+import { DiskID, Hostname, IPAddress, NetMask, PortNumber, Timestamp, Version } from '../data/CommonTypes.js';
 import { isIP } from 'net';
 
 // Dummy key
@@ -12,8 +12,8 @@ export const getKeys = (obj) => {
 }
 
 // Generate a random port number between 49152-65535
-export const randomPort = ():number => {
-  return Math.floor(Math.random() * 16383) + 49152
+export const randomPort = ():PortNumber => {
+  return Math.floor(Math.random() * 16383) + 49152 as PortNumber
 }
 
 

@@ -4,8 +4,10 @@ import { generateHostName } from '../src/utils/nameGenerator.js'
 //import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
 
-import { uuid } from '../src/utils/utils.js'
+import { log, uuid } from '../src/utils/utils.js'
 import { copy } from 'lib0/array.js'
+import { DiskID } from '../src/data/CommonTypes.js'
+import { readDiskId } from '../src/data/Meta.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project
@@ -619,8 +621,36 @@ const configurePnpm = async () => {
 //   console.log(chalk.green('Environment variables set'));
 // } 
 
-const addMetadata = async () => {
-  const id = uuid()
+export const readRemoteDiskId = async ():Promise<DiskID | undefined> => {
+  log(`Reading disk id remotely`)
+  try {
+    //const rootDevice = (await $$`lsblk -o NAME,TYPE,MOUNTPOINT | grep /`).stdout.split('\n')[0].split(' ')[0]
+    const rootDevice = (await $$`findmnt / -no SOURCE`).stdout.split('/')[2]
+    const sn = (await $$`hdparm -I /dev/${rootDevice} | grep 'Serial\ Number'`).stdout
+    //log(`Serial number is ${sn}`)
+    const id = sn.trim().split(':')
+    //log(`split ID is ${id}`)
+    if (id.length === 2) {
+      log(`Remote disk id is ${id[1].trim()}`)
+      return id[1].trim() as DiskID
+    } else {
+      log(`Cannot read disk id for device ${rootDevice}`)
+      return undefined
+    }
+  } catch (e) {
+    log(`Error reading disk id of the root device: ${e}`)
+    return undefined
+  } 
+}
+
+const addMeta = async () => {
+  //const id = uuid()
+  let id = await readRemoteDiskId()
+  if (id === undefined) {
+    console.log(chalk.red('Remote disk has no disk id.  Generating one.'))
+    id = uuid() as DiskID
+  }
+
   // const diskMetadata = {
   //   hostname: hostname,
   //   created: new Date().getTime(),
@@ -639,11 +669,12 @@ const addMetadata = async () => {
       // await copyAsset('META.yaml', '/')
       // await $$`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
 
-      await $$`sudo echo 'hostname: ${hostname}' >> ${enginePath}/META.yaml`
+      //await $$`sudo echo 'hostname: ${hostname}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'diskId: ${id}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'diskName: ${id}' >> ${enginePath}/META.yaml`
       await $$`sudo echo 'created: ${new Date().getTime()}' >> ${enginePath}/META.yaml`
       await $$`sudo echo 'version: ${version}' >> ${enginePath}/META.yaml`
-      await $$`sudo echo 'engineId: ${id}-engine' >> ${enginePath}/META.yaml`
-      await $$`sudo echo 'diskId: ${id}-disk' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'lastDocked: ${new Date().getTime()}' >> ${enginePath}/META.yaml`
       // Move the META.yaml file to the root directory
       await $$`sudo mv ${enginePath}/META.yaml /META.yaml`
   } catch (e) {
@@ -749,6 +780,18 @@ const startEnginePM2 = async (productionMode:boolean) => {
   
 }
 
+const installVarious = async () => {
+  console.log(chalk.blue('Installing tcpdump, vim and hdparm...'));
+  try {
+      await $$`sudo apt install tcpdump vim hdparm -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing tcpdump, vim and hdparm'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('tcpdump, vim and hdparm installed'));
+}
+
 
 
 
@@ -816,6 +859,9 @@ const build = async () => {
 
     // Install udev and udev rules
     await installUdev()
+
+    // Install tcpdump, vim and hdparm
+    await installVarious()
     
     // Install the git, dnsutlis, tree, lshw and cloud-guest-utils packages
     console.log(chalk.blue('Installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils...'));
@@ -853,7 +899,7 @@ const build = async () => {
 
 
     // Add the metadata
-    await addMetadata()
+    await addMeta()
 
     if (nodocker) {
         // Install rsync

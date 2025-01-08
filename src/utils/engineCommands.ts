@@ -1,4 +1,4 @@
-import { buildInstance, startAndAddInstance, runInstance, stopInstance  } from '../data/Instance.js'
+import { buildInstance, startInstance, runInstance, stopInstance  } from '../data/Instance.js'
 import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
 import { $, YAML, chalk } from 'zx';
@@ -6,7 +6,7 @@ import { read, write } from 'fs';
 import { CommandDefinition } from '../data/CommandDefinition.js';
 import { Store, getLocalEngine } from '../data/Store.js';
 import { findDiskByName, rebootEngine } from '../data/Engine.js';
-import { AppName, DeviceName, Hostname, InstanceName, Version } from '../data/CommonTypes.js';
+import { AppName, DeviceName, DiskName, Hostname, InstanceName, Version } from '../data/CommonTypes.js';
 import { store } from '../data/Store.js';
 
 // const storeAndEnableAppnetMonitor = async (networkName: string, ifaceName: string) => {
@@ -67,7 +67,7 @@ import { store } from '../data/Store.js';
 //     rebootEngine(getLocalEngine())
 // }
 
-const buildInstanceOnDisk = async (store:Store, instanceName: InstanceName, appName: AppName, gitAccount: string, gitTag: string, diskName: Hostname) => {
+const buildInstanceOnDisk = async (store:Store, instanceName: InstanceName, appName: AppName, gitAccount: string, gitTag: string, diskName: DiskName) => {
     const disk = findDiskByName(store, getLocalEngine(store), diskName)
     let device:DeviceName
     if (disk && disk.device) {
@@ -104,7 +104,7 @@ export const engineCommands: CommandDefinition[] = [
     },
     {
         name: "startInstance",
-        execute: startAndAddInstance,
+        execute: startInstance,
         args: [{ type: "string" }, { type: "string" }],
     },
     {

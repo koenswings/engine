@@ -1,5 +1,5 @@
 import { $, YAML, chalk } from 'zx';
-import { Version, URL, AppID, AppName, Hostname, DeviceName } from './CommonTypes.js';
+import { Version, URL, AppID, AppName, Hostname, DeviceName, DiskName, DiskID } from './CommonTypes.js';
 import { log } from '../utils/utils.js';
 import { proxy } from 'valtio';
 import { Store, store } from './Store.js';
@@ -32,7 +32,7 @@ export const extractAppVersion = (appId: AppID): Version => {
     return appId.split('-')[1] as Version
 }
 
-export const createOrUpdateApp = async (store:Store, appId:AppID, diskName:Hostname, device:DeviceName) => {
+export const createOrUpdateApp = async (store:Store, appId:AppID, diskID:DiskID, device:DeviceName) => {
     let app: App
     try {
         // The full name of the app is <appName>-<version>
@@ -64,7 +64,7 @@ export const createOrUpdateApp = async (store:Store, appId:AppID, diskName:Hostn
         // app.icon = appCompose['x-app'].icon
         // app.author = appCompose['x-app'].author
     } catch (e) {
-        log(chalk.red(`Error creating app ${appId} from disk ${diskName}`))
+        log(chalk.red(`Error creating app ${appId} from disk ${diskID}`))
         console.error(e)
         return undefined
     }
@@ -72,11 +72,11 @@ export const createOrUpdateApp = async (store:Store, appId:AppID, diskName:Hostn
     let $app: App
     if (store.appDB[app.id]) {
         // Update the app
-        log(chalk.green(`Updating existing app ${appId} on disk ${diskName}`))
+        log(chalk.green(`Updating existing app ${appId} on disk ${diskID}`))
         $app = store.appDB[app.id]
     } else {
         // Create the app
-        log(chalk.green(`Creating new app ${appId} on disk ${diskName}`))
+        log(chalk.green(`Creating new app ${appId} on disk ${diskID}`))
         // @ts-ignore
         $app = proxy<App>({
             id: app.id

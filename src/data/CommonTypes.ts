@@ -27,6 +27,7 @@ export type InterfaceName = Brand<string, "INTERFACENAME">
 export type DeviceName = Brand<string, "DEVICENAME">
 
 export type Hostname = Brand<string, "HOSTNAME">
+export type DiskName = Brand<string, "DISKNAME">
 export type ServiceImage = Brand<string, "SERVICEIMAGE">
 
 export type Timestamp = Brand<number, "TIMESTAMP">

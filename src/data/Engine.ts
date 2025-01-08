@@ -1,7 +1,7 @@
 import { $, chalk, os, sleep } from 'zx';
 import { deepPrint, dummyKey, getKeys, log, sameNet } from '../utils/utils.js';
-import { readMeta, DiskMeta } from './Meta.js';
-import { Version, DockerMetrics, DockerLogs, DockerEvents, Command, Hostname, Timestamp, InterfaceName, DiskID, IPAddress, NetMask, CIDR, EngineID, DeviceName, InstanceID} from './CommonTypes.js';
+import { readMetaUpdateId, DiskMeta } from './Meta.js';
+import { Version, DockerMetrics, DockerLogs, DockerEvents, Command, Hostname, Timestamp, InterfaceName, DiskID, IPAddress, NetMask, CIDR, EngineID, DeviceName, InstanceID, DiskName} from './CommonTypes.js';
 import { Disk, getApps, getInstances } from './Disk.js';
 import { proxy } from 'valtio';
 import { config } from './Config.js';
@@ -97,7 +97,7 @@ export interface Interface {
 
 export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
 
-    const meta: DiskMeta | undefined = await readMeta()
+    const meta: DiskMeta | undefined = await readMetaUpdateId()
     if (!meta) {
         console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
         process.exit(1)
@@ -106,7 +106,7 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
     // @ts-ignore
     const $localEngine = proxy<Engine>({
         //id: "ENGINE_"+meta.id as EngineID,
-        id: meta.engineId as EngineID,
+        id: meta.diskId as EngineID,
         commands: []
         //disks: proxy<{[key:DiskID]:boolean}>({}) 
      })
@@ -194,7 +194,7 @@ export const findDisk = (store:Store, engine: Engine, diskId: DiskID): Disk | un
 //     return diskId ? store.diskDB[diskId] : undefined
 // }
 
-export const findDiskByName = (store:Store, engine: Engine, diskName: Hostname): Disk | undefined => {
+export const findDiskByName = (store:Store, engine: Engine, diskName: DiskName): Disk | undefined => {
     return getDisks(store, engine).find(disk => disk.name === diskName)
 }
 
@@ -223,7 +223,7 @@ export const findDiskByDevice = (store:Store, engine: Engine, device: DeviceName
 //         return disk ? disk.name : []
 //     })
 // }
-export const getDiskNames = (store:Store, engine:Engine):Hostname[] => {
+export const getDiskNames = (store:Store, engine:Engine):DiskName[] => {
     return getDisks(store, engine).map(disk => disk.name)
 }
 
@@ -260,12 +260,9 @@ export const removeDisk = async (store:Store, engine: Engine, disk: Disk):Promis
         const instances = getKeys(disk.instances) as InstanceID[]
         for (const instanceID of instances) {
         // instances.forEach(async instanceID => {
-
-            // OLD
-            // Stopping an instance is not possible when its disk has already been removed
-            // const instance = getInstance(store, instanceID)
-            // await stopInstance(store, instance, disk)
-            // log(`Instance ${instance.id} stopped`)
+            const instance = getInstance(store, instanceID)
+            await stopInstance(store, instance, disk)
+            log(`Instance ${instance.id} stopped`)
             
             store.networks.forEach(network => {
                 removeInstanceFromAppnet(network.appnet, instanceID)
@@ -279,7 +276,7 @@ export const removeDisk = async (store:Store, engine: Engine, disk: Disk):Promis
 
 }
 
-export const removeDiskByName = (store:Store, engine: Engine, diskName: Hostname):void => {
+export const removeDiskByName = (store:Store, engine: Engine, diskName: DiskName):void => {
     const disk = findDiskByName(store, engine, diskName)
     if (disk) delete engine.disks[disk.id]
 }

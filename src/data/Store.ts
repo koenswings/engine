@@ -5,7 +5,7 @@ import { Interface } from './Engine.js'
 import { Disk, bindDisk } from './Disk.js'
 import { proxy } from 'valtio'
 import { deepPrint, log } from '../utils/utils.js'
-import { readMeta, DiskMeta } from './Meta.js';
+import { readMetaUpdateId, DiskMeta } from './Meta.js';
 import { firstBoot } from '../y-websocket/yjsUtils.js'
 import { config } from './Config.js'
 import { enableWebSocketMonitor } from '../monitors/webSocketMonitor.js'
@@ -96,13 +96,13 @@ export type RunningServers = {
 }
 
 const getLocalEngineId = async ():Promise<EngineID> => {
-    const meta: DiskMeta | undefined = await readMeta()
+    const meta: DiskMeta | undefined = await readMetaUpdateId()
     if (!meta) {
         console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
         process.exit(1)
     }
     //return "ENGINE_"+meta.id as EngineID
-    return meta.engineId as EngineID
+    return meta.diskId as EngineID
 }
 
 export const initialiseStore = async ():Promise<Store> => {
