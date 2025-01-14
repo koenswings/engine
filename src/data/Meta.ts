@@ -50,13 +50,14 @@ export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMet
       // Read the META.yaml file
       const metaContent = (await $`cat ${path}`).stdout.trim()
       const meta: DiskMeta = YAML.parse(metaContent)
+      let update = false
 
       // Find the hardware id
       let diskId = await readHardwareId(device) as DiskID
       if (!diskId) {
         log(`No hardware id found for device ${device}`)
         if (meta.hasOwnProperty('isHardwareId') && meta.isHardwareId) {
-          log(`The disk id in the META file is a hardware id, so must come from another disk  So this disk is a clone. Generating a new hardware id`)
+          log(`The disk id in the META file is a hardware id, so must come from another disk. So this disk is a clone and it is cloned onto media without a hardware id. Generating a new hardware id`)
           diskId = uuid() as DiskID
           // Resetting the isHardwareId flag
           meta.isHardwareId = false
@@ -74,8 +75,31 @@ export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMet
         } else {
           log(`Created a new id that is different from the one in the META file. Updating disk id to ${diskId}`)
         }
+        update = true
+      }
+
+      // Update the lastDocked timestamp
+      meta.lastDocked = new Date().getTime() as Timestamp
+      update = true  // Always update the lastDocked timestamp
+
+      // Upgrade older META files that do not have the diskName field
+      if (!meta.hasOwnProperty('diskName')) {
+        meta.diskName = diskId.toString() as DiskName
+        // Remove the properties engineId and hostname
+        // Ignore type checking the next two lines
+        // @ts-ignore
+        meta.engineId = undefined
+        // @ts-ignore
+        meta.hostname = undefined
+        update = true
+      }
+
+      // Update the META file if necessary
+      if (update) {
         await writeMeta(meta, path)
       }
+
+
       return meta
     } else {
       log(`No META file found at path ${path}. This disk has not yet been touched by the system.`)
@@ -170,7 +194,7 @@ export const createMeta = async (device: DeviceName, version: Version | undefine
 
   try {
     // Create the META.yaml file
-    writeMeta(meta, `/META.yaml`)
+    await writeMeta(meta, `/META.yaml`)
   } catch (e) {
     console.log(chalk.red('Error creating metadata'));
   }
