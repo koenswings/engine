@@ -95,6 +95,10 @@ export interface Interface {
 //     return $localEngine
 // }
 
+export const createEngineIdFromDiskId = (diskId: DiskID):EngineID => {
+    return "ENGINE_"+diskId as EngineID
+}   
+
 export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
 
     const meta: DiskMeta | undefined = await readMetaUpdateId()
@@ -105,8 +109,8 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
 
     // @ts-ignore
     const $localEngine = proxy<Engine>({
-        //id: "ENGINE_"+meta.id as EngineID,
-        id: meta.diskId as EngineID,
+        id: createEngineIdFromDiskId(meta.diskId),
+        //id: meta.diskId as EngineID,
         commands: []
         //disks: proxy<{[key:DiskID]:boolean}>({}) 
      })
@@ -150,6 +154,8 @@ export const initialiseLocalEngine = async (store:Store):Promise<Engine> => {
 }
 
 export const bindEngine = ($engine:Engine, networks:Network[]):void => {
+    log(`Binding engine ${$engine.id} to all networks`)
+    log(`$engine: ${deepPrint($engine)}`)
     networks.forEach((network) => {
         const dummy = {}
         dummy[dummyKey] = true

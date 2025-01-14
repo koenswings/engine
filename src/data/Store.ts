@@ -1,4 +1,4 @@
-import { Engine, bindEngine, setRestrictedInterfaces } from './Engine.js'
+import { Engine, bindEngine, createEngineIdFromDiskId, setRestrictedInterfaces } from './Engine.js'
 import { ConnectionResult, Network, connectEngine, createNetwork } from './Network.js'
 import os from 'os'
 import { Interface } from './Engine.js'
@@ -48,7 +48,7 @@ import { bind } from '../valtio-yjs/index.js'
  */
 export interface Store {
     // The id of the local engine
-    localEngine: EngineID,
+    localEngineId: EngineID,
     
     // The Valtio object database
     engineDB: { [key: EngineID]: Engine },
@@ -96,18 +96,20 @@ export type RunningServers = {
 }
 
 const getLocalEngineId = async ():Promise<EngineID> => {
+    log(`Getting local engine id`)
     const meta: DiskMeta | undefined = await readMetaUpdateId()
     if (!meta) {
         console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
         process.exit(1)
     }
-    //return "ENGINE_"+meta.id as EngineID
-    return meta.diskId as EngineID
+    return createEngineIdFromDiskId(meta.diskId)
+    // return "ENGINE_"+meta.diskId as EngineID
+    //return meta.diskId as EngineID
 }
 
 export const initialiseStore = async ():Promise<Store> => {
     const store: Store = {
-        localEngine: await getLocalEngineId(),
+        localEngineId: await getLocalEngineId(),
         engineDB: {},
         diskDB: {},
         appDB: {},
@@ -119,6 +121,7 @@ export const initialiseStore = async ():Promise<Store> => {
     return store
 }
 
+log(`Initialising store`)
 export const store = await initialiseStore()
 
 // export const getLocalEngine = () => {
@@ -165,11 +168,13 @@ export const store = await initialiseStore()
 // }
 
 export const getLocalEngine = (store:Store):Engine => {
+    log(`Getting local engine ${store.localEngineId}`)
     //return store.engineDB[store.localEngine]
-    return getEngine(store, store.localEngine)
+    return getEngine(store, store.localEngineId)
 }
 
 export const getEngine = (store: Store, engineId: EngineID):Engine  => {
+    log(`Getting engine ${engineId}`)
     if (store.engineDB.hasOwnProperty(engineId)) {
         return store.engineDB[engineId]
     } else {
@@ -279,7 +284,7 @@ export const addNetwork = async (store:Store, networkName: AppnetName): Promise<
     log(`Network ${network.name} added to the store`)
 
     // Connect it to the local websockets server
-    return connectEngine(network, store.localEngine,  "127.0.0.1" as IPAddress)
+    return connectEngine(network, store.localEngineId,  "127.0.0.1" as IPAddress)
 }
 
 export const createRunningServer = (store:Store, ip: IPAddress):void => {

@@ -7,7 +7,7 @@ import { config } from '../src/data/Config.js'
 import { log, uuid } from '../src/utils/utils.js'
 import { copy } from 'lib0/array.js'
 import { DiskID } from '../src/data/CommonTypes.js'
-import { readDiskId } from '../src/data/Meta.js'
+import { readHardwareId } from '../src/data/Meta.js'
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project

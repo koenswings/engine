@@ -220,9 +220,17 @@ export const prompt = (level:number, message: string) => {
 
 // Generate a uuid
 export const uuid = ():string => {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const id = Math.random().toString(36).substring(2) + Date.now().toString(36)
+  log(`Generated uuid: ${id}`)
+  return id
 }
 
 export const uuidLight = ():string => {
   return uuid().substring(0, 8)
+}
+
+
+// A function to strip the trailing partition number from a device name
+export const stripPartition = (device: string):string => {
+  return device.replace(/[0-9]/g, '')
 }

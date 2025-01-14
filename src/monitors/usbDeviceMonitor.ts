@@ -1,8 +1,8 @@
 import chokidar from 'chokidar'
 import { fileExists, getKeys, log } from '../utils/utils.js'
-import { DiskMeta, readDiskId, createMeta, readMetaUpdateId } from '../data/Meta.js';
+import { DiskMeta, readHardwareId, createMeta, readMetaUpdateId } from '../data/Meta.js';
 import { $, fs, YAML } from 'zx'
-import { Disk, createOrUpdateDisk as createOrUpdateDisk, processDisk, processAppsAndInstances } from '../data/Disk.js'
+import { Disk, createOrUpdateDisk, processDisk, processAppsAndInstances } from '../data/Disk.js'
 import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
 import { Store, getDisk, getLocalEngine } from '../data/Store.js'
 import { DeviceName, DiskID, DiskName, EngineID, Hostname, InstanceID } from '../data/CommonTypes.js'
@@ -191,31 +191,54 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
         }
     }
 
-    // PROBLEM - How do we know the device of a previous disk that has not yet been created
-    const previousDiskIds = getKeys(localEngine.disks) as DiskID[]
-    log(`Previous disk IDs: ${previousDiskIds}`)
-    const previousDevices = getKeys(localEngine.disks).map(diskID => getDisk(store, diskID as DiskID).device).filter(device => device !== undefined)
-    log(`Previous devices: ${previousDevices}`)
-    const actualDevices = (await $`ls /dev/engine`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
+    // Clean up the /disks/old folder
+    try {
+        log(`Cleaning up the /disks/old folder`)
+        await $`rm -fr /disks/old/*`
+    } catch (e) {
+        log(`Error cleaning up the /disks/old folder`)
+        log(e)
+    }
+
+
+    // *********
+    // Cleaning of the network database and the /disks folder
+    // *********
+
+    const actualDevices = (await $`ls /dev/engine`).toString().split('\n').filter(device => validDevice(device))
     log(`Actual devices: ${actualDevices}`)
 
-    // WRONG! The watcher that we create later will always start with the actual devices
-    // actualDevices.forEach(device => {
-    // for (let device of actualDevices) {
-    //         await addDevice(`/dev/engine/${device}`)
-    // }
+    // Cleaning the network database
+    log(`Removing from the network database disks that were attached before the current boot but are no longer attached now...`)
+    // PROBLEM - How do we know the device of a previous disk that has not yet been created
+    const previousDiskIds = getKeys(localEngine.disks) as DiskID[]
+    if (previousDiskIds.length !== 0) {
+        log(`The engine object that is synced from the network shows that the engine had previously (before the current boot) mounted the following disks : ${previousDiskIds}`)
+        const previousDevices = getKeys(localEngine.disks).map(diskID => getDisk(store, diskID as DiskID).device).filter(device => device !== undefined)
+        log(`Which were mounted on these devices: ${previousDevices}`)
+        //const actualDevices = (await $`ls /dev/engine`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
+        log(`If these devices are no longer existing, they will be removed from the network database`)
 
-    // previousDevices.forEach(device => {
-    for (let device of previousDevices) {
-        if (!actualDevices.includes(device)) {
-            log(`Removing device ${device}`)
-            // Remove the disk from the store
-            const disk = findDiskByDevice(store, localEngine, device as DeviceName)
-            if (disk) {
-                await removeDisk(store, localEngine, disk)
-                log(`Disk ${disk.id} removed from local engine`)
+        // WRONG! The watcher that we create later will always start with the actual devices
+        // actualDevices.forEach(device => {
+        // for (let device of actualDevices) {
+        //         await addDevice(`/dev/engine/${device}`)
+        // }
+
+        // previousDevices.forEach(device => {
+        for (let device of previousDevices) {
+            if (!actualDevices.includes(device)) {
+                log(`Removing from the network the disk that was previously mounted on device ${device}`)
+                // Remove the disk from the store
+                const disk = findDiskByDevice(store, localEngine, device as DeviceName)
+                if (disk) {
+                    await removeDisk(store, localEngine, disk)
+                    log(`Disk ${disk.id} removed from local engine`)
+                }
             }
         }
+    } else {
+        log(`No previous disks found in the network database`)
     }
 
     // Watch the /dev/engine directory for changes
@@ -224,30 +247,52 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
         persistent: true,
     })
 
+    // Cleaning the mount points
+    log(`Cleaning the mount points...`)
+
     // Remove all mount points that are not in the actual devices
     // TBD If this is really needed - The system seeks device names independent of the mount points and 
     // any mount points with existing content will be shadowed by the mount
-    const previousMounts = (await $`ls /disks`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
+    //const previousMounts = (await $`ls /disks`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
+    const previousMounts = (await $`ls /disks`).toString().split('\n').filter(device => validDevice(device))
     log(`Previously mounted devices: ${previousMounts}`)
     const mountOutput = await $`mount -t ext4`
     for (let device of previousMounts) {
+        log(`Checking if device ${device} is still actual or mounted`)
         if (!actualDevices.includes(device) && !mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
-            log(`Cleaning up device ${device}`)
-            // Unmount
+            log(`${device} is not actual and not mounted. Cleaning up device ${device}`)
+            // To protect against a race condition in which the device may be mounted after the check in mountOutput, \
+            // we use the unmount command once more  However, this is no guarantee that the device is not mounted again
+            // To improve on this, we move the mounted output to /disks/old
+            // This will then interfere with the docking of that disk, so it will not show up in the system
+            // But this is better then being deleted ;-)
+            // We then clean the old folder at the beginning of the USB monitor, before any new devices are being moved to /dev/old
+            try {
+                // log(`Unmounting device ${device}`)
+                await $`umount /disks/${device}`
+            } catch (e) {
+                if (e.stderr.includes('not mounted')) {
+                    // log(`Device ${device} is not mounted`)
+                    // await $`rm -fr /disks/${device}`
+                    // Create a folder /disks/old if it does not exist
+                    await $`mkdir -p /disks/old`
+                    await $`mv /disks/${device} /disks/old/${device}`
+                    log(`Device ${device} has been moved to /disks/old`)
+                } else {
+                    log(`Error unmounting device during cleaning ${device}`)
+                    log(e)
+                }
+            }
+
+            // Previous Code
             // try {
-            //     log(`Unmounting device ${device}`)
-            //     await $`umount /disks/${device}`
+            //     log(`Removing the content in /disks/${device}`)
+            //     await $`rm -fr /disks/${device}`
             // } catch (e) {
-            //     log(`Error unmounting device ${device}`)
+            //     log(`Error removing folder ${device}`)
             //     log(e)
             // }
-            try {
-                log(`Removing the content in /disks/${device}`)
-                // await $`rm -fr /disks/${device}`
-            } catch (e) {
-                log(`Error removing folder ${device}`)
-                log(e)
-            }
+
             log(`Device ${device} has been successfully cleaned up`)
         }
     }

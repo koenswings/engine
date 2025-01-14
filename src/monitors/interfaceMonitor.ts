@@ -13,7 +13,7 @@ import { addConnectedInterface, isConnected, removeConnectedInterfaceByName } fr
 
 
 export const enableInterfaceMonitor = async (store:Store, ifaceNames:InterfaceName[]):Promise<void> => {
-
+    log(`Enabling the interface monitor for interfaces ${ifaceNames} using store: ${deepPrint(store, 1)}`)
     const monitorAll = ifaceNames.length === 0
   
     if (monitorAll) {
@@ -74,17 +74,20 @@ export const enableInterfaceMonitor = async (store:Store, ifaceNames:InterfaceNa
 
 const processInterface = (store:Store, data:any, ifaceName:InterfaceName):void => {
     log (`Processing interface ${ifaceName}`)
+    log(`Using store ${deepPrint(store, 1)}`)
     const localEngine = getLocalEngine(store)
     // Check if data[ifaceName] is an array
     if (!Array.isArray(data[ifaceName])) {
         log(`Data for interface ${ifaceName} is not an array`)
         return
     }
-    const ip4Set = data[ifaceName].find((address) => {
-        // Check if address is an object with property family that is 'IPv4'
-        return address.family && address.family === 'IPv4'
+    const ip4Set = data[ifaceName].find((netObject) => {
+        // Check if netObject is an object with property family that is 'IPv4'
+        return netObject.family && netObject.family === 'IPv4'
     })
-    if (localEngine.connectedInterfaces && ip4Set) {
+
+    //if (localEngine.connectedInterfaces && ip4Set) {
+    if ((localEngine.connectedInterfaces !== undefined) && ip4Set) {
         const ip4 = ip4Set.address
         const netmask = ip4Set.netmask
         const cidr = ip4Set.cidr
@@ -145,7 +148,7 @@ const processInterface = (store:Store, data:any, ifaceName:InterfaceName):void =
 
             }
         } else {
-            log(`Interface ${ifaceName} on local engine has no IP4 address`)
+            log(`Interface ${ifaceName} on local engine has no connected interfaces or no IP4 address`)
         }
 }
 

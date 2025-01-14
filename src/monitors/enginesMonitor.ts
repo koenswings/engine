@@ -53,12 +53,12 @@ export const enableEngineSetMonitor = (store:Store, network:Network):void => {
         //     process.exit(1)
         // }
     })
-    log(`Added a monitor for engine ${engine.hostname}`)
+    log(`Added a monitor for engine ${engine.hostname} (${engine.id})`)
 }
 
   export const enableEngineCommandsMonitor = (engine: Engine):void => {
     // Monitor our local engine for commands to be executed
-    log(`Adding a commands monitor for engine ${engine.hostname}`)
+    log(`Adding a commands monitor for engine ${engine.hostname} (${engine.id})`)
     if (engine.commands) {
         subscribe(engine.commands, async (value) => {
             log(`ENGINE ${engine.hostname} COMMANDS MONITOR: Engine ${engine.hostname} commands is modified as follows: ${deepPrint(value)}`)
