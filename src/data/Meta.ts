@@ -1,5 +1,5 @@
 import { $, chalk, YAML } from 'zx'
-import { fileExists, log, stripPartition, uuid } from '../utils/utils.js'
+import { deepPrint, fileExists, log, stripPartition, uuid } from '../utils/utils.js'
 import { DeviceName, DiskID, DiskName, EngineID, Hostname, Timestamp, Version } from './CommonTypes.js'
 import { Device } from 'usb'
 import { write } from 'fs'
@@ -50,6 +50,8 @@ export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMet
       // Read the META.yaml file
       const metaContent = (await $`cat ${path}`).stdout.trim()
       const meta: DiskMeta = YAML.parse(metaContent)
+      log(`metaContent: ${metaContent}`)
+      log(`meta: ${deepPrint(meta)}`)
       let update = false
 
       // Find the hardware id
@@ -84,6 +86,7 @@ export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMet
 
       // Upgrade older META files that do not have the diskName field
       if (!meta.hasOwnProperty('diskName')) {
+        log(`Upgrading older META file format to include diskName field and remove obsolete properties`)
         meta.diskName = diskId.toString() as DiskName
         // Remove the properties engineId and hostname
         // Ignore type checking the next two lines
@@ -98,8 +101,6 @@ export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMet
       if (update) {
         await writeMeta(meta, path)
       }
-
-
       return meta
     } else {
       log(`No META file found at path ${path}. This disk has not yet been touched by the system.`)
@@ -202,21 +203,40 @@ export const createMeta = async (device: DeviceName, version: Version | undefine
 }
 
 const writeMeta = async (meta: DiskMeta, rootPath: string): Promise<void> => {
-  log(`Writing metadata to ${rootPath}`)
+  log(`Writing metadata ${deepPrint(meta)} to ${rootPath}`)
   try {
-    const enginePath = `/home/pi`
-    await $`sudo echo 'diskId: ${meta.diskId}' > ${enginePath}/METAtemp.yaml`
-    await $`sudo echo 'diskName: ${meta.diskId}' >> ${enginePath}/METAtemp.yaml`
-    await $`sudo echo 'created: ${meta.created}' >> ${enginePath}/METAtemp.yaml`
-    await $`sudo echo 'lastDocked: ${meta.lastDocked}' >> ${enginePath}/METAtemp.yaml`
+    // const enginePath = `/home/pi`
+    // Remove the old META file
+    // await $`sudo rm -f ${enginePath}/METAtemp.yaml`
+    // await $`sudo touch ${enginePath}/METAtemp.yaml`
+    // await $`sudo echo 'diskId: ${meta.diskId}' >> ${enginePath}/METAtemp.yaml`
+    // await $`sudo echo 'diskName: ${meta.diskName}' >> ${enginePath}/METAtemp.yaml`
+    // await $`sudo echo 'created: ${meta.created}' >> ${enginePath}/METAtemp.yaml`
+    // await $`sudo echo 'lastDocked: ${meta.lastDocked}' >> ${enginePath}/METAtemp.yaml`
+    // if (meta.version) {
+    //   await $`sudo echo 'version: ${meta.version}' >> ${enginePath}/METAtemp.yaml`
+    // }
+    // if (meta.isHardwareId) {
+    //   await $`sudo echo 'isHardwareId: true' >> ${enginePath}/METAtemp.yaml`
+    // }
+    // // Move the META.yaml file to the root directory
+    // await $`sudo mv ${enginePath}/METAtemp.yaml ${rootPath}`
+
+    // Generate a temporary file in /home/pi using mktemp
+    const tmpFile = (await $`sudo mktemp --suffix=.yaml --tmpdir=/home/pi`).stdout.trim()
+    await $`sudo echo 'diskId: ${meta.diskId}' >> ${tmpFile}`
+    await $`sudo echo 'diskName: ${meta.diskName}' >> ${tmpFile}`
+    await $`sudo echo 'created: ${meta.created}' >> ${tmpFile}`
+    await $`sudo echo 'lastDocked: ${meta.lastDocked}' >> ${tmpFile}`
     if (meta.version) {
-      await $`sudo echo 'version: ${meta.version}' >> ${enginePath}/METAtemp.yaml`
+      await $`sudo echo 'version: ${meta.version}' >> ${tmpFile}`
     }
     if (meta.isHardwareId) {
-      await $`sudo echo 'isHardwareId: true' >> ${enginePath}/METAtemp.yaml`
+      await $`sudo echo 'isHardwareId: true' >> ${tmpFile}`
     }
     // Move the META.yaml file to the root directory
-    await $`sudo mv ${enginePath}/METAtemp.yaml ${rootPath}`
+    await $`sudo mv ${tmpFile} ${rootPath}`
+
   } catch (e) {
     console.log(chalk.red('Error writing metadata'))
     console.error(e)

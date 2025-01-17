@@ -50,37 +50,40 @@ echo "******************************" >> /home/pi/boot.out
 sudo growpart /dev/sda 2 >> /home/pi/boot.out 2>&1    # Updates the partition table (fast)
 sudo resize2fs /dev/sda2 >> /home/pi/boot.out 2>&1    # Resizes the file system (slow)
 
-echo "**********************" >> /home/pi/boot.out
-echo "Handling a wlan switch" >> /home/pi/boot.out
-echo "**********************" >> /home/pi/boot.out
-echo "Adapting hostapd.conf" >> /home/pi/boot.out
-#if ifconfig | grep -q "wlan1"; then
-if cat /sys/class/net/wlan1/operstate; then
-  # If hostapd was configured previously for wlan0, change it to wlan1
-  echo "Replacing wlan0 with wlan1" >> /home/pi/boot.out
-  sed -i.bak 's|\(\s*\)interface\(\s*\)=\(\s*\)wlan0|\1interface\2=\3wlan1|g' /etc/hostapd/hostapd.conf >> /home/pi/boot.out 2>&1
-  sed -i.bak 's|\(\s*\)WifiInterface\(\s*\)=\(\s*\)wlan0|\1WifiInterface\2=\3wlan1|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1  # Update RaspAP UI state
-  sed -i.bak 's|\(\s*\)WifiManaged\(\s*\)=\(\s*\)wlan0|\1WifiManaged\2=\3wlan1|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1      # Update RaspAP UI state
-else  # No wlan1
-  # If hostapd was configured previously for wlan1, change it to wlan0
-  echo "Replacing wlan1 with wlan0" >> /home/pi/boot.out
-  sed -i.bak 's|\(\s*\)interface\(\s*\)=\(\s*\)wlan1|\1interface\2=\3wlan0|g' /etc/hostapd/hostapd.conf >> /home/pi/boot.out 2>&1
-  sed -i.bak 's|\(\s*\)WifiInterface\(\s*\)=\(\s*\)wlan1|\1WifiInterface\2=\3wlan0|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1  # Update RaspAP UI state
-  sed -i.bak 's|\(\s*\)WifiManaged\(\s*\)=\(\s*\)wlan1|\1WifiManaged\2=\3wlan0|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1      # Update RaspAP UI state
-fi 
-echo "Restarting hostapd" >> /home/pi/boot.out
-systemctl restart hostapd >> /home/pi/boot.out 2>&1
-echo "DONE" >> /home/pi/boot.out
+# Obslete
+# echo "**********************" >> /home/pi/boot.out
+# echo "Handling a wlan switch" >> /home/pi/boot.out
+# echo "**********************" >> /home/pi/boot.out
+# echo "Adapting hostapd.conf" >> /home/pi/boot.out
+# #if ifconfig | grep -q "wlan1"; then
+# if cat /sys/class/net/wlan1/operstate; then
+#   # If hostapd was configured previously for wlan0, change it to wlan1
+#   echo "Replacing wlan0 with wlan1" >> /home/pi/boot.out
+#   sed -i.bak 's|\(\s*\)interface\(\s*\)=\(\s*\)wlan0|\1interface\2=\3wlan1|g' /etc/hostapd/hostapd.conf >> /home/pi/boot.out 2>&1
+#   sed -i.bak 's|\(\s*\)WifiInterface\(\s*\)=\(\s*\)wlan0|\1WifiInterface\2=\3wlan1|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1  # Update RaspAP UI state
+#   sed -i.bak 's|\(\s*\)WifiManaged\(\s*\)=\(\s*\)wlan0|\1WifiManaged\2=\3wlan1|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1      # Update RaspAP UI state
+# else  # No wlan1
+#   # If hostapd was configured previously for wlan1, change it to wlan0
+#   echo "Replacing wlan1 with wlan0" >> /home/pi/boot.out
+#   sed -i.bak 's|\(\s*\)interface\(\s*\)=\(\s*\)wlan1|\1interface\2=\3wlan0|g' /etc/hostapd/hostapd.conf >> /home/pi/boot.out 2>&1
+#   sed -i.bak 's|\(\s*\)WifiInterface\(\s*\)=\(\s*\)wlan1|\1WifiInterface\2=\3wlan0|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1  # Update RaspAP UI state
+#   sed -i.bak 's|\(\s*\)WifiManaged\(\s*\)=\(\s*\)wlan1|\1WifiManaged\2=\3wlan0|g' /etc/raspap/hostapd.ini >> /home/pi/boot.out 2>&1      # Update RaspAP UI state
+# fi 
+# echo "Restarting hostapd" >> /home/pi/boot.out
+# systemctl restart hostapd >> /home/pi/boot.out 2>&1
+# echo "DONE" >> /home/pi/boot.out
 
-echo "**********************" >> /home/pi/boot.out
-echo "Cutting off HDMI power" >> /home/pi/boot.out
-echo "**********************" >> /home/pi/boot.out
+# Obsolete - Has no effect
+# echo "**********************" >> /home/pi/boot.out
+# echo "Cutting off HDMI power" >> /home/pi/boot.out
+# echo "**********************" >> /home/pi/boot.out
 
-vcgencmd display_power 0
+# vcgencmd display_power 0
 
-echo "Starting the engine" >> /home/pi/boot.out
-cd /home/pi/engine
-chmod +x startdev.sh && ./startdev.sh
+# echo "Starting the engine" >> /home/pi/boot.out
+# cd /home/pi/engine
+# chmod +x startdev.sh && ./startdev.sh
+
 echo "DONE" >> /home/pi/boot.out
 
 
