@@ -15,6 +15,48 @@ export const getKeys = (obj) => {
 export const randomPort = ():PortNumber => {
   return Math.floor(Math.random() * 16383) + 49152 as PortNumber
 }
+// Write a function that reads a .env file and extracts the value of a variable from it
+// The function should take the path to the .env file and the name of the variable as input
+// It should return the value of the variable
+// If the variable is not found, it should return null
+export const readEnvVariable = async (path: string, variable: string): Promise<string | null> => {
+  try {
+    const envContent = (await $`cat ${path}`).stdout
+    const values = envContent.match(`${variable}=(.*)`)
+    log(`Values: ${deepPrint(values)}`)
+    if (values && values.length >= 1) {
+      const value = values[1]
+      return value
+    } else {
+      return null
+    }
+  } catch (e) {
+    return null
+  }
+}
+
+// Write a function that adds or updates a variable to a .env file
+// The function should take the path to the .env file, the name of the variable and its value as input
+// If the variable is already present in the .env file, it should update its value
+// If the variable is not present in the .env file, it should add it
+export const addOrUpdateEnvVariable = async (path: string, variable: string, value: string): Promise<void> => {
+  try {
+    const envContent = (await $`cat ${path}`).stdout
+    const values = envContent.match(`${variable}=(.*)`)
+    if (values && values.length >= 1) {
+      // Update the value of the variable
+      await $`sed -i 's/${variable}=.*/${variable}=${value}/' ${path}`
+    } else {
+      // Add the variable to the .env file
+      await $`echo "${variable}=${value}" >> ${path}`
+    }
+  } catch (e) {
+    // Add the variable to the .env file
+    log(`Error adding or updating variable ${variable} in .env file ${path}`)
+    log(`error: ${e}`)
+    //await $`echo "${variable}=${value}" >> ${path}`
+  }
+}
 
 
 

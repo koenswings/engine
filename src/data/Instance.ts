@@ -1,5 +1,5 @@
-import { $, YAML, chalk, fs, os } from "zx";
-import { deepPrint, log, randomPort, uuid } from "../utils/utils.js";
+import { $, YAML, chalk, fs, os, sleep } from "zx";
+import { addOrUpdateEnvVariable, deepPrint, log, randomPort, readEnvVariable, uuid } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
 import { Store, getDisk, getEngine, getLocalEngine, store } from "./Store.js";
 import { Disk, addInstance } from "./Disk.js";
@@ -12,6 +12,8 @@ import { createAppId } from "./App.js";
 import { Docker } from "node-docker-api";
 import { read } from "fs";
 import { createMeta } from '../data/Meta.js'
+import { get } from "http";
+import { add } from "lib0/math.js";
 
 
 export interface Instance {
@@ -324,6 +326,11 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
 
   try {
 
+    // Create an empty .env file if it does not yet exist
+    if (!fs.existsSync(`/disks/${disk.device}/instances/${instance.id}/.env`)) {
+      await $`touch /disks/${disk.device}/instances/${instance.id}/.env`
+    }
+
     // **************************
     // STEP 1 - Port generation
     // **************************
@@ -348,8 +355,9 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     // Check if the port is defined in the .env file
     try {
       log(`Trying to find a port number for instance ${instance.id} in the .env file`)
-      const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
-      port = parseInt(envContent.split('=')[1].slice(0, -1)) as PortNumber
+      // const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
+      // port = parseInt(envContent.split('=')[1].slice(0, -1)) as PortNumber
+      port = parseInt(await readEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port') as string) as PortNumber 
     } catch (e) {
       log(`No .env file found for instance ${instance.id}`)
     }
@@ -360,135 +368,37 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
       log(`No port number has previously been generated. Generating a new port number.`)
       port = await createPortNumber()
       // Write a .env file in which you define the port variable
-      await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`  
+      // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`  
+      await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())  
     }
 
     console.log(`Found a port number for instance ${instance.id}: ${port}`)
     instance.port = port as PortNumber
 
     // **************************
-    // STEP 2 - Preloading of services
+    // STEP 1b - Generate a password for the app
     // **************************
 
-    // Extract the service images of the services from the compose file, and pull them
-    // Open the compose.yaml file of the app instance
-    const composeFile = await $`cat /disks/${disk.device}/instances/${instance.id}/compose.yaml`
-    const compose = YAML.parse(composeFile.stdout)
-    const services = compose.services
-    for (const serviceName in services) {
-      const serviceImage = services[serviceName].image
-      // Load the service image from the saved tar file
-      await $`docker image load < /disks/${disk.device}/services/${serviceImage.replace(/\//g, '_')}.tar`
+    let pass:string = ""
+
+    // Check if the pass is already defined in the .env file
+    try {
+      log(`Trying to find a pass for instance ${instance.id} in the .env file`)
+      pass = await readEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'pass') as string
+    } catch (e) {
+      log(`No .env file found for instance ${instance.id}`)
     }
-
-    // **************************
-    // STEP 3 - Container creation
-    // **************************
-
-    await createInstanceContainers(store, instance, disk)
-
-    // **************************
-    // STEP 4 - run the Instance
-    // **************************
-
-    await runInstance(store, instance, disk)
-  }
-
-  catch (e) {
-    console.log(chalk.red('Error starting app instance'))
-    console.error(e)
-  }
-}
-
-
-export const oldStartInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  console.log(`Starting instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
-
-  try {
-
-    // **************************
-    // STEP 1 - Port generation
-    // **************************
-
-    // Generate a port  number for the app  and assign it to the variable port
-    // Start from port number 3000 and check if the port is already in use by another app
-    // The port is in use by another app if an app can be found in networkdata with the same port
-    // let port = 3000
-    // const instances = getEngineInstances(store, getLocalEngine(store))
-    // console.log(`Searching for an available port number for instance ${instance.id}. Current instances: ${deepPrint(instances)}.`)
-    // while (true) {
-    //   const inst = instances.find(instance => instance && instance.port == port)
-    //   if (inst) {
-    //     port++
-    //   } else {
-    //     break
-    //   }
-    // }
-
-    let port
-
-    // Find the container
-    log(`Trying to find a running container with the same instance id amongst the following running containers:`)
-    const docker = new Docker({ socketPath: '/var/run/docker.sock' });
-    const containers = await docker.container.list()
-    containers.forEach(container => {
-      console.log(container.data['Names'][0])
-    })
-    const container = containers.find(container => container.data['Names'][0].includes(instance.id))
-    if (container) {
-      port = parseInt(container.data['Ports'][0]['PublicPort'])
-      log(`Found a container for instance ${instance.id} running on port ${port}`)
+    // Check if port is undefined or NaN
+    if (!(pass == "")) {
+      log(`Found a pass for instance ${instance.id} in the .env file: ${pass}`)
     } else {
-      // Check if the port is defined in the .env file
-      try {
-        log(`Trying to find a port number for instance ${instance.id} in the .env file`)
-        const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
-        port = envContent.split('=')[1].slice(0, -1)
-      } catch (e) {
-        log(`No .env file found for instance ${instance.id}`)
-      }
-      if (port) {
-        log(`Found a port number for instance ${instance.id} in the .env file: ${port}`)
-      } else {
-        log(`No container found for instance ${instance.id} and no port number has previously been generated. Generating a new port number.`)
-        // Alternative is to check the system for an occupied port
-        // await $`netstat -tuln | grep ${port}`
-        // port = 3000
-        port = randomPort()
-      }
-    }
-
-    // Check if the port is already in use on the system
-    let portInUse = true
-    let portInUseResult
-    const instances = getEngineInstances(store, getLocalEngine(store))
-    while (portInUse) {
-      log(`Checking if port ${port} is in use`)
-      try {
-        portInUseResult = await $`netstat -tuln | grep ${port}`
-        log(`Port ${port} is in use`)
-        port++
-      } catch (e) {
-        log(`Port ${port} is not in use. Checking if it is reserved by another instance`)
-        const inst = instances.find(instance => instance && instance.port == port)
-        if (inst) {
-          log(`Port ${port} is reserved by another instance. Generating a new one.`)
-          //port++
-          port = randomPort()
-        } else {
-          log(`Port ${port} is not reserved by another instance`)
-          portInUse = false
-        }
-      }
-    }
-
-    console.log(`Found a port number for instance ${instance.id}: ${port}`)
-    instance.port = port as PortNumber
-
-    // Write a .env file in which you define the port variable
-    // Do it
-    await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`
-    // Do not set the instance port member here - only set it when running the app
+      log(`No pass has previously been generated. Generating a new pass.`)
+      pass = await uuid()
+      log(`Generated pass: ${pass}`)
+      // Write the password to the .env file
+      await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'pass', pass) 
+}
+    
 
     // **************************
     // STEP 2 - Preloading of services
@@ -523,9 +433,158 @@ export const oldStartInstance = async (store: Store, instance: Instance, disk: D
     console.error(e)
   }
 }
+
+
+// export const oldStartInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
+//   console.log(`Starting instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
+
+//   try {
+
+
+
+//     // **************************
+//     // STEP 1 - Port generation
+//     // **************************
+
+//     // Generate a port  number for the app  and assign it to the variable port
+//     // Start from port number 3000 and check if the port is already in use by another app
+//     // The port is in use by another app if an app can be found in networkdata with the same port
+//     // let port = 3000
+//     // const instances = getEngineInstances(store, getLocalEngine(store))
+//     // console.log(`Searching for an available port number for instance ${instance.id}. Current instances: ${deepPrint(instances)}.`)
+//     // while (true) {
+//     //   const inst = instances.find(instance => instance && instance.port == port)
+//     //   if (inst) {
+//     //     port++
+//     //   } else {
+//     //     break
+//     //   }
+//     // }
+
+//     let port
+
+//     // Find the container
+//     log(`Trying to find a running container with the same instance id amongst the following running containers:`)
+//     const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+//     const containers = await docker.container.list()
+//     containers.forEach(container => {
+//       console.log(container.data['Names'][0])
+//     })
+//     const container = containers.find(container => container.data['Names'][0].includes(instance.id))
+//     if (container) {
+//       port = parseInt(container.data['Ports'][0]['PublicPort'])
+//       log(`Found a container for instance ${instance.id} running on port ${port}`)
+//     } else {
+//       // Check if the port is defined in the .env file
+//       try {
+//         log(`Trying to find a port number for instance ${instance.id} in the .env file`)
+//         const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
+//         port = envContent.split('=')[1].slice(0, -1)
+//       } catch (e) {
+//         log(`No .env file found for instance ${instance.id}`)
+//       }
+//       if (port) {
+//         log(`Found a port number for instance ${instance.id} in the .env file: ${port}`)
+//       } else {
+//         log(`No container found for instance ${instance.id} and no port number has previously been generated. Generating a new port number.`)
+//         // Alternative is to check the system for an occupied port
+//         // await $`netstat -tuln | grep ${port}`
+//         // port = 3000
+//         port = randomPort()
+//       }
+//     }
+
+//     // Check if the port is already in use on the system
+//     let portInUse = true
+//     let portInUseResult
+//     const instances = getEngineInstances(store, getLocalEngine(store))
+//     while (portInUse) {
+//       log(`Checking if port ${port} is in use`)
+//       try {
+//         portInUseResult = await $`netstat -tuln | grep ${port}`
+//         log(`Port ${port} is in use`)
+//         port++
+//       } catch (e) {
+//         log(`Port ${port} is not in use. Checking if it is reserved by another instance`)
+//         const inst = instances.find(instance => instance && instance.port == port)
+//         if (inst) {
+//           log(`Port ${port} is reserved by another instance. Generating a new one.`)
+//           //port++
+//           port = randomPort()
+//         } else {
+//           log(`Port ${port} is not reserved by another instance`)
+//           portInUse = false
+//         }
+//       }
+//     }
+
+//     console.log(`Found a port number for instance ${instance.id}: ${port}`)
+//     instance.port = port as PortNumber
+
+//     // Update the .env file
+//     await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())  
+//     // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`
+//     // Do not set the instance port member here - only set it when running the app
+
+//     // **************************
+//     // STEP 2 - Preloading of services
+//     // **************************
+
+//     // Extract the service images of the services from the compose file, and pull them
+//     // Open the compose.yaml file of the app instance
+//     const composeFile = await $`cat /disks/${disk.device}/instances/${instance.id}/compose.yaml`
+//     const compose = YAML.parse(composeFile.stdout)
+//     const services = compose.services
+//     for (const serviceName in services) {
+//       const serviceImage = services[serviceName].image
+//       // Load the service image from the saved tar file
+//       await $`docker image load < /disks/${disk.device}/services/${serviceImage.replace(/\//g, '_')}.tar`
+//     }
+
+//     // **************************
+//     // STEP 3 - Container creation
+//     // **************************
+
+//     await createInstanceContainers(store, instance, disk)
+
+//     // **************************
+//     // STEP 4 - run the Instance
+//     // **************************
+
+//     await runInstance(store, instance, disk)
+//   }
+
+//   catch (e) {
+//     console.log(chalk.red('Error starting app instance'))
+//     console.error(e)
+//   }
+// }
 
 export const createInstanceContainers = async (store: Store, instance: Instance, disk: Disk) => {
   try {
+
+    // App-specific pre-processing commands
+    const app = store.appDB[instance.instanceOf]
+    if (app && app.name === 'nextcloud') {
+
+      // Pass the hostname to the compose file via .env
+      const hostname = getLocalEngine(store).hostname
+      if (hostname) {
+        await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'hostname', hostname)
+      }
+
+      // Pass the ip address to the compose file via .env
+      // TODO - We hardcoded eth0 as the interface to use, but we should be using an ip of one of the allowed interface !!
+      const interfaces = getLocalEngine(store).connectedInterfaces
+      if (interfaces && interfaces["eth0"]) {
+        const ip = interfaces["eth0"].ip4
+        // Write the ip address to the .env file
+        // await $`echo "ip=${ip}" >> /disks/${disk.device}/instances/${instance.id}/.env`
+        await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'ip', ip)
+      } 
+
+    }
+
     log(`Creating containers of app instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
     // await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml create`
     await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose create`
@@ -536,20 +595,21 @@ export const createInstanceContainers = async (store: Store, instance: Instance,
   }
 }
 
+
+
 export const runInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  // CODING STYLE: only use absolute pathnames !
-  // CODING STYLE: use try/catch for error handling
   try {
 
     log(`Running instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
 
     // Extract the port number from the .env file containing "port=<portNumber>"
-    const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
+    // const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
     // Look for a line with port=<portNumber> and extract the portNumber
     // const ports = envContent.match(/port=(\d+)/g)
     // Split using '=' and take the second element
     // Also remove the newline at the end
-    const port = envContent.split('=')[1].slice(0, -1)
+    //const port = envContent.split('=')[1].slice(0, -1)
+    const port = await readEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port')
     console.log(`Ports: ${deepPrint(port)}`)
     if (port) {
       const parsedPort = parseInt(port)
@@ -558,12 +618,11 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
         log(`Port number extracted from .env file for instance ${instance.id}: ${parsedPort}`)
         instance.port = parsedPort as PortNumber
       } else {
-        log(chalk.red(`Error parsing port number from .env file for instance ${instance.id}. Got ${parsedPort} from ${envContent} and ${port}`))
+        log(chalk.red(`Error parsing port number from .env file for instance ${instance.id}. Got ${parsedPort} from ${port}`))
       }
     } else {
       log(chalk.red(`Error extracting port number from .env file for instance ${instance.id}`))
     }
-
 
     // Compose up the app
     //await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml up -d`
@@ -587,6 +646,31 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
     // instance.dockerEvents = { events: await $`docker events ${instanceName}` }  // This is not correct, we need to use the right container name
 
     console.log(chalk.green(`App ${instance.id} running`))
+
+    // App-specific post-processing commands
+    // If the app on which the instance is based is nextcloud, 
+    //    find the IP address of the server and store it in IPADDRESS
+    //    issue the following command: runuser --user www-data -- php occ config:app:set --value=http://<${PADDRESS}:9980 richdocuments wopi_url
+    const app = store.appDB[instance.instanceOf]
+    const ip = await readEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'ip')
+    if (app && app.name === 'nextcloud') {
+      if (ip) {
+        try {
+          // For unclear reasons, the occ command sometimes does not work, preventing the start of the container
+          // So we catch the error so that the container can still start
+          log(`Configuring nextcloud office to use the Collabora server at ${ip}:9980`)
+          log('Sleeping for 10 seconds to allow the app to start')
+          await sleep(10000)
+          log('Running the occ command')
+          await $`sudo docker exec ${instance.id}-nextcloud-app-1 runuser --user www-data -- php occ config:app:set --value=http://${ip}:9980 richdocuments wopi_url`
+          log(`occ command executed`)
+        } catch (e) {
+          log(chalk.red(`Error configuring nextcloud office to use the Collabora server at ${ip}:9980`))
+          console.error(e)
+        }
+      }
+    }
+
 
   } catch (e) {
 
@@ -650,3 +734,4 @@ export const getEngineOfInstance = (store: Store, instance: Instance): Engine =>
   const engine = getEngine(store, disk.engineId)
   return engine
 }
+
