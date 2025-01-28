@@ -389,7 +389,7 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
       log(`No .env file found for instance ${instance.id}`)
     }
     // Check if port is undefined or NaN
-    if (!(pass == "")) {
+    if (pass && !(pass == "")) {
       log(`Found a pass for instance ${instance.id} in the .env file: ${pass}`)
     } else {
       log(`No pass has previously been generated. Generating a new pass.`)
