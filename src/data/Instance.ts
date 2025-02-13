@@ -38,7 +38,7 @@ export type Status = 'Initializing' | 'Running' | 'Pauzed' | 'Error';
 
 
 export const buildInstance = async (instanceName: InstanceName, appName: AppName, gitAccount: string, version: Version, device: DeviceName): Promise<void> => {
-  console.log(`Building instance '${instanceName}' from version ${version} of app '${appName}' on device '${device}' of the local engine.`)
+  console.log(`Building new instance '${instanceName}' from version ${version} of app '${appName}' on device '${device}' of the local engine.`)
 
   // CODING STYLE: only use absolute pathnames !
   // CODING STYLE: use try/catch for error handling
@@ -58,6 +58,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     //   log(`Instance ID: ${instanceId}`)
     // } 
     const instanceId = createInstanceId(appName).toString() as InstanceID
+    log(`Instance ID: ${instanceId}`)
 
 
     // Create the app infrastructure if it does not exist
@@ -73,14 +74,17 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     // Remove /tmp/apps/${typeName} if it exists
     await $`rm -rf /tmp/apps/${appName}`
     let appVersion = ""
+    console.log(`Cloning version ${version} of app ${appName} from git account ${gitAccount}`)
     if (version === "latest_dev") {
+      console.log(`Cloning the latest development version of app ${appName} from git account ${gitAccount}`)
       await $`git clone https://github.com/${gitAccount}/app-${appName} /tmp/apps/${appName}`
       // Set appVersion to the latest commit hash
       const gitLog = await $`cd /tmp/apps/${appName} && git log -n 1 --pretty=format:%H`
       appVersion = gitLog.stdout.trim()
-      log(`App version: ${appVersion}`)
+      console.log(`App version: ${appVersion}`)
 
     } else {
+      console.log(`Cloning version ${version} of app ${appName} from git account ${gitAccount}`)
       await $`git clone -b ${version} https://github.com/koenswings/app-${appName} /tmp/apps/${appName}`
       appVersion = version
     }
@@ -116,6 +120,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
 
     // If the app has an init_data.tar.gz file, unpack it in the app folder
     if (fs.existsSync(`/disks/${device}/instances/${instanceId}/init_data.tar.gz`)) {
+      console.log(`Unpacking the init_data.tar.gz file in the app folder`)
       await $`tar -xzf /disks/${device}/instances/${instanceId}/init_data.tar.gz -C /disks/${device}/instances/${instanceId}`
       // Rename the folder init_data to data
       await $`mv /disks/${device}/instances/${instanceId}/init_data /disks/${device}/instances/${instanceId}/data`
@@ -129,6 +134,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     // }
 
     // Open the compose.yaml file of the app instance and add the version info to the compose file and the instance name
+    console.log(`Opening the compose.yaml file of the app instance and adding the version info to the compose file (${appVersion}) and the instance name (${instanceName})`)
     const composeFile = await $`cat /disks/${device}/instances/${instanceId}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     compose['x-app'].version = appVersion
@@ -148,6 +154,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     for (const serviceName in services) {
       const serviceImage = services[serviceName].image
       // Pull the sercice image
+      console.log(`Pulling service image ${serviceImage}`)
       await $`docker image pull ${serviceImage}`
       // Save the sercice image
       await $`docker save ${serviceImage} > /disks/${device}/services/${serviceImage.replace(/\//g, '_')}.tar`

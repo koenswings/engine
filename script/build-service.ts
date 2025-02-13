@@ -97,7 +97,7 @@ for (let service of services) {
 
     try {
         // Parse the service reference into its components
-        const {serviceName, serviceTag, latest_dev} = parseServiceReference(service)
+        const {serviceName, serviceTag, major, minor, appVersion, latest, latest_dev} = parseServiceReference(service)
         const reponame = "service-" + serviceName
         
         // Create the temporary directory
@@ -107,7 +107,7 @@ for (let service of services) {
         cd(tmpDir)
 
         // Clone the repo
-        if (latest_dev) {
+        if (latest_dev || latest) {
           await $`git clone https://github.com/${gitAccount}/${reponame}.git`
         } else {
           await $`git clone -b ${serviceTag} https://github.com/${gitAccount}/${reponame}.git`
