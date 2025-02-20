@@ -71,7 +71,8 @@ if (gitAccount == undefined) {
 // Check for the platform argument
 let platform = argv.platform
 if (platform == undefined) {
-  platform = "linux/amd64,linux/arm64"
+  platform = "linux/arm64"
+  // platform = "linux/amd64,linux/arm64"
 }
 
 console.log(`Building the following services: ${argv._}`)
@@ -106,8 +107,8 @@ for (let service of services) {
         // Change directory to the temporary directory
         cd(tmpDir)
 
-        // Clone the repo
-        if (latest_dev || latest) {
+        // Clone the repo 
+        if (latest_dev) {
           await $`git clone https://github.com/${gitAccount}/${reponame}.git`
         } else {
           await $`git clone -b ${serviceTag} https://github.com/${gitAccount}/${reponame}.git`
@@ -120,6 +121,7 @@ for (let service of services) {
         await $`docker buildx create --name multiarch --driver docker-container --use`
         await $`docker buildx build --push --platform ${platform} -t ${user}/${service} .`
         await $`docker buildx rm multiarch`
+        // await $`docker build --push --platform ${platform} -t ${user}/${service} .`
 
         // Remove the temporary directory
         // await $`rm -rf /tmp/${service}`
