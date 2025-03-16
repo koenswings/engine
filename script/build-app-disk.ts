@@ -56,7 +56,7 @@ if (argv.v || argv.version) {
 
 // OBSOLETED
 // META.yaml is auto generated or updated upon inserting the disk
-const addMetadata = async (name:string) => {
+const addMetadata = async (diskName:string, disk:string) => {
   console.log(chalk.blue('Adding metadata...'));
   try {
       // Convert the diskMetadata object to a YAML string 
@@ -66,11 +66,11 @@ const addMetadata = async (name:string) => {
       // await copyAsset('META.yaml', '/')
       // await $$`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
 
-      await $`sudo echo 'hostname: ${name}' >> ${metaPath}/META.yaml`
+      await $`sudo echo 'hostname: ${diskName}' >> ${metaPath}/META.yaml`
       await $`sudo echo 'created: ${new Date().getTime()}' >> ${metaPath}/META.yaml`
-      await $`sudo echo 'diskId: ${name}-disk' >> ${metaPath}/META.yaml`
+      await $`sudo echo 'diskId: ${diskName}-disk' >> ${metaPath}/META.yaml`
       // Move the META.yaml file to the root directory
-      await $`sudo mv ${metaPath}/META.yaml /META.yaml`
+      await $`sudo mv ${metaPath}/META.yaml /disks/${disk}/META.yaml`
   } catch (e) {
     console.log(chalk.red('Error adding metadata'));
     console.error(e);
@@ -90,7 +90,7 @@ try {
     exitWithError(`Error: Disk ${disk} not found on this machine`)
   }
 
-  await addMetadata(name)
+  await addMetadata(name, disk)
 
 } catch (error) {
 
