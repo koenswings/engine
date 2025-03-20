@@ -118,6 +118,9 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     // Again use /. to specify the content of the dir, not the dir itself 
     await $`cp -fr /tmp/apps/${appName}/. /disks/${device}/instances/${instanceId}/`
 
+
+    
+
     // If the app has an init_data.tar.gz file, unpack it in the app folder
     if (fs.existsSync(`/disks/${device}/instances/${instanceId}/init_data.tar.gz`)) {
       console.log(`Unpacking the init_data.tar.gz file in the app folder`)
@@ -154,18 +157,26 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     for (const serviceName in services) {
       const serviceImage = services[serviceName].image
       // Pull the sercice image
-      console.log(`Pulling service image ${serviceImage}`)
-      await $`docker image pull ${serviceImage}`
-      // Save the sercice image
-      await $`docker save ${serviceImage} > /disks/${device}/services/${serviceImage.replace(/\//g, '_')}.tar`
+      const serviceImageFile = serviceImage.replace(/\//g, '_')
+      if (fs.existsSync(`/disks/${device}/services/${serviceImageFile}.tar`)) {
+        console.log(`Service image ${serviceImage} already exists`)
+      } else {
+        console.log(`Pulling service image ${serviceImage}`)
+        await $`docker image pull ${serviceImage}`
+        // Save the service image
+        await $`docker save ${serviceImage} > /disks/${device}/services/${serviceImageFile}.tar`
+      }
     }
 
     // **************************
     // STEP 4 - Create the META.yaml file if it is not already there
     // **************************
 
-    if (!fs.existsSync(`/META.yaml`)) {
+    if (!fs.existsSync(`/disks/${device}/META.yaml`)) {
+      log(`Creating META.yaml file on disk ${device}`)
       createMeta(device)
+    } else {
+      console.log(`META.yaml file already exists on disk ${device}`)
     }
 
     // OBSOLETE 

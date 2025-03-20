@@ -171,7 +171,7 @@ export const readHardwareIdIntenso = async (device: DeviceName): Promise<DiskID 
 
 
 
-export const createMeta = async (device: DeviceName, version: Version | undefined = undefined): Promise<DiskMeta> => {
+export const createMeta = async (device: DeviceName, engineVersion: Version | undefined = undefined): Promise<DiskMeta> => {
   // Find the hardware id
   let isHardwareId
   let diskId = await readHardwareId(device) as DiskID
@@ -189,13 +189,13 @@ export const createMeta = async (device: DeviceName, version: Version | undefine
     created: new Date().getTime() as Timestamp,
     lastDocked: new Date().getTime() as Timestamp
   }
-  if (version) {
-    meta.version = version
+  if (engineVersion) {
+    meta.version = engineVersion
   }
 
   try {
     // Create the META.yaml file
-    await writeMeta(meta, `/META.yaml`)
+    await writeMeta(meta, `/disks/${device}/META.yaml`)
   } catch (e) {
     console.log(chalk.red('Error creating metadata'));
   }
