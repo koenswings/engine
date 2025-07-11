@@ -50,6 +50,7 @@ export const addOrUpdateEnvVariable = async (path: string, variable: string, val
       // Add the variable to the .env file
       await $`echo "${variable}=${value}" >> ${path}`
     }
+    log(`Added or updated variable ${variable} in .env file ${path}`)
   } catch (e) {
     // Add the variable to the .env file
     log(`Error adding or updating variable ${variable} in .env file ${path}`)

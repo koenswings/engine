@@ -7,7 +7,7 @@ import { existsSync, write } from 'fs'
 import { $, chalk } from 'zx'
 import { exit } from 'process'
 import { InterfaceName } from '../data/CommonTypes.js'
-import { LIBUSB_CAP_HAS_HID_ACCESS } from 'usb/dist/usb/bindings.js'
+//import { LIBUSB_CAP_HAS_HID_ACCESS } from 'usb/dist/usb/bindings.js'
 import { enableWebSocketMonitor } from './webSocketMonitor.js'
 import { addConnectedInterface, isConnected, removeConnectedInterfaceByName } from '../data/Engine.js'
 

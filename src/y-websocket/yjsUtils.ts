@@ -207,6 +207,7 @@ const messageListener = (conn: any, doc: WSSharedDoc, message: Uint8Array) => {
     }
   } catch (err) {
     console.error(err)
+    // @ts-ignore
     doc.emit('error', [err])
   }
 }

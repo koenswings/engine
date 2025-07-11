@@ -1,17 +1,25 @@
 import { $, chalk, YAML } from 'zx'
 import { deepPrint, fileExists, log, stripPartition, uuid } from '../utils/utils.js'
 import { DeviceName, DiskID, DiskName, EngineID, Hostname, Timestamp, Version } from './CommonTypes.js'
-import { Device } from 'usb'
-import { write } from 'fs'
 
 export interface DiskMeta {
-  diskId: DiskID         // The serial number of the disk or user-assigned iif there is no serial number - We store it so that it easily inspectable
-  isHardwareId?: boolean // True if the diskId is a hardware id, false if it is a user-assigned id. If this is not present, the diskId has a generated id.
-  diskName: DiskName     // The user-defined name of the disk.  Not necessarily unique
-  //engineId: EngineID
-  created: Timestamp     // The timestamp when the disk was created
-  version?: Version      // Only applicable to system disks - the version of the engine running on the disk
-  lastDocked: Timestamp  // The timestamp when the disk was last docked (in cqse of an app disk) or when the engine was last booted (in case of a system disk)
+  diskId: DiskID         
+  // The serial number of the disk or user-assigned iif there is no serial number - We store it so that it easily inspectable
+  
+  isHardwareId?: boolean 
+  // True if the diskId is a hardware id, false if it is a user-assigned id. If this is not present, the diskId has a generated id.
+  
+  diskName: DiskName     
+  // The user-defined name of the disk.  Not necessarily unique
+  
+  created: Timestamp     
+  // The timestamp when the disk was created
+  
+  version?: Version      
+  // Only applicable to Engine Disks - the version of the engine running on the disk
+  
+  lastDocked: Timestamp  
+  // The timestamp when the disk was last docked (for all other disks) or when the engine was last booted (in case of a system disk)
 }
 
 // Create a sample META.yaml file for an appdisk with id AA000000000000000724 and a create timestamp corresponding to 2024-12-12 and a lastDocked timestamp corresponding to 2025-01-07

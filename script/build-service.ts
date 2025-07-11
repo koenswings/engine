@@ -3,6 +3,7 @@
 import { strict as assert } from 'assert';
 import { $, argv, chalk, cd } from 'zx';
 import pack from '../package.json' assert { type: "json" };
+import { log } from 'console';
 
 // Define the defaults for the registry, the registry user and the git account
 const defaultRegistry = "docker.io"
@@ -16,22 +17,21 @@ const defaultGitAccount = "koenswings"
 // Check for the help flag and print usage if help is requested
 if (argv.h || argv.help) {
   console.log(`Builds the image of a service and pushes it to the registry.`)
-  console.log(`Usage: build_service.ts [options] <serviceRef> [<serviceRef> ...]` )
-  console.log(`with ` )
-  console.log(`  <serviceRef> = <serviceName>:<serviceTag>`)
-  console.log(`  <serviceTag = <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | latest_dev`)
+  console.log(`Usage: build-service.ts [options] <service> [<service> ...]` )
+  console.log(`Specify the version using the tag attribute as follows ` )
+  console.log(`  <tag = <ourVersion>-<appVersion> | latest`)
   console.log(`  <ourVersion> = <major>.<minor>`)
   console.log(`  <major> = <number>`)
   console.log(`  <minor> = <number>`)
-  console.log(`  <appVersion> = <string_without_dash_our_colon>`)
+  console.log(`  <appVersion> = <string>`)
   console.log(`Options:`)
   console.log(`  -h, --help           display help for command`)  
   console.log(`  --registry <string>  the registry to push the image to (default: docker.io)`)
   console.log(`  --user <string>      the user account on the registry (default: koenswings)`)
-  console.log(`  --version            output the version number`)
+  console.log(`  --version            output the version number of the script`)
   console.log(`  --git <string>       the git account to pull the service from (default: koenswings)`)
   console.log(`  --platform <string>  the platform to build the service for (default: linux/amd64,linux/arm64)`)
-  console.log(``)
+  console.log(`  --tag <string>       the version of the service to retrieve from github and the tag to assign to the image (default: latest means we use the last checked-in version of the service and tag it as latest on Docker Hub)`)
   process.exit(0)
 }
 
@@ -75,6 +75,9 @@ if (platform == undefined) {
   // platform = "linux/amd64,linux/arm64"
 }
 
+const tag = argv.t || argv.tag || "latest"
+
+
 console.log(`Building the following services: ${argv._}`)
 
 // const servicesFolder = "../../services"
@@ -89,7 +92,7 @@ try {
 
 
 for (let service of services) {
-    console.log(`Building service : ${service}`)
+    console.log(`Building version ${tag} of service ${service}`)
 
     // Generate a random ascii string for a temporary directory
     const tmpDirName = Math.random().toString(36).substring(2, 15)
@@ -98,8 +101,8 @@ for (let service of services) {
 
     try {
         // Parse the service reference into its components
-        const {serviceName, serviceTag, major, minor, appVersion, latest, latest_dev} = parseServiceReference(service)
-        const reponame = "service-" + serviceName
+        // const {serviceName, serviceTag, major, minor, appVersion, latest, latest_dev} = parseServiceReference(service)
+        const reponame = "service-" + service
         
         // Create the temporary directory
         await $`mkdir ${tmpDir}`
@@ -108,10 +111,12 @@ for (let service of services) {
         cd(tmpDir)
 
         // Clone the repo 
-        if (latest_dev) {
+        if (tag === "latest") {
+          log(`Cloning the latest version of ${service} from github`)
           await $`git clone https://github.com/${gitAccount}/${reponame}.git`
         } else {
-          await $`git clone -b ${serviceTag} https://github.com/${gitAccount}/${reponame}.git`
+          log(`Cloning the version ${tag} of ${service} from github`)
+          await $`git clone -b ${tag} https://github.com/${gitAccount}/${reponame}.git`
         }
 
         // Change directory to the repo
@@ -119,9 +124,9 @@ for (let service of services) {
 
         // Execute the docker commands to build the service
         await $`docker buildx create --name multiarch --driver docker-container --use`
-        await $`docker buildx build --push --platform ${platform} -t ${user}/${service} .`
+        await $`docker buildx build --push --platform ${platform} -t ${user}/${service}:${tag} .`
         await $`docker buildx rm multiarch`
-        // await $`docker build --push --platform ${platform} -t ${user}/${service} .`
+        // await $`docker build --push --platform ${platform} -t ${user}/${service}:${tag} .`
 
         // Remove the temporary directory
         // await $`rm -rf /tmp/${service}`
@@ -135,55 +140,55 @@ for (let service of services) {
 }
 
 
-function parseServiceReference(serviceRef:string) {
-  const serviceSplit = serviceRef.split(":")
-  assert(serviceSplit.length == 2, `Error: Service ${serviceRef} reference must be in the form <serviceName>:<serviceTag>`)
-  const serviceName = serviceSplit[0]
-  const serviceTag = serviceSplit[1]
-  const serviceTagSplit = serviceTag.split("-")
+// function parseServiceReference(serviceRef:string) {
+//   const serviceSplit = serviceRef.split(":")
+//   assert(serviceSplit.length == 2, `Error: Service ${serviceRef} reference must be in the form <serviceName>:<serviceTag>`)
+//   const serviceName = serviceSplit[0]
+//   const serviceTag = serviceSplit[1]
+//   const serviceTagSplit = serviceTag.split("-")
 
-  // Process stable tags (latest or latest_dev)
-  if (serviceTagSplit.length == 1) {
-    assert((serviceTagSplit[0] == "latest" || serviceTagSplit[0] == "latest_dev"), `Error: Service tag ${serviceTag} must be in the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | dev`)
-    if (serviceTagSplit[0] == "latest") {
-      return {
-        serviceName: serviceName,
-        serviceTag: serviceTag,
-        major: "?",
-        minor: "?",
-        appVersion: "?",
-        latest: true,
-        latest_dev: false
-        }
-    } else {
-      return {
-        serviceName: serviceName,
-        serviceTag: serviceTag,
-        major: "?",
-        minor: "?",
-        appVersion: "?",
-        latest: false,
-        latest_dev: true
-      }
-    }
-   } 
+//   // Process stable tags (latest or latest_dev)
+//   if (serviceTagSplit.length == 1) {
+//     assert((serviceTagSplit[0] == "latest" || serviceTagSplit[0] == "latest_dev"), `Error: Service tag ${serviceTag} must be in the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev | latest | dev`)
+//     if (serviceTagSplit[0] == "latest") {
+//       return {
+//         serviceName: serviceName,
+//         serviceTag: serviceTag,
+//         major: "?",
+//         minor: "?",
+//         appVersion: "?",
+//         latest: true,
+//         latest_dev: false
+//         }
+//     } else {
+//       return {
+//         serviceName: serviceName,
+//         serviceTag: serviceTag,
+//         major: "?",
+//         minor: "?",
+//         appVersion: "?",
+//         latest: false,
+//         latest_dev: true
+//       }
+//     }
+//    } 
 
-  // We have an unstable tag of the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev
-  const ourVersion = serviceTagSplit[0]
-  const appVersion = serviceTagSplit[1]
-  const ourVersionSplit = ourVersion.split(".")
-  assert(ourVersionSplit.length == 2, `Error: Our version ${ourVersion} must be in the form <major>.<minor>`)
-  const [major, minor] = ourVersionSplit
-  return {
-    serviceName: serviceName,
-    serviceTag: serviceTag,
-    major: major,
-    minor: minor,
-    appVersion: appVersion,
-    latest: false,
-    latest_dev: false
-  }
-}
+//   // We have an unstable tag of the form <ourVersion>-<appVersion> | <ourVersion>-<appVersion>-dev
+//   const ourVersion = serviceTagSplit[0]
+//   const appVersion = serviceTagSplit[1]
+//   const ourVersionSplit = ourVersion.split(".")
+//   assert(ourVersionSplit.length == 2, `Error: Our version ${ourVersion} must be in the form <major>.<minor>`)
+//   const [major, minor] = ourVersionSplit
+//   return {
+//     serviceName: serviceName,
+//     serviceTag: serviceTag,
+//     major: major,
+//     minor: minor,
+//     appVersion: appVersion,
+//     latest: false,
+//     latest_dev: false
+//   }
+// }
 
 
 

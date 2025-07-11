@@ -75,7 +75,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     await $`rm -rf /tmp/apps/${appName}`
     let appVersion = ""
     console.log(`Cloning version ${version} of app ${appName} from git account ${gitAccount}`)
-    if (version === "latest_dev") {
+    if (version === "latest") {
       console.log(`Cloning the latest development version of app ${appName} from git account ${gitAccount}`)
       await $`git clone https://github.com/${gitAccount}/app-${appName} /tmp/apps/${appName}`
       // Set appVersion to the latest commit hash
@@ -119,7 +119,7 @@ export const buildInstance = async (instanceName: InstanceName, appName: AppName
     await $`cp -fr /tmp/apps/${appName}/. /disks/${device}/instances/${instanceId}/`
 
 
-    
+
 
     // If the app has an init_data.tar.gz file, unpack it in the app folder
     if (fs.existsSync(`/disks/${device}/instances/${instanceId}/init_data.tar.gz`)) {
@@ -339,6 +339,20 @@ export const createPortNumber = async ():Promise<PortNumber> => {
   return port
 }
 
+// KSW - UNTESTED >>>
+export const checkPortNumber = async (port: PortNumber):Promise<boolean> => { 
+  log(`Checking if port ${port} is in use`)
+  try {
+    const portInUseResult = await $`netstat -tuln | grep ${port}`
+    log(`Port ${port} is in use`)
+    return true
+  } catch (e) {
+    log(`Port ${port} is not in use`)
+    return false
+  }
+}
+// KSW - UNTESTED <<<
+
 export const startInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
   console.log(`Starting instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
 
@@ -382,6 +396,21 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     // Check if port is undefined or NaN
     if (!(port == 0) && !isNaN(port)) {
       log(`Found a port number for instance ${instance.id} in the .env file: ${port}`)
+      
+      // >>> KSW - UNTESTED
+      // Check if the port is already in use on the system
+      const portInUse = await checkPortNumber(port)
+      if (portInUse) {
+        log(`Port ${port} is already in use. Generating a new port number.`)
+        port = await createPortNumber()
+        // Write the new port number to the .env file
+        // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`
+        await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())  
+      } else {
+        log(`Port ${port} is not in use`)
+      }
+      // KSW UNTESTED <<<
+
     } else {
       log(`No port number has previously been generated. Generating a new port number.`)
       port = await createPortNumber()
@@ -415,21 +444,24 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
       log(`Generated pass: ${pass}`)
       // Write the password to the .env file
       await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'pass', pass) 
-}
+    }
     
 
     // **************************
     // STEP 2 - Preloading of services
     // **************************
 
+    log(`Preloading the service images of the services from the compose file`)
     // Extract the service images of the services from the compose file, and pull them
     // Open the compose.yaml file of the app instance
+    log(`Reading and parsing the compose.yaml file of the app instance`)
     const composeFile = await $`cat /disks/${disk.device}/instances/${instance.id}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
     const services = compose.services
     for (const serviceName in services) {
       const serviceImage = services[serviceName].image
       // Load the service image from the saved tar file
+      log(`Loading the service image ${serviceImage} from the saved tar file`)
       await $`docker image load < /disks/${disk.device}/services/${serviceImage.replace(/\//g, '_')}.tar`
     }
 
@@ -580,6 +612,7 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
 
 export const createInstanceContainers = async (store: Store, instance: Instance, disk: Disk) => {
   try {
+    log(`Creating the containers for the services of the app instance`)
 
     // App-specific pre-processing commands
     const app = store.appDB[instance.instanceOf]

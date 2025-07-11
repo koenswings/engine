@@ -45,7 +45,7 @@ if (argv.h || argv.help) {
   console.log(`  --instance <string>  a user-presented name for the instance (default: <appName>)`)
   console.log(`  --disk <string>      the device name of the mounted disk in which the instance will be created (default: ${defaultDisk})`)
   console.log(`  --git <string>       the git account to pull the app from (default: ${defaults.gitAccount})`)
-  console.log(`  --tag <string>       the git tag to pull the app from (default is latest_dev which retrieves the latest version on the main branch)`)
+  console.log(`  --tag <string>       the git tag to pull the app from (default is latest which retrieves the latest version on the main branch)`)
   console.log(``)
   process.exit(0)
 }
@@ -69,7 +69,7 @@ const appName = apps[0] as AppName
 // Now override the default configuration using the command line
 const gitAccount = argv.g || argv.git || defaults.gitAccount
 const instanceName = argv.i || argv.instance || appName
-const gitTag = argv.t || argv.tag || "latest_dev"
+const gitTag = argv.t || argv.tag || "latest"
 const disk = argv.d || argv.disk || defaultDisk
 
 

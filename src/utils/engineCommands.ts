@@ -21,7 +21,7 @@ import { store } from '../data/Store.js';
 //         } else if (!appnet.interfaces.includes(ifaceName)) {
 //             appnet.interfaces.push(ifaceName)
 //             writeConfig({settings, defaults, testSetup}, 'config.yaml')
-//         }
+//         }    
 //         // if (!startup.commands) {
 //         //     log(chalk.red(`No startup commands found in config file.`))
 //         //     startup.commands = [`enableAppnetMonitor ${networkName}  ${ifaceName}`]
