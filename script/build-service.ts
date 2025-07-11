@@ -2,7 +2,7 @@
 
 import { strict as assert } from 'assert';
 import { $, argv, chalk, cd } from 'zx';
-import pack from '../package.json' assert { type: "json" };
+import pack from '../package.json' with { type: "json" };
 import { log } from 'console';
 
 // Define the defaults for the registry, the registry user and the git account
