@@ -1,24 +1,26 @@
 #!/usr/bin/env zx
-import { $, question, chalk, cd, argv } from 'zx';
+import { $, question, chalk, cd, argv, fs } from 'zx';
 import * as readline from 'readline';
-import { Network, connectEngine, createNetwork, getEngines, getNetworkApps, getNetworkDisks, getNetworkInstances } from '../src/data/Network.js';
-import { getEngine } from '../src/data/Store.js';
+import { Network, connectEngine } from '../src/data/Network.js';
+import { createClientStore, getApps, getDisks, getEngine, getEngines, getInstances, Store } from '../src/data/Store.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
 import { deepPrint } from '../src/utils/utils.js';
 
-import pack from '../package.json' assert { type: "json" }
+import pack from '../package.json' with { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
 
-import { getNetworks, store } from '../src/data/Store.js';
 import { CommandDefinition } from '../src/data/CommandDefinition.js';
 import { create } from 'domain';
 import { AppName, AppnetName, Command, EngineID, Hostname, InstanceName, InterfaceName, Version } from '../src/data/CommonTypes.js';
 
 const defaults  = config.defaults
-const engineAddress = argv.e || argv.engine || defaults.engine
-const engineId = argv.i || argv.id || defaults.engineId
-const networkName = argv.n || argv.network || defaults.network as AppnetName
+const engineAddress = argv.e || argv.engine || "127.0.1:1234"
+
+import { WebSocketClientAdapter } from '@automerge/automerge-repo-network-websocket';
+import { DocumentId, PeerId, Repo } from '@automerge/automerge-repo';
+import { Doc } from '@automerge/automerge';
+import { localEngineId } from '../src/data/Engine.js';
 
 // **********************
 // Command-line arguments
@@ -26,13 +28,15 @@ const networkName = argv.n || argv.network || defaults.network as AppnetName
 
 // Check for the help flag and print usage if help is requested
 if (argv.h || argv.help) {
+    console.log(`Starts a client process with a text-based command interface`)
+    console.log(`Usage: client [options]`);
     // We have help, version, engine, network and port options
     console.log(`Options:`)
     console.log(`  -h, --help              display help for command`)  
     console.log(`  -v, --version           output the version number`)
-    console.log(`  -n, --network <string>  the network we want to join (default: ${defaults.network})`)
-    console.log(`  -e, --engine <string>   the engine (address) we want to connect to (default: ${defaults.engine})`)
-    console.log(`  -i, --id <string>   the engine (id) we want to connect to (default: ${defaults.engineId})`)
+    // console.log(`  -n, --network <string>  the network we want to join (default: ${defaults.network})`)
+    console.log(`  -e, --engine <string>   the engine (address) we want to connect to (default: ${"127.0.1:1234"})`)
+    //console.log(`  -i, --id <string>   the engine (id) we want to connect to (default: ${defaults.engineId})`)
     console.log(``)
     process.exit(0)
 }
@@ -43,13 +47,24 @@ if (argv.v || argv.version) {
     process.exit(0)
 }
 
+
 // ************************
 // Connection to an engine
 // ************************
 
-const network: Network = await createNetwork(store, networkName)
-await connectEngine(network, engineId, engineAddress)
+// TODO - Connect to an engine
+// const network: Network = await createNetwork(store, networkName)
+// await connectEngine(network, engineId, engineAddress)
 
+const serverUrl = `ws://${engineAddress}`
+const browserPeerId = `browser-${localEngineId}` as PeerId // Unique identifier for the browser client
+const STORE_URL_PATH = "./store/store-url.txt"
+const storeDocUrlStr = fs.readFileSync(STORE_URL_PATH, 'utf-8');
+const storeDocId = storeDocUrlStr.replace('automerge:', '') as DocumentId;
+console.log(`Using document ID: ${storeDocId}`)
+// const storeUrlPath = "./"+config.settings.storeIdentityFolder+"/store-url.txt"
+const storeHandle = await createClientStore(serverUrl, browserPeerId, storeDocId);
+const store = storeHandle.doc()
 
 
 // ************************
@@ -110,29 +125,32 @@ await connectEngine(network, engineId, engineAddress)
 
 const ls = ():void => {
     console.log('NetworkData on this engine:')
-    console.log(deepPrint(getNetworks(store), 3))
+    console.log(deepPrint(store), 3)
 }
 
 const lsEngines = ():void => {
     console.log('Engines:')
+    const engines = getEngines(store)
+    console.log(`Total engines: ${engines.length}`)
+    console.log(deepPrint(engines, 2))
 }
 
 const lsDisks = ():void => {
     console.log('Disks:')
-    const disks = getNetworkDisks(network)
+    const disks = getDisks(store)
     console.log(deepPrint(disks, 2))
 }
 
 const lsApps = ():void => {
     console.log('Apps:')
-    const disks = getNetworkApps(network)
-    console.log(deepPrint(disks, 2))
+    const apps = getApps(store)
+    console.log(deepPrint(apps, 2))
 }
 
 const lsInstances = ():void => {
     console.log('Instances:')
-    const disks = getNetworkInstances(network)
-    console.log(deepPrint(disks, 2))
+    const instances = getInstances(store)
+    console.log(deepPrint(instances, 2))
 }
 
 
@@ -142,28 +160,28 @@ const lsInstances = ():void => {
 
 // Network Management
 
-const enableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
-    console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${networkName}`)
-    // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostname === engineName)
-    if (engine && engine.id) {
-        sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}` as Command)
-    } else {
-        console.log(`Engine ${engineName}: not found on network ${network.name} or has no id`)
-    }
-}
+// const enableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
+//     console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${networkName}`)
+//     // Find the engine with the name engineName
+//     const engine = getEngines(network).find(e => e.hostname === engineName)
+//     if (engine && engine.id) {
+//         sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}` as Command)
+//     } else {
+//         console.log(`Engine ${engineName}: not found on network ${network.name} or has no id`)
+//     }
+// }
 
 
-const disableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
-    console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${networkName}`)
-    // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostname === engineName)
-    if (engine && engine.id) {
-        sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}` as Command)
-    } else {
-        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
-    }
-}
+// const disableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
+//     console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${networkName}`)
+//     // Find the engine with the name engineName
+//     const engine = getEngines(network).find(e => e.hostname === engineName)
+//     if (engine && engine.id) {
+//         sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}` as Command)
+//     } else {
+//         console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
+//     }
+// }
 
 // Disk Management
 
@@ -177,44 +195,44 @@ const disableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, ifa
 const createInstance =  (engineName: Hostname, instanceName: InstanceName, typeName:AppName, version:Version, diskName:Hostname):void => {
     console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostname === engineName)
+    const engine = getEngines(store).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `createInstance ${instanceName} ${typeName} ${version} ${diskName}` as Command)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
+        console.log(`Engine ${engineName} not found or has no id`)
     }
 }
 
 const startInstance =  (engineName: Hostname, instanceName: InstanceName, diskName:Hostname):void => {
     console.log(`Starting instance '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostname === engineName)
+    const engine = getEngines(store).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `startInstance ${instanceName} ${diskName}` as Command)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
+        console.log(`Engine ${engineName} not found or has no id`)
     }
 }
 
 const runInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
     console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostname === engineName)
+    const engine = getEngines(store).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `runInstance ${instanceName} ${diskName}` as Command)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
+        console.log(`Engine ${engineName} not found or has no id`)
     }
 }
 
 const stopInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
     console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
     // Find the engine with the name engineName
-    const engine = getEngines(network).find(e => e.hostname === engineName)
+    const engine = getEngines(store).find(e => e.hostname === engineName)
     if (engine && engine.id) {
         sendCommand(engine.id, `stopInstance ${instanceName} ${diskName}` as Command)
     } else {
-        console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
+        console.log(`Engine ${engineName} not found or has no id`)
     }
 }
 
@@ -285,16 +303,16 @@ const commands: CommandDefinition[] = [
         execute: lsInstances,
         args: []
     },
-    {
-        name: "enableInterfaceMonitor",
-        execute: enableAppnetMonitor,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }],
-    },
-    {
-        name: "disableInterfaceMonitor",
-        execute: disableAppnetMonitor,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }],
-    },
+    // {
+    //     name: "enableInterfaceMonitor",
+    //     execute: enableAppnetMonitor,
+    //     args: [{ type: "string" }, { type: "string" }, { type: "string" }],
+    // },
+    // {
+    //     name: "disableInterfaceMonitor",
+    //     execute: disableAppnetMonitor,
+    //     args: [{ type: "string" }, { type: "string" }, { type: "string" }],
+    // },
     // {
     //     name: "createDisk",
     //     execute: createDisk,
@@ -361,8 +379,6 @@ let commandHistory: string[] = [];
 
 readline.emitKeypressEvents(process.stdin);
 if (process.stdin.isTTY) process.stdin.setRawMode(true);
-
-
 
 rl.prompt();
 

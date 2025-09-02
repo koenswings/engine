@@ -1,4 +1,4 @@
-import { $, YAML, chalk, os } from 'zx';
+import { $, YAML, chalk, fs, os } from 'zx';
 import { deepPrint, log } from '../utils/utils.js';
 import { App, createOrUpdateApp } from './App.js'
 import { Instance, Status, createOrUpdateInstance, startInstance } from './Instance.js'
@@ -7,41 +7,38 @@ import { ID } from 'yjs';
 import { UUID } from 'crypto';
 import { uuidv4 } from 'lib0/random.js';
 import { AppID, AppName, DeviceName, DiskID, EngineID, DiskName, InstanceID, InstanceName, Timestamp, Version } from './CommonTypes.js';
-import { Store, getApp, getInstance } from './Store.js';
-import { bind } from '../valtio-yjs/index.js';
+import { Store, getApp, getAppsOfDisk, getInstance, getInstancesOfDisk } from './Store.js';
 import { Network } from './Network.js';
 import { Engine } from './Engine.js';
 import { add } from 'lib0/math.js';
-import { addInstanceToAppnet, removeInstanceFromAppnet } from './Appnet.js'
 import { enableDiskMonitor } from '../monitors/diskMonitor.js';
 import { dummyKey, getKeys } from '../utils/utils.js';
+import { is } from 'lib0/function.js';
 
 
 // Disks are multi-purpose  - they can be used for engines, apps, backups, etc.
 
 export interface Disk {
-    id: DiskID;            // The serial number of the disk, or a user-defined id if the disk has no serial number
-    name: DiskName;        // The user-defined name of the disk.  Not necessarily unique  
-    device: DeviceName;    // The device under /disks where this disk is mounted
-    engineId: EngineID;    // The engine on which this disk is inserted
-    created: Timestamp;    // We must use a timestamp number as Date objects are not supported in YJS
-    lastDocked: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
-    removable: boolean;
-    upgradable: boolean;
-    apps: { [key: AppID]: boolean };
-    instances: { [key: InstanceID]: boolean };
+    id: DiskID;                   // The serial number of the disk, or a user-defined id if the disk has no serial number
+    name: DiskName;               // The user-defined name of the disk.  Not necessarily unique  
+    device: DeviceName | null;    // The device under /disks where this disk is mounted. null if the disk is not mounted
+    created: Timestamp;           // We must use a timestamp number as Date objects are not supported in YJS
+    lastDocked: Timestamp;        // We must use a timestamp number as Date objects are not supported in YJS
+    dockedTo: EngineID | null;    // The engine to which this disk is currently docked. null if it is not docked to an engine
+    // apps: { [key: AppID]: boolean };
+    // instances: { [key: InstanceID]: boolean };
 }
 
 
-export const getApps = (store: Store, disk: Disk): App[] => {
-    const appIds = getKeys(disk.apps) as AppID[]
-    return appIds.map(appId => getApp(store, appId))
-}
+// export const getApps = (store: Store, disk: Disk): App[] => {
+//     const appIds = getKeys(disk.apps) as AppID[]
+//     return appIds.map(appId => getApp(store, appId))
+// }
 
 
-export const findApp = (store: Store, disk: Disk, appId: AppID): App | undefined => {
-    return getApps(store, disk).find(app => app.id === appId)
-}
+// export const findApp = (store: Store, disk: Disk, appId: AppID): App | undefined => {
+//     return getApps(store, disk).find(app => app.id === appId)
+// }
 
 // Function findApp that searches for an app with the specified name and version on the specified disk
 // export const findAppByNameAndVersion = (store: Store, disk: Disk, appName: AppName, version: Version): App | undefined => {
@@ -57,18 +54,18 @@ export const findApp = (store: Store, disk: Disk, appId: AppID): App | undefined
 //     }
 // }
 
-export const getInstances = (store: Store, disk: Disk): Instance[] => {
-    const instanceIds = getKeys(disk.instances) as InstanceID[]
-    return instanceIds.map(instanceId => getInstance(store, instanceId))
-}
+// export const getInstances = (store: Store, disk: Disk): Instance[] => {
+//     const instanceIds = getKeys(disk.instances) as InstanceID[]
+//     return instanceIds.map(instanceId => getInstance(store, instanceId))
+// }
 
-export const findInstance = (store: Store, disk: Disk, instanceId: InstanceID): Instance | undefined => {
-    return getInstances(store, disk).find(instance => instance.id === instanceId)
-}
+// export const findInstance = (store: Store, disk: Disk, instanceId: InstanceID): Instance | undefined => {
+//     return getInstances(store, disk).find(instance => instance.id === instanceId)
+// }
 
-export const findInstanceOfApp = (store: Store, disk: Disk, appId: AppID): Instance | undefined => {
-    return getInstances(store, disk).find(instance => instance.instanceOf === appId)
-}
+// export const findInstanceOfApp = (store: Store, disk: Disk, appId: AppID): Instance | undefined => {
+//     return getInstances(store, disk).find(instance => instance.instanceOf === appId)
+// }
 // export const findInstanceByName = (store: Store, disk: Disk, instanceName: InstanceName): Instance | undefined => {
 //     const instanceIds = Object.keys(disk.instances) as InstanceID[]
 //     const instanceId = instanceIds.find(instanceId => store.instanceDB[instanceId].name === instanceName)
@@ -92,142 +89,112 @@ export const findInstanceOfApp = (store: Store, disk: Disk, appId: AppID): Insta
 //     }
 // }
 
-export const addInstance = (store: Store, disk: Disk, instance: Instance): void => {
-    disk.instances[instance.id] = true
-    store.networks.forEach((network) => {
-        log(`Trying to add instance ${instance.id} with status ${instance.status} to appnet ${network.appnet.name}`)
-        if (instance.status == 'Running' as Status) addInstanceToAppnet(network.appnet, instance)
-    })
-}
 
-// export const addApp = (store: Store, disk: Disk, app: App): void => {
-//     log(`Updating app ${app.name} of disk ${disk.name}:`)
-//     const existingApp = findAppByNameAndVersion(store, disk, app.name, app.version)
-//     if (existingApp) {
-//         log(`Disk ${disk.name} already has an instance ${app.name}. Merging the new instance with the existing instance.`)
-//         Object.assign(existingApp, app)
-//     } else {
-//         //log(deepPrint(disk))
-//         log(`Pushing a new app ${app.name} to engine ${disk.name}`)
-//         disk.apps[app.id] = true
-//     }
-// }
-
-export const addApp = (disk: Disk, app: App): void => {
-    disk.apps[app.id] = true
-}
-
-export const removeApp = (store: Store, disk: Disk, appId: AppID): void => {
-    log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Removing app ${appId} from disk ${disk.id}`)
-    const app = findApp(store, disk, appId)
-    if (app) {
-        delete disk.apps[app.id]
-    }
-}
-
-export const removeInstance = (store: Store, disk: Disk, instanceId: InstanceID): void => {
-    log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Removing instance ${instanceId} from disk ${disk.id}`)
-    const instance = findInstance(store, disk, instanceId)
-    if (instance) {
-        delete disk.instances[instance.id]
-        store.networks.forEach((network) => {
-            removeInstanceFromAppnet(network.appnet, instance.id)
-        })
-    }
-}
 
 export const createOrUpdateDisk = (store: Store, engineId: EngineID, device: DeviceName, diskId: DiskID, diskName: DiskName, created: Timestamp): Disk => {
-    if (store.diskDB[diskId]) {
+    let storedDisk: Disk | undefined = store.diskDB[diskId]
+    if (!storedDisk) {
+        log(`Creating disk ${diskId} on engine ${engineId}`)
+        // Create a new disk object
+        const disk: Disk = {
+            id: diskId,
+            name: diskName,
+            device: device,
+            dockedTo: engineId,
+            created: created,
+            lastDocked: new Date().getTime() as Timestamp
+        }
+        store.diskDB[diskId] = disk
+        enableDiskMonitor(disk)
+        return disk
+    } else {
         log(`Updating disk ${diskId} on engine ${engineId}`)
-        const disk = store.diskDB[diskId]
-        disk.engineId = engineId
+        const disk = storedDisk
+        disk.dockedTo = engineId
         disk.name = diskName
         disk.device = device
         disk.created = created
         disk.lastDocked = new Date().getTime() as Timestamp
         return disk
-    } else {
-        log(`Creating disk ${diskName} on engine ${engineId}`)
-        // const disk: Disk = {
-        //     id: diskId,
-        //     name: diskName,
-        //     device: device,
-        //     engineId: engineId,
-        //     created: created,
-        //     lastDocked: new Date().getTime() as Timestamp,
-        //     removable: false,
-        //     upgradable: false,
-        //     apps: proxy<{ [key: AppID]: boolean }>({}),
-        //     instances: proxy<{ [key: InstanceID]: boolean }>({})
-        // }
-
-        // Disable typescript checking for the following code 
-        // The alternative is to make all properties optional, but they will only be optional in this function
-        //@ts-ignore
-        const disk: Disk = {
-            id: diskId
-        }
-
-        // Add the disk to the local engine
-        const $disk = proxy<Disk>(disk)
-
-        // Bind it to all networks
-        bindDisk($disk, store.networks)
-
-        // Update the disk
-        $disk.name = diskName
-        $disk.device = device
-        $disk.engineId = engineId
-        $disk.created = created
-        $disk.lastDocked = new Date().getTime() as Timestamp
-        $disk.removable = false
-        $disk.upgradable = false
-
-        // Store the disk
-        store.diskDB[$disk.id] = $disk
-
-        enableDiskMonitor($disk)
-
-        return $disk
     }
 }
 
-export const bindDisk = ($disk: Disk, networks: Network[]): void => {
-    networks.forEach((network) => {
-        const dummy = {}
-        dummy[dummyKey] = true
-        const dummy2 = {}
-        dummy2[dummyKey] = true
 
-        // Bind the $disk proxy to the network
-        const yDisk = network.doc.getMap($disk.id)
-        network.unbind = bind($disk as Record<string, any>, yDisk)
-        log(`Bound disk ${$disk.id} to network ${network.appnet.name}`)
-
-        // Initialize the apps and instances Ids array
-        const apps = proxy<{ [key: AppID]: boolean }>(dummy)
-        const instances = proxy<{ [key: InstanceID]: boolean }>(dummy2)
-
-        // Bind the proxy for the apps and instances Ids array to a corresponding Yjs Map
-        bind(apps, network.doc.getMap(`${$disk.id}_apps`))
-        bind(instances, network.doc.getMap(`${$disk.id}_instances`))
-
-        // Set the apps and instances Ids array
-        $disk.apps = apps
-        $disk.instances = instances
-    })
-}
 
 export const processDisk = async (store: Store, disk: Disk): Promise<void> => {
-    log(`Processing disk ${disk.id} on engine ${disk.engineId}`)
-    await processAppsAndInstances(store, disk)
+    log(`Processing disk ${disk.id} on engine ${disk.dockedTo}`)
+    // Check if the disk is an app disk, backup disk, upgrade disk, or files disk and perform the necessary actions
+    // NOTE: we currently allow Disks to be multi-purpose and be used for apps, backups, upgrades, etc. This might change in the 
+    // future towards a model in which Disks are only used for one purpose
+    
+    // Check if the disk is an app disk
+    if (await isAppDisk(store, disk)) {
+        log(`Disk ${disk.id} is an app disk`)   
+        await processAppDisk(store, disk)
+    }
+
+    // Check if the disk is a backup disk
+    if (await isBackupDisk(store, disk)) {
+        log(`Disk ${disk.id} is a backup disk`)
+        // TODO: Implement backup disk processing
+        // -  Read the backup configuration from the disk
+        // -  Perform the backup if the backup type is IMMEDIATE
+        // -  Schedule the backup if the backup type is SCHEDULED
+    }
+
+    // Check if the disk is an upgrade disk
+    if (await isUpgradeDisk(store, disk)) {
+        log(`Disk ${disk.id} is an upgrade disk`)
+        // TODO: Implement upgrade disk processing
+        // - Execute the upgrade script if the disk is an upgrade disk
+    }
+
+    // Check if the disk is a files disk
+    if (await isFilesDisk(store, disk)) {
+        log(`Disk ${disk.id} is a files disk`)
+        // TODO: Implement files disk processing
+        // - Do a network mount of the files on the disk
+    }
+
+    // If the disk is not an app disk, backup disk, upgrade disk, or files disk, we can just log it
+    if (!(await isAppDisk(store, disk) || await isBackupDisk(store, disk) || await isUpgradeDisk(store, disk) || await isFilesDisk(store, disk))) {
+        log(`Disk ${disk.id} is an empty disk`)
+    }
 }
 
-export const processAppsAndInstances = async (store: Store, disk: Disk): Promise<void> => {
-    log(`Processing the apps and instances of disk ${disk.id} on device ${disk.device}`)
+export const isAppDisk = async (store: Store, disk: Disk): Promise<boolean> => {
+    // Check if the disk has an apps folder
+    try {
+        await $`test -d /disks/${disk.device}/apps`;
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export const isBackupDisk = async (store: Store, disk: Disk): Promise<boolean> => {
+    // Create dummy code that always returns false
+    // To be updated later
+    return false
+}
+
+export const isUpgradeDisk = async (store: Store, disk: Disk): Promise<boolean> => {
+    // Create dummy code that always returns false
+    // To be updated later
+    return false
+}
+
+export const isFilesDisk = async (store: Store, disk: Disk): Promise<boolean> => {
+    // Create dummy code that always returns false
+    // To be updated later
+    return false
+}
+
+export const processAppDisk = async (store: Store, disk: Disk): Promise<void> => {
+    log(`Processing the apps and instances of App Disk ${disk.id} on device ${disk.device}`)
 
     // Apps
-    const previousApps = getApps(store, disk)
+    const previousApps = getAppsOfDisk(store, disk)
     const actualApps: App[] = []
 
     // Call processApp for each folder found in /disks/diskName/apps
@@ -267,7 +234,7 @@ export const processAppsAndInstances = async (store: Store, disk: Disk): Promise
     })
 
     // Instances
-    const previousInstances = getInstances(store, disk)
+    const previousInstances = getInstancesOfDisk(store, disk)
     const actualInstances: Instance[] = []
 
     // Call processInstance for each folder found in /instances
@@ -309,8 +276,8 @@ export const processAppsAndInstances = async (store: Store, disk: Disk): Promise
 }
 
 export const processApp = async (store: Store, disk: Disk, appID: AppID, actualApps: App[]): Promise<void> => {
-    if (!(appID === "")) {
-        const app: App | undefined = await createOrUpdateApp(store, appID, disk.id, disk.device)
+    if (!(appID === "") && !(disk.device == null)) {
+        const app: App | undefined = await createOrUpdateApp(store, appID, disk)
         if (app) {
             // addApp(store, disk, app)
             log(`Adding app ${app.name} to disk ${disk.id}`)
@@ -326,10 +293,69 @@ export const processInstance = async (store: Store, disk: Disk, instanceId: Inst
         const instance = await createOrUpdateInstance(store, instanceId, disk)
         if (instance) {
             log(`Adding instance ${instance.id} to disk ${disk.id}`)
+            instance.status = 'Docked' as Status // Set the status to Docked when the instance is created or updated
+            instance.storedOn = disk.id
             actualInstances.push(instance)
             await startInstance(store, instance, disk)
             log(`Adding instance ${instance.id} to disk ${disk.id}`)
             addInstance(store, disk, instance)
         }
+    }
+}
+
+export const addInstance = (store: Store, disk: Disk, instance: Instance): void => {
+    log(`Adding instance ${instance.id} to disk ${disk.id}`)
+    instance.storedOn = disk.id
+    // disk.instances[instance.id] = true
+    // store.networks.forEach((network) => {
+    //     log(`Trying to add instance ${instance.id} with status ${instance.status} to appnet ${network.appnet.name}`)
+    //     if (instance.status == 'Running' as Status) addInstanceToAppnet(network.appnet, instance)
+    // })
+}
+
+// export const addApp = (store: Store, disk: Disk, app: App): void => {
+//     log(`Updating app ${app.name} of disk ${disk.name}:`)
+//     const existingApp = findAppByNameAndVersion(store, disk, app.name, app.version)
+//     if (existingApp) {
+//         log(`Disk ${disk.name} already has an instance ${app.name}. Merging the new instance with the existing instance.`)
+//         Object.assign(existingApp, app)
+//     } else {
+//         //log(deepPrint(disk))
+//         log(`Pushing a new app ${app.name} to engine ${disk.name}`)
+//         disk.apps[app.id] = true
+//     }
+// }
+
+export const addApp = (disk: Disk, app: App): void => {
+    // disk.apps[app.id] = true
+}
+
+export const removeApp = (store: Store, disk: Disk, appId: AppID): void => {
+    log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@ App ${appId} no longer found on disk ${disk.id}`)
+    // Find the instance of this app on the disk and check if it is still physically on the disk
+    // If it is, then this is an error and we should log an error message as the Instance will fail to start
+    const instance = getInstancesOfDisk(store, disk).find(instance => instance.instanceOf === appId)
+    // Check if the instance is still physically on the file system of the disk and signal an error
+    if (instance && fs.existsSync(`/disks/${disk.device}/instances/${instance.id}`)) {
+        log(`Error: Instance ${instance.id} of app ${appId} is still physically on the disk ${disk.id} but the app is being removed. This is an error and should not happen.`)
+    }
+
+    // const app = findApp(store, disk, appId)
+    // if (app) {
+    //     delete disk.apps[app.id]
+    // }
+}
+
+export const removeInstance = (store: Store, disk: Disk, instanceId: InstanceID): void => {
+    log(`@@@@@@@@@@@@@@@@@@@@@@@@@@@@ Instance ${instanceId} no longer found on disk ${disk.id}`)
+    const instance = getInstance(store, instanceId)
+    if (instance) {
+        instance.status = 'Undocked' as Status // Set the status to Undocked when the instance is removed
+        instance.storedOn = null // Clear the storedOn property
+
+        // delete disk.instances[instance.id]
+        // store.networks.forEach((network) => {
+        //     removeInstanceFromAppnet(network.appnet, instance.id)
+        // })
     }
 }

@@ -1,19 +1,14 @@
 import { $, YAML, chalk, fs, os, sleep } from "zx";
 import { addOrUpdateEnvVariable, deepPrint, log, randomPort, readEnvVariable, uuid } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
-import { Store, getDisk, getEngine, getLocalEngine, store } from "./Store.js";
+import { Store, getDisk, getEngine, getLocalEngine, getInstancesOfEngine,  } from "./Store.js";
 import { Disk, addInstance } from "./Disk.js";
-import { Engine, findDiskByDevice, findDiskByName, getEngineInstances } from "./Engine.js";
-import { proxy } from "valtio";
-import { Network, getEngines } from "./Network.js";
-import { bind } from "../valtio-yjs/index.js";
-import { create } from "domain";
+import { localEngineId } from "./Engine.js";
+import { network } from "./Network.js";
 import { createAppId } from "./App.js";
 import { Docker } from "node-docker-api";
-import { read } from "fs";
 import { createMeta } from '../data/Meta.js'
-import { get } from "http";
-import { add } from "lib0/math.js";
+import { error } from "console";
 
 
 export interface Instance {
@@ -23,18 +18,19 @@ export interface Instance {
   status: Status;
   port: PortNumber;
   serviceImages: ServiceImage[];
-  dockerMetrics: DockerMetrics;
-  dockerLogs: DockerLogs;
-  dockerEvents: DockerEvents;
-  created: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
-  lastBackedUp: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
-  lastStarted: Timestamp; // We must use a timestamp number as Date objects are not supported in YJS
-  upgradable: boolean;
-  backUpEnabled: boolean;
-  diskId: DiskID;
+  created: Timestamp;       // We must use a timestamp number as Date objects are not supported in YJS
+  lastBackedUp: Timestamp;  // We must use a timestamp number as Date objects are not supported in YJS
+  lastStarted: Timestamp;   // We must use a timestamp number as Date objects are not supported in YJS
+  storedOn: DiskID | null;  // The disk that this instance is stored on. null if we do not know it yet
 }
 
-export type Status = 'Initializing' | 'Running' | 'Pauzed' | 'Error';
+export type Status = 'Undocked'      // 
+  | 'Docked'
+  | 'Starting'
+  | 'Running'
+  | 'Pauzed'        // Stopped running but containers are still there (so still consuming resources)
+  | 'Stopped'       // Stopped running and containers are removed (so not consuming resources)
+  | 'Error';
 
 
 export const buildInstance = async (instanceName: InstanceName, appName: AppName, gitAccount: string, version: Version, device: DeviceName): Promise<void> => {
@@ -227,9 +223,8 @@ export const extractAppName = (instanceId: InstanceID): InstanceName => {
   return instanceId.split('-')[0] as InstanceName
 }
 
-
 export const createOrUpdateInstance = async (store: Store, instanceId: InstanceID, disk: Disk): Promise<Instance | undefined> => {
-  let instance: Instance
+  const storedInstance: Instance | undefined = store.instanceDB[instanceId]
   try {
     const composeFile = await $`cat /disks/${disk.device}/instances/${instanceId}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
@@ -237,110 +232,73 @@ export const createOrUpdateInstance = async (store: Store, instanceId: InstanceI
     const servicesImages = services.map(service => compose.services[service].image)
     // const instanceId = createInstanceId(instanceName, disk.id)  
     const instanceName = compose['x-app'].instanceName as InstanceName
-    instance = {
-      id: instanceId,
-      instanceOf: createAppId(compose['x-app'].name, compose['x-app'].version) as AppID,
-      name: instanceName,
-      diskId: disk.id,
-      status: 'Initializing',
-      port: 0 as PortNumber,
-      serviceImages: servicesImages,
-      dockerMetrics: {
-        memory: os.totalmem().toString(),
-        cpu: os.loadavg().toString(),
-        network: "",
-        disk: ""
-      },
-      dockerLogs: { logs: [] },
-      dockerEvents: { events: [] },
-      created: new Date().getTime() as Timestamp,
-      lastBackedUp: 0 as Timestamp,
-      lastStarted: 0 as Timestamp,
-      upgradable: false,
-      backUpEnabled: false
+    if (!storedInstance) {
+      // Create a new instance object
+      log(`Creating new instance object ${instanceId} on disk ${disk.id}`)
+      const instance:Instance = {
+        id: instanceId,
+        instanceOf: createAppId(compose['x-app'].name, compose['x-app'].version) as AppID,
+        name: instanceName as InstanceName,
+        storedOn: disk.id,
+        status: 'Docked' as Status, 
+        port: 0 as PortNumber, // Will be set later
+        serviceImages: servicesImages as ServiceImage[],
+        created: new Date().getTime() as Timestamp,
+        lastBackedUp: 0 as Timestamp,
+        lastStarted: 0 as Timestamp,
+      }
+      store.instanceDB[instanceId] = instance
+      return instance
+    } else {
+      // Update the existing instance object
+      log(`Updating existing instance object ${instanceId} on disk ${disk.id}`)
+      const instance = storedInstance
+      instance.instanceOf = createAppId(compose['x-app'].name, compose['x-app'].version) as AppID
+      instance.name = instanceName as InstanceName
+      instance.status = 'Docked' as Status;
+      instance.storedOn = disk.id
+      instance.serviceImages = servicesImages as ServiceImage[]
+      return instance
     }
   } catch (e) {
     log(chalk.red(`Error initializing instance ${instanceId} on disk ${disk.id}`))
     console.error(e)
     return undefined
   }
-
-  let $instance: Instance
-  if (store.instanceDB[instance.id]) {
-    // Update the app
-    log(chalk.green(`Updating instance ${instanceId} on disk ${disk.id}`))
-    $instance = store.instanceDB[instance.id]
-  } else {
-    // Create the app
-    log(chalk.green(`Creating new instance ${instanceId} on disk ${disk.id}`))
-    // @ts-ignore
-    $instance = proxy<Instance>({
-      id: instance.id
-    })
-    // Bind it to all networks
-    bindInstance($instance, store.networks)
-    // Add the app to the store
-    store.instanceDB[instance.id] = $instance
-  }
-
-  $instance.instanceOf = instance.instanceOf
-  $instance.name = instance.name
-  $instance.diskId = instance.diskId
-  $instance.status = instance.status
-  $instance.port = instance.port
-  $instance.serviceImages = instance.serviceImages
-  $instance.dockerMetrics = instance.dockerMetrics
-  $instance.dockerLogs = instance.dockerLogs
-  $instance.dockerEvents = instance.dockerEvents
-  $instance.created = instance.created
-  $instance.lastBackedUp = instance.lastBackedUp
-  $instance.lastStarted = instance.lastStarted
-  $instance.upgradable = instance.upgradable
-  $instance.backUpEnabled = instance.backUpEnabled
-
-  return $instance
 }
 
-export const bindInstance = ($instance: Instance, networks: Network[]): void => {
-  networks.forEach((network) => {
-    // Bind the $engine proxy to the network
-    const yEngine = network.doc.getMap($instance.id)
-    network.unbind = bind($instance as Record<string, any>, yEngine)
-    log(`Bound instance ${$instance.id} to network ${network.appnet.name}`)
-  })
-}
+export const createPortNumber = async (store:Store): Promise<PortNumber> => {
+  let port = randomPort()
+  let portInUse = true
+  let portInUseResult
+  const localEngine = getLocalEngine(store)
+  const instances = getInstancesOfEngine(store, localEngine)
 
-export const createPortNumber = async ():Promise<PortNumber> => {
-    let port = randomPort()
-    let portInUse = true
-    let portInUseResult
-    const instances = getEngineInstances(store, getLocalEngine(store))
-
-    // Check if the port is already in use on the system
-    while (portInUse) {
-      log(`Checking if port ${port} is in use`)
-      try {
-        portInUseResult = await $`netstat -tuln | grep ${port}`
-        log(`Port ${port} is in use`)
+  // Check if the port is already in use on the system
+  while (portInUse) {
+    log(`Checking if port ${port} is in use`)
+    try {
+      portInUseResult = await $`netstat -tuln | grep ${port}`
+      log(`Port ${port} is in use`)
+      port = randomPort()
+    } catch (e) {
+      log(`Port ${port} is not in use. Checking if it is reserved by another instance`)
+      const inst = instances.find(instance => instance && instance.port == port)
+      if (inst) {
+        log(`Port ${port} is reserved by another instance. Generating a new one.`)
+        //port++
         port = randomPort()
-      } catch (e) {
-        log(`Port ${port} is not in use. Checking if it is reserved by another instance`)
-        const inst = instances.find(instance => instance && instance.port == port)
-        if (inst) {
-          log(`Port ${port} is reserved by another instance. Generating a new one.`)
-          //port++
-          port = randomPort()
-        } else {
-          log(`Port ${port} is not reserved by another instance`)
-          portInUse = false
-        }
+      } else {
+        log(`Port ${port} is not reserved by another instance`)
+        portInUse = false
       }
     }
+  }
   return port
 }
 
 // KSW - UNTESTED >>>
-export const checkPortNumber = async (port: PortNumber):Promise<boolean> => { 
+export const checkPortNumber = async (port: PortNumber): Promise<boolean> => {
   log(`Checking if port ${port} is in use`)
   try {
     const portInUseResult = await $`netstat -tuln | grep ${port}`
@@ -354,7 +312,8 @@ export const checkPortNumber = async (port: PortNumber):Promise<boolean> => {
 // KSW - UNTESTED <<<
 
 export const startInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  console.log(`Starting instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
+  console.log(`Starting instance '${instance.id}' on disk ${disk.id} of engine '${localEngineId}'.`)
+  instance.status = 'Starting' as Status // Set the status to Starting when the instance is started
 
   try {
 
@@ -382,30 +341,30 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     //   }
     // }
 
-    let port:PortNumber = 0 as PortNumber
+    let port: PortNumber = 0 as PortNumber
 
     // Check if the port is defined in the .env file
     try {
       log(`Trying to find a port number for instance ${instance.id} in the .env file`)
       // const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
       // port = parseInt(envContent.split('=')[1].slice(0, -1)) as PortNumber
-      port = parseInt(await readEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port') as string) as PortNumber 
+      port = parseInt(await readEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port') as string) as PortNumber
     } catch (e) {
       log(`No .env file found for instance ${instance.id}`)
     }
     // Check if port is undefined or NaN
     if (!(port == 0) && !isNaN(port)) {
       log(`Found a port number for instance ${instance.id} in the .env file: ${port}`)
-      
+
       // >>> KSW - UNTESTED
       // Check if the port is already in use on the system
       const portInUse = await checkPortNumber(port)
       if (portInUse) {
         log(`Port ${port} is already in use. Generating a new port number.`)
-        port = await createPortNumber()
+        port = await createPortNumber(store)
         // Write the new port number to the .env file
         // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`
-        await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())  
+        await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())
       } else {
         log(`Port ${port} is not in use`)
       }
@@ -413,10 +372,10 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
 
     } else {
       log(`No port number has previously been generated. Generating a new port number.`)
-      port = await createPortNumber()
+      port = await createPortNumber(store)
       // Write a .env file in which you define the port variable
       // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`  
-      await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())  
+      await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())
     }
 
     console.log(`Found a port number for instance ${instance.id}: ${port}`)
@@ -426,7 +385,7 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     // STEP 1b - Generate a password for the app
     // **************************
 
-    let pass:string = ""
+    let pass: string = ""
 
     // Check if the pass is already defined in the .env file
     try {
@@ -443,9 +402,9 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
       pass = await uuid()
       log(`Generated pass: ${pass}`)
       // Write the password to the .env file
-      await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'pass', pass) 
+      await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'pass', pass)
     }
-    
+
 
     // **************************
     // STEP 2 - Preloading of services
@@ -480,6 +439,7 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
 
   catch (e) {
     console.log(chalk.red('Error starting app instance'))
+    instance.status = 'Error' as Status // Set the status to Error when the instance fails to start
     console.error(e)
   }
 }
@@ -619,30 +579,40 @@ export const createInstanceContainers = async (store: Store, instance: Instance,
     if (app && app.name === 'nextcloud') {
 
       // Pass the hostname to the compose file via .env
-      const hostname = getLocalEngine(store).hostname
+      const localEngine = getLocalEngine(store)
+      const hostname = localEngine.hostname
       if (hostname) {
         await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'hostname', hostname)
       }
 
       // Pass the ip address to the compose file via .env
-      // TODO - We hardcoded eth0 as the interface to use, but we should be using an ip of one of the allowed interface !!
-      const interfaces = getLocalEngine(store).connectedInterfaces
-      if (interfaces && interfaces["eth0"]) {
-        const ip = interfaces["eth0"].ip4
-        // Write the ip address to the .env file
+      const interfaceData = os.networkInterfaces()
+      const ip = interfaceData["eth0"]?.find((iface) => iface.family === "IPv4")?.address
+      if (ip) {
+        log(`Found IP address ${ip} for instance ${instance.id}`)
         // await $`echo "ip=${ip}" >> /disks/${disk.device}/instances/${instance.id}/.env`
         await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'ip', ip)
-      } 
+      } else {
+        log(chalk.red(`No IP address found for instance ${instance.id}`))
+      }
+      // const connections = network.connections
+      // if (connections && connections["eth0"]) {
+      //   const ip = connections["eth0"].ip4
+      //   // Write the ip address to the .env file
+      //   // await $`echo "ip=${ip}" >> /disks/${disk.device}/instances/${instance.id}/.env`
+      //   await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'ip', ip)
+      // }
 
     }
 
-    log(`Creating containers of app instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
+    log(`Creating containers of app instance '${instance.id}' on disk ${disk.id} of engine ${localEngineId}.`)
     // await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml create`
     await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose create`
     instance.status = 'Pauzed'
   } catch (e) {
     console.log(chalk.red(`Error creating the containers of app instance ${instance.id}`))
     console.error(e)
+    instance.status = 'Error' as Status // Set the status to Error when the instance fails to create
   }
 }
 
@@ -651,7 +621,7 @@ export const createInstanceContainers = async (store: Store, instance: Instance,
 export const runInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
   try {
 
-    log(`Running instance '${instance.id}' on disk ${disk.id} of engine '${getLocalEngine(store).hostname}'.`)
+    log(`Running instance '${instance.id}' on disk ${disk.id} of engine '${localEngineId}'.`)
 
     // Extract the port number from the .env file containing "port=<portNumber>"
     // const envContent = (await $`cat /disks/${disk.device}/instances/${instance.id}/.env`).stdout
@@ -679,17 +649,17 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
     //await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml up -d`
     await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose up -d`
 
-    // Modify the status of the instance
-    instance.status = 'Running'
     // Modify the lastStarted time of the instance
     instance.lastStarted = new Date().getTime() as Timestamp
+    // Modify the status of the instance
+    instance.status = 'Running'
     // Modify the dockerMetrics of the instance
-    instance.dockerMetrics = {
-      memory: os.totalmem().toString(),
-      cpu: os.loadavg().toString(),
-      network: "",
-      disk: ""
-    }
+    // instance.dockerMetrics = {
+    //   memory: os.totalmem().toString(),
+    //   cpu: os.loadavg().toString(),
+    //   network: "",
+    //   disk: ""
+    // }
 
     // Modify the dockerLogs of the instance
     // instance.dockerLogs = { logs: await $`docker logs ${instanceName}` }  // This is not correct, we need to use the right container name
@@ -718,6 +688,7 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
         } catch (e) {
           log(chalk.red(`Error configuring nextcloud office to use the Collabora server at ${ip}:9980`))
           console.error(e)
+          instance.status = 'Error' as Status // Set the status to Error when the instance fails to configure
         }
       }
     }
@@ -727,13 +698,13 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
 
     console.log(chalk.red(`Error running app instance ${instance.id}`))
     console.error(e)
-    instance.status = 'Error'
+    instance.status = 'Error' as Status // Set the status to Error when the instance fails to run
 
   }
 }
 
 export const stopInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
-  console.log(`Stopping app '${instance.id}' on disk '${disk.id}' of engine '${getLocalEngine(store).hostname}'.`)
+  console.log(`Stopping app '${instance.id}' on disk '${disk.id}' of engine '${localEngineId}'.`)
 
   // Old implementation using Docker Compose
   // Problem with this approach: stopping an instance is not possible when its disk has already been removed
@@ -772,17 +743,17 @@ export const stopInstance = async (store: Store, instance: Instance, disk: Disk)
         await container.kill()
         log(`Killed container for instance ${instance.id}`)
       }
-    } 
+    }
+    // Set the status of the instance to Stopped
+    instance.status = 'Stopped' as Status
   } catch (e) {
     console.log(chalk.red(`Error stopping app instance ${instance.id}`))
     console.error(e)
+    instance.status = 'Error' as Status // Set the status to Error when the instance fails to stop
   }
 }
 
 
-export const getEngineOfInstance = (store: Store, instance: Instance): Engine => {
-  const disk = getDisk(store, instance.diskId)
-  const engine = getEngine(store, disk.engineId)
-  return engine
-}
+
+
 

@@ -1,5 +1,5 @@
 import { $, ssh, argv, cd, chalk, fs, question } from 'zx'
-import pack from '../package.json' assert { type: "json" }
+import pack from '../package.json' with { type: "json" }
 import { reset } from '../src/utils/utils.js'
 
 // Add commandline option to print the version of the script

@@ -2,15 +2,17 @@ import chokidar from 'chokidar'
 import { fileExists, getKeys, log } from '../utils/utils.js'
 import { DiskMeta, readHardwareId, createMeta, readMetaUpdateId } from '../data/Meta.js';
 import { $, fs, YAML } from 'zx'
-import { Disk, createOrUpdateDisk, processDisk, processAppsAndInstances } from '../data/Disk.js'
-import { addDisk, removeDisk, findDiskByDevice } from '../data/Engine.js'
-import { Store, getDisk, getLocalEngine } from '../data/Store.js'
+import { Disk, createOrUpdateDisk, processDisk } from '../data/Disk.js'
+import { findDiskByDevice } from '../data/Store.js'
+import { Store, getDisk, getDisksOfEngine, getLocalEngine } from '../data/Store.js'
 import { DeviceName, DiskID, DiskName, EngineID, Hostname, InstanceID } from '../data/CommonTypes.js'
-import { removeInstanceFromAppnet } from '../data/Appnet.js';
 import { add } from 'lib0/math.js';
+import { stopInstance } from '../data/Instance.js';
+import { config } from '../data/Config.js'
+import { getPackedSettings } from 'http2';
 
 
-export const enableUsbDeviceMonitor = async (store:Store) => {
+export const enableUsbDeviceMonitor = async (store: Store) => {
     // TODO: Alternative implementations for usb device detection:
     // 1. Monitor /dev iso /dev/engine
     // 2. Monitor /dev/disk/by-label
@@ -18,21 +20,26 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
 
     const localEngine = getLocalEngine(store)
 
+    if (!localEngine) {
+        log(`No local engine found in the store`)
+        throw new Error(`No local engine found in the store`)
+    }
+
     // Statically analyse the devices in /dev/disk/by-label
     // if (!(localEngine.hostName == 'dev' as Hostname)) {     // QUICK HACK TO AVOID PROBLEMS ON THE DEV ENGINE
     // log(`Engine hostname is ${localEngine.hostname}`)
     // if (!(localEngine.id == '123456mac' as EngineID)) {     // QUICK HACK TO AVOID PROBLEMS ON THE DEV ENGINE
     //     const actualDevices = (await $`ls /dev/disk/by-label`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
     //     log(`Actual devices: ${actualDevices}`)
-    //     const previousDevices = getKeys(localEngine.disks).map(diskID => store.diskDB[diskID].device).filter(device => device !== undefined)
-    //     log(`Existing devices: ${previousDevices}`)
-    //     previousDevices.forEach(device => {
+    //     const storedDevices = getKeys(localEngine.disks).map(diskID => store.diskDB[diskID].device).filter(device => device !== undefined)
+    //     log(`Existing devices: ${storedDevices}`)
+    //     storedDevices.forEach(device => {
     //         if (!actualDevices.includes(device)) {
     //             log(`Removing device ${device}`)
     //             // Remove the disk from the store
     //             const disk = findDiskByDevice(store, localEngine, device as DeviceName)
     //             if (disk) {
-    //                 removeDisk(localEngine, disk.id)
+    //                 undockDisk(localEngine, disk.id)
     //                 log(`Disk ${device} removed from local engine`)
     //             }
     //         }
@@ -66,7 +73,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                     await $`mount /dev/${device} /disks/${device}`
                     log(`Device ${device} has been successfully mounted`)
                 }
-    
+
                 // Check if the disk has a file META.yaml in the root location of the disk
                 // If so, read the YAML content from the file and parse it into the object diskMetadata
                 // if (await $`test -f /disks/${device}/META.yaml`.then(() => true).catch(() => false)) {
@@ -84,7 +91,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                 // } else {
                 //     log('Not an app disk')
                 // }         
-                
+
                 // let diskName
                 // let diskCreated 
                 // let diskCreatedTime
@@ -129,15 +136,12 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
                     // Update the METADATA
                     // WRONG - the creation date can not be modfied
                     log(`Found a META file on device ${device}. This disk has been processed by the system before.`)
-                    const meta:DiskMeta | undefined = await readMetaUpdateId(device)
+                    const meta: DiskMeta | undefined = await readMetaUpdateId(device)
                     if (meta) {
                         // Add the disk to the store
-                        log(`Updating the meta information of the disk in the store`)
-                        const disk:Disk = createOrUpdateDisk(store, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
-                        log(`Processing the disk`)
+                        const disk: Disk = createOrUpdateDisk(store, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
+                        // Process the contents of the disk
                         await processDisk(store, disk)
-                        log(`Adding the disk ${disk.id} to the local engine`)
-                        addDisk(localEngine, disk)
                     } else {
                         log('Error processing the META file.')
                     }
@@ -152,8 +156,8 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
             log(`The disk on device ${device} is not on a supported device name`)
         }
     }
-    
-    const removeDevice = async function (path) {
+
+    const removeDevice = async (path) => {
         //log(`Device ${path} has been removed`)
         // Strip out the name of the device from the path and assign it to a variable
         const device = path.split('/').pop()
@@ -161,43 +165,26 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
         if (validDevice(device)) {
             log(`Processing the removal of USB device ${device}`)
             // Remove the disk from the store
-            const disk = findDiskByDevice(store, localEngine, device as DeviceName)
-            if (disk) {
-                await removeDisk(store, localEngine, disk)
-                log(`Disk ${device} removed from engine ${localEngine.hostname}`)
+            const disk = findDiskByDevice(store, device as DeviceName)
+            if (!disk) {
+                log(`No disk found on ${device}`)
+                return
             }
-    
-            // Unmount
-            try {
-                // Check if the mount point exists. Run "mount -t ext4" and check if the output contains the device
-                const mountOutput = await $`mount -t ext4`
-                if (!mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
-                    log(`Device ${device} already unmounted`)
-                } else {
-                    log(`Unmounting device ${device}`)
-                    // Unmount
-                    await $`umount /disks/${device}`
-                    await $`rmdir /disks/${device}`
-                    log(`Device ${device} has been successfully unmounted`)
-                }
-                // Remove mount point
-                await $`rm -fr /disks/${device}`
-            } catch (e) {
-                log(`Error unmounting device ${device}`)
-                log(e)
-            }
+            undockDisk(store, disk)
         } else {
             log(`Non-USB device ${device} has been removed`)
         }
     }
 
     // Clean up the /disks/old folder
-    try {
-        log(`Cleaning up the /disks/old folder`)
-        await $`rm -fr /disks/old/*`
-    } catch (e) {
-        log(`Error cleaning up the /disks/old folder`)
-        log(e)
+    if (!config.settings.isDev) { // Do not clean up the /disks/old folder in development mode
+        try {
+            log(`Cleaning up the /disks/old folder`)
+            await $`rm -fr /disks/old/*`
+        } catch (e) {
+            log(`Error cleaning up the /disks/old folder`)
+            log(e)
+        }
     }
 
 
@@ -205,17 +192,19 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     // Cleaning of the network database and the /disks folder
     // *********
 
-    const actualDevices = (await $`ls /dev/engine`).toString().split('\n').filter(device => validDevice(device))
+    const actualDevices = config.settings.isDev ? [] : (await $`ls /dev/engine`).toString().split('\n').filter(device => validDevice(device))
     log(`Actual devices: ${actualDevices}`)
 
     // Cleaning the network database
     log(`Removing from the network database disks that were attached before the current boot but are no longer attached now...`)
     // PROBLEM - How do we know the device of a previous disk that has not yet been created
-    const previousDiskIds = getKeys(localEngine.disks) as DiskID[]
-    if (previousDiskIds.length !== 0) {
-        log(`The engine object that is synced from the network shows that the engine had previously (before the current boot) mounted the following disks : ${previousDiskIds}`)
-        const previousDevices = getKeys(localEngine.disks).map(diskID => getDisk(store, diskID as DiskID).device).filter(device => device !== undefined)
-        log(`Which were mounted on these devices: ${previousDevices}`)
+    const storedDiskIds = getDisksOfEngine(store, localEngine) // was getKeys(localEngine.disks) as DiskID[]
+    if (storedDiskIds.length !== 0) {
+        log(`The engine object that is synced from the network shows that the engine had previously (before the current boot) mounted the following disks : ${storedDiskIds}`)
+        const storedDevices = getDisksOfEngine(store, localEngine)
+            .map(disk => disk.device)
+            .filter((device): device is DeviceName => device !== undefined && device !== null)
+        log(`Which were mounted on these devices: ${storedDevices}`)
         //const actualDevices = (await $`ls /dev/engine`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
         log(`If these devices are no longer existing, they will be removed from the network database`)
 
@@ -225,14 +214,14 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
         //         await addDevice(`/dev/engine/${device}`)
         // }
 
-        // previousDevices.forEach(device => {
-        for (let device of previousDevices) {
+        // storedDevices.forEach(device => {
+        for (let device of storedDevices) {
             if (!actualDevices.includes(device)) {
                 log(`Removing from the network the disk that was previously mounted on device ${device}`)
                 // Remove the disk from the store
-                const disk = findDiskByDevice(store, localEngine, device as DeviceName)
+                const disk = findDiskByDevice(store, device as DeviceName)
                 if (disk) {
-                    await removeDisk(store, localEngine, disk)
+                    await undockDisk(store, disk)
                     log(`Disk ${disk.id} removed from local engine`)
                 }
             }
@@ -254,7 +243,7 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     // TBD If this is really needed - The system seeks device names independent of the mount points and 
     // any mount points with existing content will be shadowed by the mount
     //const previousMounts = (await $`ls /disks`).toString().split('\n').filter(device => device.match(/^sd[a-z]2$/m))
-    const previousMounts = (await $`ls /disks`).toString().split('\n').filter(device => validDevice(device))
+    const previousMounts = config.settings.isDev ? [] : (await $`ls /disks`).toString().split('\n').filter(device => validDevice(device))
     log(`Previously mounted devices: ${previousMounts}`)
     const mountOutput = await $`mount -t ext4`
     for (let device of previousMounts) {
@@ -307,8 +296,47 @@ export const enableUsbDeviceMonitor = async (store:Store) => {
     // Say we are ready to go
     log(`Watching ${watchDir} for USB devices`)
 
-    
+
 }
 
 
-
+const undockDisk = async (store: Store, disk: Disk) => {
+    const device = disk.device
+    if (!device) {
+        log(`Disk ${disk.id} is not mounted on any device. Nothing to undock.`)
+        return
+    }
+    // Unmount
+    try {
+        // Check if the mount point exists. Run "mount -t ext4" and check if the output contains the device
+        const mountOutput = await $`mount -t ext4`
+        if (!mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
+            log(`Device ${device} already unmounted`)
+        } else {
+            log(`Unmounting device ${device}`)
+            // Unmount
+            await $`umount /disks/${device}`
+            await $`rmdir /disks/${device}`
+            log(`Device ${device} has been successfully unmounted`)
+        }
+        // Remove mount point
+        await $`rm -fr /disks/${device}`
+        log(`Mount point /disks/${device} has been removed`)
+        // Move the disk to the 'Undocked' state
+        disk.dockedTo = null
+        // Set the disk's device to null
+        disk.device = null
+        // Stop all instances of the disk and move them to the 'Undocked' state
+        const instances = getKeys(store.instanceDB).filter(instanceId => store.instanceDB[instanceId].diskId === disk.id) as InstanceID[]
+        for (const instanceId of instances) {
+            const instance = store.instanceDB[instanceId]
+            await stopInstance(store, instance, disk)
+            log(`Instance ${instance.id} stopped`)
+            instance.status = 'Undocked'
+            log(`Instance ${instanceId} has been moved to the 'Undocked' state`)
+        }                    
+    } catch (e) {
+        log(`Error unmounting device ${device}`)
+        log(e)
+    }
+}

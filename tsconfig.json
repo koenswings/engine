@@ -3,13 +3,14 @@
     "moduleResolution": "nodenext",
     "module": "NodeNext",
     // "target": "esnext",
-    "target": "ES2017",
+    "target": "ES2022",
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "outDir": "./dist",
     "allowJs": true,
-    "strictNullChecks": true
-    //"esModuleInterop": true,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,  // Added by Gemini to solve type errors in the automerge modules
   },
   "include": [
     "src",

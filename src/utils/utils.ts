@@ -239,16 +239,16 @@ export const findIp = async (address:IPAddress):Promise<IPAddress | undefined> =
 export const reset = async ($) => {
   console.log(chalk.blue('Resetting the local engine'));
   try {
-      console.log(chalk.blue('Removing the yjs database'));
-      await $`rm -rf ../yjs-db`;
-      console.log(chalk.blue('Removing all appnet ids'))
-      if (config.settings.appnets) {
-        config.settings.appnets.forEach((appnet) => delete appnet.id)
-        console.log(chalk.blue('Updating the config file'));
-        writeConfig(config, '../config.yaml')
-      }
+      // console.log(chalk.blue('Removing the yjs database'));
+      // await $`rm -rf ../yjs-db`;
+      // console.log(chalk.blue('Removing all appnet ids'))
+      // if (config.settings.appnets) {
+      //   config.settings.appnets.forEach((appnet) => delete appnet.id)
+      //   console.log(chalk.blue('Updating the config file'));
+      //   writeConfig(config, '../config.yaml')
+      // }
   } catch (e) {   
-      console.log(chalk.red('Failed to sync the engine to the remote machine'));
+      console.log(chalk.red('Failed to reset the local engine'));
       console.error(e);
       process.exit(1);
   }

@@ -1,11 +1,10 @@
 
+import { doc } from 'lib0/dom.js'
 import { Timestamp } from '../data/CommonTypes.js'
 import { inspectEngine } from '../data/Engine.js'
-import { store, Store, getLocalEngine } from '../data/Store.js'
+import { Store, getLocalEngine } from '../data/Store.js'
 import { log, contains, deepPrint } from '../utils/utils.js'
 import { Array } from 'yjs'
-
-
 
 export const enableTimeMonitor = (interval, callback) => {
     setInterval(callback, interval)
@@ -74,14 +73,14 @@ export const changeTest = (store:Store) => {
 
 let runs = 0
 
-export const generateHeartBeat = () => {
+export const generateHeartBeat = (storeHandle) => {
     runs++
-    const localEngine = getLocalEngine(store)
-    if (localEngine && localEngine.lastRun) {
-        localEngine.lastRun =  (new Date()).getTime() as Timestamp
-        log(`UPDATING ENGINE LASTRUN TO ${localEngine.lastRun}`)
-        inspectEngine(store, localEngine)
-    } else {
-        log(`HEARTBEAT: Engine not yet available or has no lastRun property ********`)
-    }
-}
+    storeHandle.change(doc => {
+        const lastRun = (new Date()).getTime() as Timestamp
+        log(`UPDATING ENGINE LASTRUN TO ${lastRun}`)
+        //log(`This is the doc to change: ${deepPrint(doc, 2)}`)
+        const localEngine = getLocalEngine(doc)
+        localEngine.lastRun = lastRun
+        //inspectEngine(store, localEngine)
+    })
+} 

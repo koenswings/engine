@@ -25,43 +25,44 @@ export interface Config {
 }
 
 export interface Settings {
-  mdns: boolean,
-  localEngineName?: string,
-  appnets?: AppnetConfig[],     // When no appnets are specified, a default will be created called "appnet"
-  interfaces?: InterfaceName[]  // When no interfaces are specified, all interfaces are monitored and there is no interface acces control
+  mdns?: boolean, // Whether to enable mDNS
+  port?: number, // The port on which the index server is running
+  isDev?: boolean, // Whether this is a development environment
+  storeDataFolder: string, // The path to the store database
+  storeIdentityFolder: string, // The path to the store identity - This should be part of the code repository
 }
 
-export interface AppnetConfig {
-  name: AppnetName,
-  id?: number
-}
+// export interface AppnetConfig {
+//   name: AppnetName,
+//   id?: number
+// }
 
-export type AppnetSetup = AppnetConfig[]
+// export type AppnetSetup = AppnetConfig[]
 
-export const getAppnetId = (config: Config, appnetName: AppnetName): number | undefined => {
-  // Find the id of a given appnet
-  const appnets = config.settings.appnets
-  if (appnets) {
-    const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
-    return appnetConfig ? appnetConfig.id : undefined
-  } else { return undefined }
-}
+// export const getAppnetId = (config: Config, appnetName: AppnetName): number | undefined => {
+//   // Find the id of a given appnet
+//   const appnets = config.settings.appnets
+//   if (appnets) {
+//     const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
+//     return appnetConfig ? appnetConfig.id : undefined
+//   } else { return undefined }
+// }
 
-export const setAppnetId = (config: Config, appnetName: string, id:number):void => {
-  // Find the id of a given appnet
-  const appnets = config.settings.appnets
-  if (appnets) {
-    const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
-    if (appnetConfig) {
-      appnetConfig.id = id
-    } 
-  }
-}
+// export const setAppnetId = (config: Config, appnetName: string, id:number):void => {
+//   // Find the id of a given appnet
+//   const appnets = config.settings.appnets
+//   if (appnets) {
+//     const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
+//     if (appnetConfig) {
+//       appnetConfig.id = id
+//     } 
+//   }
+// }
 
 export interface Config {
   defaults: ScriptDefaults,
   testSetup: TestSetup,
-  appnetSetup: AppnetSetup
+  //appnetSetup: AppnetSetup
 }
 
 // ********************************************************************************************************************

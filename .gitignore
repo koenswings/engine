@@ -5,6 +5,9 @@
 # Scratchpad folder
 scratchpad/
 
+# Store-data folder
+store-data/
+
 # The Yjs persistent storage folder
 yjs-db
 

@@ -1,25 +1,26 @@
 import os from 'os'
 import { enableUsbDeviceMonitor } from './monitors/usbDeviceMonitor.js'
 import { enableTimeMonitor, generateHeartBeat, generateRandomArrayPopulationCallback, } from './monitors/timeMonitor.js'
-import { enableEngineCommandsMonitor, enableEngineSetMonitor } from "./monitors/enginesMonitor.js"
+import { enableEngineCommandsMonitor, enableEngineLastRunMonitor, enableEngineSetMonitor } from "./monitors/enginesMonitor.js"
 import { changeTest } from "./monitors/timeMonitor.js"
 import { handleCommand } from './utils/commandHandler.js'
 import { engineCommands } from './utils/engineCommands.js'
 
-import { $, YAML, chalk, sleep } from 'zx'
-import { enableWebSocketMonitor } from './monitors/webSocketMonitor.js'
+import { $, YAML, chalk, fs, sleep } from 'zx'
 import { deepPrint, log, uuid } from './utils/utils.js'
-//import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
-import { enableInterfaceMonitor } from './monitors/interfaceMonitor.js'
-import { addNetwork, findNetworkByName, getLocalEngine, initialiseStore } from './data/Store.js'
 import { config } from './data/Config.js'
-import { initialiseLocalEngine } from './data/Engine.js'
-import { AppnetName, IPAddress, PortNumber } from './data/CommonTypes.js'
-import { store } from './data/Store.js'
-import { enableIndexServer, enableInstanceSetMonitor } from './monitors/instancesMonitor.js'
+import { createOrUpdateEngine, inspectEngine, localEngineId } from './data/Engine.js'
+import { AppnetName, IPAddress, PortNumber, Timestamp } from './data/CommonTypes.js'
+import { enableIndexServer, enableInstanceStatusMonitor } from './monitors/instancesMonitor.js'
 import { Docker } from 'node-docker-api'
+import { throttle } from '@automerge/automerge-repo/helpers/throttle.js'
+import { DocumentId, Repo } from '@automerge/automerge-repo'
+import { startAutomergeServer } from './repo.js'
+import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
+import { createServerStore, getLocalEngine, initialiseServerStore } from './data/Store.js'
+import { enableStoreMonitor } from './monitors/storeMonitor.js'
 
-let server
+
 
 export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
@@ -44,99 +45,89 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
     // Process the config
     const settings = config.settings
+    const STORE_DATA_PATH = "./"+config.settings.storeDataFolder
+    const STORE_IDENTITY_PATH = "./"+config.settings.storeIdentityFolder
+    const STORE_URL_PATH = STORE_IDENTITY_PATH + "/store-url.txt"
+    const STORE_TEMPLATE_PATH = STORE_IDENTITY_PATH + "/store-template.json" 
+
+    // Create the store data directory if it does not yet exist
+    if (!fs.existsSync(STORE_DATA_PATH)) {
+        log(`Creating the store data folder at ${STORE_DATA_PATH}`)
+        await $`mkdir -p ${STORE_DATA_PATH}`
+    }
+
+    // Create the store identity directory if it does not yet exist
+    if (!fs.existsSync(STORE_IDENTITY_PATH)) {
+        log(`Creating the store identity folder at ${STORE_IDENTITY_PATH}`)
+        await $`mkdir -p ${STORE_IDENTITY_PATH}`
+    }
+
+    log(`Starting Automerge server...`)
+    const repo = await startAutomergeServer(STORE_DATA_PATH)
+
+    // If the store URL file does not exist, create it and an initial store document
+    // This should only happen if we change the structure of the store document
+    // and we want to force the creation of a new initial store document by deleting the old one
+    if (!fs.existsSync(STORE_URL_PATH) || !fs.existsSync(STORE_TEMPLATE_PATH)) {
+        log(`No URL file found at ${STORE_URL_PATH} or template file found at ${STORE_TEMPLATE_PATH}. Recreating them.`);
+        await initialiseServerStore(repo, STORE_TEMPLATE_PATH, STORE_URL_PATH);
+    }
+
+    const storeDocUrlStr = fs.readFileSync(STORE_URL_PATH, 'utf-8');
+    const storeDocId = storeDocUrlStr.replace('automerge:', '') as DocumentId;
+    log(`Using document ID: ${storeDocId}`)
+
+    // HACK: Force save on remote changes
+    // The repo doesn't persist changes that come in from a remote peer automatically.
+    // This is a workaround to force a save by listening for the sync-state event and then
+    // calling the throttled save function that the repo uses internally.
+    // const throttledSave = throttle(() => {
+    //     if (repo.storageSubsystem) {
+    //         repo.storageSubsystem.saveDoc(storeHandle.documentId, storeHandle.doc())
+    //     }
+    // }, 100)
+    
+    // repo.synchronizer.on('sync-state', () => {
+    //     throttledSave()
+    // })
+
+    log(`Initialising store`)
+    const storeHandle = await createServerStore(repo, storeDocId, STORE_DATA_PATH, STORE_TEMPLATE_PATH)
+
+    // Create or update the local engine object
+    const engine = await createOrUpdateEngine(storeHandle, localEngineId)
+    await storeHandle.whenReady()
+    const store = storeHandle.doc()
 
     // Start the app index server
-    log(chalk.bgMagenta('STARTING THE INDEX SERVER FOR APPNET'))
-    await enableIndexServer(store, 'appnet' as AppnetName)
-
-
-    // Start the websocket servers
-    await sleep(1000)
-    log(chalk.bgMagenta('STARTING THE WEBSOCKET SERVERS'))
-    server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
-
-    // OLD - Only start a websocket server on the local address now and add additional servers for all settings.interfaces later on to control access
-    // if (!settings.interfaces) {
-    //     // No access control - listen on all interfaces
-    //     server = enableWebSocketMonitor('0.0.0.0' as IPAddress, 1234 as PortNumber)   // Address '0.0.0.0' is a wildcard address that listens on all interfaces
-    // } else {
-    //     // Access control - listen only on specified interfaces - also listen on localhost to sync the appnets to their persisted state
-    //     enableWebSocketMonitor('127.0.0.1' as IPAddress, '1234')
-    // }
-
-    // If this process is killed or exited, close the server
-    process.on('exit', () => {
-        log('Closing the websocket server')
-        console.log('*** Exit received ****');
-        console.log('*** The Engine will be closed in 10 sec ****');
-        setTimeout(shutdownProcedure, 10000);
-    })
-    process.on('SIGINT', () => {
+    log(chalk.bgMagenta('STARTING THE INDEX SERVER'))
+    await enableIndexServer(storeHandle, settings.port as PortNumber || 1234 as PortNumber)
+    
+    // If this process is killed, shut down automerge
+    process.on('SIGINT', async () => {
         // this will be fired when you kill the app with ctrl + c.
-        log('Closing the websocket server')
-        console.log('*** SIGINT received ****');
-        console.log('*** The Engine will be closed in 10 sec ****');
-        setTimeout(shutdownProcedure, 10000);
+        log('Shutting down automerge')
+        log('*** SIGINT received ****');
+        await shutdownProcedure(repo)
+        process.exit(0)
     })
-    process.on('SIGTERM', () => {
+    process.on('SIGTERM', async () => {
         // this will be fired by the Linux shutdown command
-        log('Closing the websocket server')
-        console.log('*** SIGTERM received ****');
-        console.log('*** The Engine will be closed in 10 sec ****');
-        setTimeout(shutdownProcedure, 10000);
-    })
-
-
-    // Create and sync the appnets
-    await sleep(1000)
-    log(chalk.bgMagenta('CREATING AND SYNCING THE APPNETS'))
-    if (settings.appnets) {
-        settings.appnets.forEach(async (appnet) => {
-            await addNetwork(store, appnet.name as AppnetName)
-        })        
-    } else {
-        await addNetwork(store, "appnet" as AppnetName)
-    }
-
-    // Initialize the local engine
-    await sleep(1000)
-    log(chalk.bgMagenta('INITIALISING THE LOCAL ENGINE'))
-    const localEngine = await initialiseLocalEngine(store)
-    log(`Local engine is ${deepPrint(localEngine)}`)
-
-    await sleep(1000)
-    log(chalk.bgMagenta('STARTING MONITORS ON ALL ENGINES'))
-    store.networks.forEach((network) => {
-        enableEngineSetMonitor(store, network)
+        log('Shutting down automerge')
+        log('*** SIGTERM received ****');
+        await shutdownProcedure(repo)
+        process.exit(0)
     })
 
     await sleep(1000)
-    log(chalk.bgMagenta('STARTING A COMMANDS MONITOR ON THE LOCAL ENGINE'))
-    enableEngineCommandsMonitor(localEngine)
-
-    await sleep(1000)
-    log(chalk.bgMagenta('STARTING INSTANCES MONITOR'))
-    store.networks.forEach((network) => {
-        enableInstanceSetMonitor(store, network)
-    })
-
-
-    // Start the interface monitors
-    await sleep(1000)
-    log(chalk.bgMagenta('STARTING INTERFACE MONITORS'))
-    if (!settings.interfaces) {
-        // No access control - listen on ALL interfaces
-        enableInterfaceMonitor(store, [])
-    } else {
-        // Access control - listen only on the specified interfaces
-        enableInterfaceMonitor(store, settings.interfaces)
-    }
+    log(chalk.bgMagenta('STARTING STORE MONITOR'))
+    enableStoreMonitor(storeHandle)
 
     const configMDNS = config.settings.mdns
     if (!disableMDNS && configMDNS) {
         await sleep(1000)
         log(chalk.bgMagenta('STARTING MULTICAST DNS MONITOR'))
-        // enableMulticastDNSEngineMonitor(store)
+        enableMulticastDNSEngineMonitor(store, repo)
     }
 
 
@@ -144,54 +135,15 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     log(chalk.bgMagenta('STARTING MONITORING OF USB DEVICES'))
     enableUsbDeviceMonitor(store)
 
-
-    await sleep(15000)
-    generateHeartBeat()
-
-    await sleep(15000)
-    generateHeartBeat()
-
-    // log(chalk.bgMagenta('STARTING CHANGE TEST'))
-    // changeTest(store)
-    // enableTimeMonitor(300000, changeTest)
-    // log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
-    // generateHeartBeat()
-    // enableTimeMonitor(60000, generateHeartBeat)
-
-
-
-
-
-
-    // log('STARTING MONITOR OF ETH0')
-    // enableNetworkMonitor('eth0', 'LAN')
-    // log('SLEEPING')
-    // await sleep(5000)
-    // log('STARTING MONITOR OF LO')
-    // enableNetworkMonitor('lo', 'Self')
-    // log('SLEEPING')
-    // await sleep(5000)
-
-
-
-    // log(`Randomly populating and depopulating apps array every 5 seconds`)
-    // const apps = new Array<string>()
-    // enableDateTimeMonitor(5000, generateRandomArrayPopulationCallback())
-
-
-    // log(`Logging the time every 5 seconds`)
-    // enableTimeMonitor(5000, logTimeCallback)
-
-    // log(`Randomly populating and depopulating apps array every 5 seconds`)
-    // const apps = new Array<object>()
-    // enableDateTimeMonitor(5000, generateRandomArrayModification(apps))
+    await sleep(1000)
+    log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
+    generateHeartBeat(storeHandle)
+    enableTimeMonitor(5000, () => generateHeartBeat(storeHandle))
 
 }
 
 
-function shutdownProcedure():void {
+async function shutdownProcedure(repo:Repo):Promise<void> {
     console.log('*** Engine is now closing ***');
-    server.close()
-    process.exit(0);
+    if (repo) await repo.shutdown()
 }
-

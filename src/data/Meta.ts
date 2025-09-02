@@ -1,6 +1,7 @@
 import { $, chalk, YAML } from 'zx'
 import { deepPrint, fileExists, log, stripPartition, uuid } from '../utils/utils.js'
 import { DeviceName, DiskID, DiskName, EngineID, Hostname, Timestamp, Version } from './CommonTypes.js'
+import { config } from './Config.js'
 
 export interface DiskMeta {
   diskId: DiskID         
@@ -31,6 +32,15 @@ const sampleMeta: DiskMeta = {
   lastDocked: 1733673600000 as Timestamp
 }
 
+const devMeta: DiskMeta = {
+  diskId: 'DevEngine' as DiskID,
+  isHardwareId: true,
+  diskName: 'DevelopmentEngine' as DiskName,
+  created: 1731446400000 as Timestamp,
+  lastDocked: 1733673600000 as Timestamp,
+  version: '1.0.0' as Version
+}
+
 // The corresponding YAML string
 // diskId: 'AA000000000000000724'
 // isHardwareId: true
@@ -41,6 +51,11 @@ const sampleMeta: DiskMeta = {
 export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMeta | undefined> => {
   let path
   let device: DeviceName
+  // If the config file has the isDev option set to true, we return the devMeta
+  if (config.settings.isDev) {
+    log(`Running in development mode, returning devMeta`)
+    return devMeta
+  }
   try {
     if (deviceSpec) {
       path = `/disks/${deviceSpec}/META.yaml`
@@ -159,8 +174,8 @@ export const readHardwareIdIntenso = async (device: DeviceName): Promise<DiskID 
   try {
     const hdparm = (await $`which hdparm`).stdout
     log(`hdparm is at ${hdparm}`)
-    const info = (await $`hdparm -I /dev/${device}`).stdout
-    log(`Info is ${info}`)
+    //const info = (await $`hdparm -I /dev/${device}`).stdout
+    //log(`Info is ${info}`)
     const sn = (await $`hdparm -I /dev/${device} | grep 'Serial\ Number'`).stdout
     log(`Serial number is ${sn}`)
     const id = sn.trim().split(':')

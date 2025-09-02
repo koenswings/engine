@@ -1,13 +1,10 @@
-import { $, ssh, argv, cd, chalk, fs, question, YAML } from 'zx'
-import pack from '../package.json' assert { type: "json" }
-import { generateHostName } from '../src/utils/nameGenerator.js'
-//import { Defaults, readDefaults } from '../src/utils/readDefaults.js'
-import { config } from '../src/data/Config.js'
+import { $, ssh, argv, cd, chalk, fs, question, YAML } from 'zx';
+import pack from '../package.json' with { type: "json" };
+import { generateHostName } from '../src/utils/nameGenerator.js';
+import { config } from '../src/data/Config.js';
 
-import { log, uuid } from '../src/utils/utils.js'
-import { copy } from 'lib0/array.js'
-import { DiskID } from '../src/data/CommonTypes.js'
-import { readHardwareId } from '../src/data/Meta.js'
+import { log, uuid } from '../src/utils/utils.js';
+import { DiskID } from '../src/data/CommonTypes.js';
 
 // TODO
 // - Port raspap installation and configuration from the build_server Python script of the BerryIT project
@@ -198,7 +195,7 @@ const upgradeSystem = async () => {
   // Upgrade the packages
   console.log(chalk.blue('Upgrading packages...'));
   try {
-    await $$`sudo apt upgrade -y`;
+    await $$`sudo DEBIAN_FRONTEND="noninteractive" apt-get upgrade -y`;
   } catch (e) {
     console.log(chalk.red('Error upgrading packages'));
     console.error(e);

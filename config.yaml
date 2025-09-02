@@ -1,12 +1,16 @@
 settings:
-  mdns: false
-  localEngineName: c3325f72e49c
-  appnets:
-    - name: appnet
-  interfaces:
-    - eth0
-    - wlan0
-    - lo
+  mdns: true
+  isDev: true
+  port: 4321
+  storeDataFolder: store-data
+  storeIdentityFolder: store-identity
+  # localEngineName: c3325f72e49c
+  # appnets:
+  #   - name: appnet
+  # interfaces:
+  #   - eth0
+  #   - wlan0
+  #   - lo
 defaults:
   user: pi
   machine: raspberrypi.local
