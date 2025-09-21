@@ -1,12 +1,10 @@
 import { buildInstance, startInstance, runInstance, stopInstance  } from '../data/Instance.js'
-import { subscribe } from 'valtio'
 import { log, deepPrint } from '../utils/utils.js'
 import { $, YAML, chalk } from 'zx';
-import { read, write } from 'fs';
 import { CommandDefinition } from '../data/CommandDefinition.js';
-import { Store, findDiskByName, getLocalEngine } from '../data/Store.js';
+import { Store, findDiskByName } from '../data/Store.js';
 import { localEngineId } from '../data/Engine.js';
-import { AppName, DeviceName, DiskName, Hostname, InstanceName, Version } from '../data/CommonTypes.js';
+import { AppName, DeviceName, DiskName, InstanceName, Version } from '../data/CommonTypes.js';
 
 // const storeAndEnableAppnetMonitor = async (networkName: string, ifaceName: string) => {
 //     // Read the config.yaml file, add this command to the startupCOmmands array, and write the file back

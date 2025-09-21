@@ -1,6 +1,6 @@
 import { $, chalk, YAML } from 'zx'
 import { deepPrint, fileExists, log, stripPartition, uuid } from '../utils/utils.js'
-import { DeviceName, DiskID, DiskName, EngineID, Hostname, Timestamp, Version } from './CommonTypes.js'
+import { DeviceName, DiskID, DiskName, Timestamp, Version } from './CommonTypes.js'
 import { config } from './Config.js'
 
 export interface DiskMeta {

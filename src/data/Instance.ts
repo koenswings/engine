@@ -2,13 +2,14 @@ import { $, YAML, chalk, fs, os, sleep } from "zx";
 import { addOrUpdateEnvVariable, deepPrint, log, randomPort, readEnvVariable, uuid } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
 import { Store, getDisk, getEngine, getLocalEngine, getInstancesOfEngine,  } from "./Store.js";
-import { Disk, addInstance } from "./Disk.js";
+import { Disk } from "./Disk.js";
 import { localEngineId } from "./Engine.js";
 import { network } from "./Network.js";
 import { createAppId } from "./App.js";
 import { Docker } from "node-docker-api";
 import { createMeta } from '../data/Meta.js'
 import { error } from "console";
+import { DocHandle } from "@automerge/automerge-repo";
 
 
 export interface Instance {
@@ -223,7 +224,8 @@ export const extractAppName = (instanceId: InstanceID): InstanceName => {
   return instanceId.split('-')[0] as InstanceName
 }
 
-export const createOrUpdateInstance = async (store: Store, instanceId: InstanceID, disk: Disk): Promise<Instance | undefined> => {
+export const createOrUpdateInstance = async (storeHandle: DocHandle<Store>, instanceId: InstanceID, disk: Disk): Promise<Instance | undefined> => {
+  const store: Store = storeHandle.doc()
   const storedInstance: Instance | undefined = store.instanceDB[instanceId]
   try {
     const composeFile = await $`cat /disks/${disk.device}/instances/${instanceId}/compose.yaml`
@@ -247,18 +249,22 @@ export const createOrUpdateInstance = async (store: Store, instanceId: InstanceI
         lastBackedUp: 0 as Timestamp,
         lastStarted: 0 as Timestamp,
       }
-      store.instanceDB[instanceId] = instance
+      storeHandle.change(doc => {
+        doc.instanceDB[instanceId] = instance
+      })
       return instance
     } else {
-      // Update the existing instance object
+      // Granularly update the existing instance object
       log(`Updating existing instance object ${instanceId} on disk ${disk.id}`)
-      const instance = storedInstance
-      instance.instanceOf = createAppId(compose['x-app'].name, compose['x-app'].version) as AppID
-      instance.name = instanceName as InstanceName
-      instance.status = 'Docked' as Status;
-      instance.storedOn = disk.id
-      instance.serviceImages = servicesImages as ServiceImage[]
-      return instance
+      storeHandle.change(doc => {
+        const instance = doc.instanceDB[instanceId] as Instance
+        instance.instanceOf = createAppId(compose['x-app'].name, compose['x-app'].version) as AppID
+        instance.name = instanceName as InstanceName
+        instance.status = 'Docked' as Status;
+        instance.storedOn = disk.id
+        instance.serviceImages = servicesImages as ServiceImage[]
+      })
+      return store.instanceDB[instanceId]
     }
   } catch (e) {
     log(chalk.red(`Error initializing instance ${instanceId} on disk ${disk.id}`))
@@ -311,9 +317,14 @@ export const checkPortNumber = async (port: PortNumber): Promise<boolean> => {
 }
 // KSW - UNTESTED <<<
 
-export const startInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
+export const startInstance = async (storeHandle: DocHandle<Store>, instance: Instance, disk: Disk): Promise<void> => {
+  const store: Store = storeHandle.doc()
   console.log(`Starting instance '${instance.id}' on disk ${disk.id} of engine '${localEngineId}'.`)
-  instance.status = 'Starting' as Status // Set the status to Starting when the instance is started
+  // Set the instance status to Starting
+  storeHandle.change(doc => {
+    const inst = doc.instanceDB[instance.id]
+    inst.status = 'Starting' as Status // Set the status to Starting when the instance is started
+  })
 
   try {
 
@@ -379,7 +390,11 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     }
 
     console.log(`Found a port number for instance ${instance.id}: ${port}`)
-    instance.port = port as PortNumber
+    // Assign the port number to the instance object
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.port = port as PortNumber
+    })
 
     // **************************
     // STEP 1b - Generate a password for the app
@@ -428,18 +443,21 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
     // STEP 3 - Container creation
     // **************************
 
-    await createInstanceContainers(store, instance, disk)
+    await createInstanceContainers(storeHandle, instance, disk)
 
     // **************************
     // STEP 4 - run the Instance
     // **************************
 
-    await runInstance(store, instance, disk)
+    await runInstance(storeHandle, instance, disk)
   }
 
   catch (e) {
     console.log(chalk.red('Error starting app instance'))
-    instance.status = 'Error' as Status // Set the status to Error when the instance fails to start
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.status = 'Error' as Status // Set the status to Error when the instance fails to start
+    })
     console.error(e)
   }
 }
@@ -570,7 +588,8 @@ export const startInstance = async (store: Store, instance: Instance, disk: Disk
 //   }
 // }
 
-export const createInstanceContainers = async (store: Store, instance: Instance, disk: Disk) => {
+export const createInstanceContainers = async (storeHandle: DocHandle<Store>, instance: Instance, disk: Disk) => {
+  const store: Store = storeHandle.doc()
   try {
     log(`Creating the containers for the services of the app instance`)
 
@@ -608,17 +627,25 @@ export const createInstanceContainers = async (store: Store, instance: Instance,
     log(`Creating containers of app instance '${instance.id}' on disk ${disk.id} of engine ${localEngineId}.`)
     // await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml create`
     await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose create`
-    instance.status = 'Pauzed'
+    // Set the instance status to Pauzed
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.status = 'Pauzed' as Status // Set the status to Pauzed when the instance is created
+    })
   } catch (e) {
     console.log(chalk.red(`Error creating the containers of app instance ${instance.id}`))
     console.error(e)
-    instance.status = 'Error' as Status // Set the status to Error when the instance fails to create
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.status = 'Error' as Status // Set the status to Error when the instance fails to create
+    })
   }
 }
 
 
 
-export const runInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
+export const runInstance = async (storeHandle: DocHandle<Store>, instance: Instance, disk: Disk): Promise<void> => {
+  const store: Store = storeHandle.doc()
   try {
 
     log(`Running instance '${instance.id}' on disk ${disk.id} of engine '${localEngineId}'.`)
@@ -637,7 +664,10 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
       // If parsedPort is not NaN, assign it to the instance port
       if (!isNaN(parsedPort)) {
         log(`Port number extracted from .env file for instance ${instance.id}: ${parsedPort}`)
-        instance.port = parsedPort as PortNumber
+        storeHandle.change(doc => {
+          const inst = doc.instanceDB[instance.id]
+          inst.port = parsedPort as PortNumber
+        })
       } else {
         log(chalk.red(`Error parsing port number from .env file for instance ${instance.id}. Got ${parsedPort} from ${port}`))
       }
@@ -649,10 +679,12 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
     //await $`docker compose -f /disks/${disk.device}/instances/${instance.id}/compose.yaml up -d`
     await $`cd /disks/${disk.device}/instances/${instance.id} && docker compose up -d`
 
-    // Modify the lastStarted time of the instance
-    instance.lastStarted = new Date().getTime() as Timestamp
-    // Modify the status of the instance
-    instance.status = 'Running'
+
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.lastStarted = new Date().getTime() as Timestamp
+      inst.status = 'Running' as Status
+    })
     // Modify the dockerMetrics of the instance
     // instance.dockerMetrics = {
     //   memory: os.totalmem().toString(),
@@ -688,7 +720,10 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
         } catch (e) {
           log(chalk.red(`Error configuring nextcloud office to use the Collabora server at ${ip}:9980`))
           console.error(e)
-          instance.status = 'Error' as Status // Set the status to Error when the instance fails to configure
+          storeHandle.change(doc => {
+            const inst = doc.instanceDB[instance.id]
+            inst.status = 'Error' as Status // Set the status to Error when the instance fails to configure
+          })
         }
       }
     }
@@ -698,12 +733,14 @@ export const runInstance = async (store: Store, instance: Instance, disk: Disk):
 
     console.log(chalk.red(`Error running app instance ${instance.id}`))
     console.error(e)
-    instance.status = 'Error' as Status // Set the status to Error when the instance fails to run
-
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.status = 'Error' as Status // Set the status to Error when the instance fails to run
+    })
   }
 }
 
-export const stopInstance = async (store: Store, instance: Instance, disk: Disk): Promise<void> => {
+export const stopInstance = async (storeHandle: DocHandle<Store>, instance: Instance, disk: Disk): Promise<void> => {
   console.log(`Stopping app '${instance.id}' on disk '${disk.id}' of engine '${localEngineId}'.`)
 
   // Old implementation using Docker Compose
@@ -745,11 +782,17 @@ export const stopInstance = async (store: Store, instance: Instance, disk: Disk)
       }
     }
     // Set the status of the instance to Stopped
-    instance.status = 'Stopped' as Status
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.status = 'Stopped' as Status // Set the status to Stopped when the instance is stopped
+    })
   } catch (e) {
     console.log(chalk.red(`Error stopping app instance ${instance.id}`))
     console.error(e)
-    instance.status = 'Error' as Status // Set the status to Error when the instance fails to stop
+    storeHandle.change(doc => {
+      const inst = doc.instanceDB[instance.id]
+      inst.status = 'Error' as Status // Set the status to Error when the instance fails to stop
+    })
   }
 }
 

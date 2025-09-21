@@ -45,7 +45,7 @@ const discoverEngines = (repo:Repo): void => {
         manageDiscoveredPeers(repo, discoveredAddresses);
 
         if (deviceList.length === 0) {
-            log(chalk.bgBlackBright(`No engines found`))
+            log(chalk.bgBlackBright(`No remote engines found`))
         } else {
             log(chalk.bgBlackBright(`Discovered engines: ${deepPrint(deviceList, 2)}`))
         }

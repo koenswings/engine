@@ -1,6 +1,5 @@
 import { $, YAML, chalk } from "zx"
 import { log } from "../utils/utils.js"
-import { AppnetName, InterfaceName } from "./CommonTypes.js"
 
 // const $$ = $({
 //   verbose: false

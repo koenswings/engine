@@ -1,23 +1,17 @@
 import os from 'os'
 import { enableUsbDeviceMonitor } from './monitors/usbDeviceMonitor.js'
-import { enableTimeMonitor, generateHeartBeat, generateRandomArrayPopulationCallback, } from './monitors/timeMonitor.js'
-import { enableEngineCommandsMonitor, enableEngineLastRunMonitor, enableEngineSetMonitor } from "./monitors/enginesMonitor.js"
-import { changeTest } from "./monitors/timeMonitor.js"
-import { handleCommand } from './utils/commandHandler.js'
-import { engineCommands } from './utils/engineCommands.js'
-
-import { $, YAML, chalk, fs, sleep } from 'zx'
-import { deepPrint, log, uuid } from './utils/utils.js'
+import { enableTimeMonitor, generateHeartBeat } from './monitors/timeMonitor.js'
+import { $, chalk, fs, sleep } from 'zx'
+import { deepPrint, log } from './utils/utils.js'
 import { config } from './data/Config.js'
-import { createOrUpdateEngine, inspectEngine, localEngineId } from './data/Engine.js'
-import { AppnetName, IPAddress, PortNumber, Timestamp } from './data/CommonTypes.js'
-import { enableIndexServer, enableInstanceStatusMonitor } from './monitors/instancesMonitor.js'
-import { Docker } from 'node-docker-api'
+import { createOrUpdateEngine, localEngineId } from './data/Engine.js'
+import { PortNumber } from './data/CommonTypes.js'
+import { enableIndexServer } from './monitors/instancesMonitor.js'
 import { throttle } from '@automerge/automerge-repo/helpers/throttle.js'
 import { DocumentId, Repo } from '@automerge/automerge-repo'
 import { startAutomergeServer } from './repo.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
-import { createServerStore, getLocalEngine, initialiseServerStore } from './data/Store.js'
+import { createServerStore, initialiseServerStore } from './data/Store.js'
 import { enableStoreMonitor } from './monitors/storeMonitor.js'
 
 
@@ -63,7 +57,7 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     }
 
     log(`Starting Automerge server...`)
-    const repo = await startAutomergeServer(STORE_DATA_PATH)
+    const repo = await startAutomergeServer(STORE_DATA_PATH, settings.port as PortNumber || 1234 as PortNumber)
 
     // If the store URL file does not exist, create it and an initial store document
     // This should only happen if we change the structure of the store document
@@ -101,7 +95,11 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
     // Start the app index server
     log(chalk.bgMagenta('STARTING THE INDEX SERVER'))
-    await enableIndexServer(storeHandle, settings.port as PortNumber || 1234 as PortNumber)
+    await enableIndexServer(storeHandle)
+
+    // Start the instances monitor
+    // log(chalk.bgMagenta('STARTING INSTANCES MONITOR'))
+    // await enableInstanceStatusMonitor(storeHandle)
     
     // If this process is killed, shut down automerge
     process.on('SIGINT', async () => {
@@ -133,12 +131,12 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
     await sleep(1000)
     log(chalk.bgMagenta('STARTING MONITORING OF USB DEVICES'))
-    enableUsbDeviceMonitor(store)
+    enableUsbDeviceMonitor(storeHandle)
 
     await sleep(1000)
     log(chalk.bgMagenta('STARTING HEARTBEAT GENERATION'))
     generateHeartBeat(storeHandle)
-    enableTimeMonitor(5000, () => generateHeartBeat(storeHandle))
+    enableTimeMonitor(50000, () => generateHeartBeat(storeHandle))
 
 }
 

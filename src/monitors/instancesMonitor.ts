@@ -44,32 +44,32 @@ import { DocHandle } from '@automerge/automerge-repo'
 //     log(`Added INSTANCESET MONITOR`)
 // }
 
-export const enableInstanceStatusMonitor = async (storeHandle:DocHandle<Store>):Promise<void> => {
-    // Generate HTML for the current instances
-    await generateHTML(storeHandle)
+// export const enableInstanceStatusMonitor = async (storeHandle:DocHandle<Store>):Promise<void> => {
+//     // Generate HTML for the current instances
+//     await generateHTML(storeHandle)
 
-    // Monitor for changes in the status of instances
-    storeHandle.on('change', ({ doc, patches }) => {
-        log(`Instance Status Monitor handles ${deepPrint(patches)}`)
-        for (const patch of patches) {
-            // Monitor the status property of any instance in the instanceDB set
-            // The path for a change in the status property of an instance is expected to be in the form:
-            // ['instanceDB', <instanceId>, 'status']
-            if (patch.action === 'put' &&
-                patch.path.length === 3 &&
-                patch.path[0] === 'instanceDB' &&
-                typeof patch.path[1] === 'string' && // instanceId
-                patch.path[2] === 'status') {
-                const instanceId = patch.path[1] as InstanceID
-                const status = patch.value as string
-                log(`Instance ${instanceId} status changed to: ${status}`)
-                // Update the HTML
-                generateHTML(storeHandle)
-            }
-        }   
-    })
-    log(`Added INSTANCESET MONITOR`)
-}
+//     // Monitor for changes in the status of instances
+//     storeHandle.on('change', ({ doc, patches }) => {
+//         log(`Instance Status Monitor handles ${deepPrint(patches)}`)
+//         for (const patch of patches) {
+//             // Monitor the status property of any instance in the instanceDB set
+//             // The path for a change in the status property of an instance is expected to be in the form:
+//             // ['instanceDB', <instanceId>, 'status']
+//             if (patch.action === 'put' &&
+//                 patch.path.length === 3 &&
+//                 patch.path[0] === 'instanceDB' &&
+//                 typeof patch.path[1] === 'string' && // instanceId
+//                 patch.path[2] === 'status') {
+//                 const instanceId = patch.path[1] as InstanceID
+//                 const status = patch.value as string
+//                 log(`Instance ${instanceId} status changed to: ${status}`)
+//                 // Update the HTML
+//                 generateHTML(storeHandle)
+//             }
+//         }   
+//     })
+//     log(`Added INSTANCESET MONITOR`)
+// }
 
 export const generateHTML = async (storeHandle:DocHandle<Store>):Promise<void> => {
     const store = storeHandle.doc()
@@ -114,14 +114,10 @@ export const generateHTML = async (storeHandle:DocHandle<Store>):Promise<void> =
     fs.writeFileSync(`appnet.html`, html)
 }   
 
-export const enableIndexServer = async (storeHandle:DocHandle<Store>, port?:PortNumber):Promise<void> => {
+export const enableIndexServer = async (storeHandle:DocHandle<Store>):Promise<void> => {
     // Start an HTTP server that serves the index.html file of the specified appnet
-    let portNumber:number
-    if (port) {
-        portNumber = parseInt(port.toString())
-    } else {
-        portNumber = 80
-    }
+    const portNumber = 80
+
     // If the file `${appnetName}.html` does not exist, generate it
     if (!fs.existsSync(`appnet.html`)) {
         await generateHTML(storeHandle)

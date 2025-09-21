@@ -1,5 +1,4 @@
 import util from 'util';
-import { chalk, question } from 'zx';
 import { Hostname } from '../data/CommonTypes.js';
 
 // Docker-style name generation

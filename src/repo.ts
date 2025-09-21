@@ -2,18 +2,12 @@ import { Repo } from "@automerge/automerge-repo";
 import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
 import { WebSocketServer } from "ws";
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket";
-import os from "os";
 import { PortNumber } from "./data/CommonTypes.js";
 import { deepPrint, log } from './utils/utils.js'
-import { $ } from "zx";
-import { Automerge } from "@automerge/automerge-repo/slim";
-import { config } from './data/Config.js'
 
-export const startAutomergeServer = async (dataDir:string):Promise<Repo> => {
+
+export const startAutomergeServer = async (dataDir:string, port:PortNumber):Promise<Repo> => {
     log(`Using data directory: ${dataDir}`);
-
-    // Define the port for the WebSocket server
-    const port = 1234 as PortNumber;
 
     // 1. Create a storage adapter for the server to persist data.
     const storage = new NodeFSStorageAdapter(dataDir);

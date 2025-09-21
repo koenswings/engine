@@ -3,6 +3,9 @@ import { Engine } from './Engine.js'
 import { log } from '../utils/utils.js';
 import { IPAddress, InterfaceName, PortNumber } from './CommonTypes.js';
 import { Repo } from "@automerge/automerge-repo";
+import { config } from './Config.js';
+
+const settings = config.settings
 
 
 // **********
@@ -49,6 +52,7 @@ const MAX_MISSED_DISCOVERIES = 3;
 // **********
 
 export const manageDiscoveredPeers = (repo: Repo, discoveredAddresses: Set<IPAddress>): void => {
+  const port = settings.port as PortNumber || 1234 as PortNumber
     // Increment missed discovery count for all existing connections
     for (const connection of Object.values(network.connections)) {
         connection.missedDiscoveryCount++;
@@ -56,7 +60,7 @@ export const manageDiscoveredPeers = (repo: Repo, discoveredAddresses: Set<IPAdd
 
     // Reset count for discovered peers and connect to new ones
     for (const address of discoveredAddresses) {
-        const connectionKey = `${address}:1234`;
+        const connectionKey = `${address}:${port}`;
         if (network.connections[connectionKey]) {
             network.connections[connectionKey].missedDiscoveryCount = 0;
         } else {
@@ -74,16 +78,21 @@ export const manageDiscoveredPeers = (repo: Repo, discoveredAddresses: Set<IPAdd
     }
 };
 
-export const disconnectEngine = (repo: Repo, address: IPAddress, port?: PortNumber): void => {
-  if (!port) {
-    port = 1234 as PortNumber;
-  }
+export const disconnectEngine = (repo: Repo, address: IPAddress, port: PortNumber): void => {
   const connectionKey = `${address}:${port}`;
   const connection = network.connections[connectionKey];
 
   if (connection) {
     log(`Disconnecting from engine at ${connectionKey}`);
-    repo.networkSubsystem.removeNetworkAdapter(connection.adapter);
+    try {
+      repo.networkSubsystem.removeNetworkAdapter(connection.adapter);
+    } catch (e: any) {
+      if (e.message === 'WebSocket was closed before the connection was established') {
+        log(`Ignoring expected error during disconnect: ${e.message}`);
+      } else {
+        throw e;
+      }
+    }
     delete network.connections[connectionKey];
   }
 };
@@ -91,10 +100,9 @@ export const disconnectEngine = (repo: Repo, address: IPAddress, port?: PortNumb
 
 
 
-export const connectEngine = (repo:Repo, address: IPAddress, port?: PortNumber, timeout?:boolean): BrowserWebSocketClientAdapter | undefined => {
-  if (!port) {
-    port = 1234 as PortNumber // Default port for the engine
-  }
+export const connectEngine = (repo:Repo, address: IPAddress): BrowserWebSocketClientAdapter | undefined => {
+
+  const port = settings.port as PortNumber || 1234 as PortNumber
 
   log(`Connecting to engine at ${address}:${port}`)
 

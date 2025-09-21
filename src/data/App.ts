@@ -3,6 +3,7 @@ import { Version, URL, AppID, AppName, Hostname, DeviceName, DiskName, DiskID } 
 import { log } from '../utils/utils.js';
 import { Store } from './Store.js';
 import { Disk } from './Disk.js';
+import { DocHandle } from '@automerge/automerge-repo';
 
 export interface App {
     id: AppID;
@@ -31,7 +32,8 @@ export const extractAppVersion = (appId: AppID): Version => {
 }
 
 
-export const createOrUpdateApp = async (store:Store, appId:AppID, disk:Disk) => {
+export const createOrUpdateApp = async (storeHandle: DocHandle<Store>, appId:AppID, disk:Disk) => {
+    const store: Store = storeHandle.doc()
     const storedApp: App | undefined = store.appDB[appId]
     const device: DeviceName = disk.device as DeviceName;
     const diskID: DiskID = disk.id as DiskID;
@@ -57,21 +59,26 @@ export const createOrUpdateApp = async (store:Store, appId:AppID, disk:Disk) => 
                 icon: appCompose['x-app'].icon,
                 author: appCompose['x-app'].author
             }
-            store.appDB[appId] = app
+            // Store the new app object in the store
+            storeHandle.change((doc) => {
+                doc.appDB[appId] = app
+            })
             return app
         } else {
             // Granularly update the existing app object
-            log(chalk.green(`Updating existing app ${appId} on disk ${diskID}`))
-            const app = storedApp
-            app.name = appName
-            app.version = appVersion
-            app.title = appCompose['x-app'].title
-            app.description = appCompose['x-app'].description
-            app.url = appCompose['x-app'].url
-            app.category = appCompose['x-app'].category
-            app.icon = appCompose['x-app'].icon
-            app.author = appCompose['x-app'].author 
-            return app
+            log(chalk.green(`Granularly updating existing app ${appId} on disk ${diskID}`))
+            storeHandle.change((doc) => {
+                const app = doc.appDB[appId]
+                app.name = appName
+                app.version = appVersion
+                app.title = appCompose['x-app'].title
+                app.description = appCompose['x-app'].description
+                app.url = appCompose['x-app'].url
+                app.category = appCompose['x-app'].category
+                app.icon = appCompose['x-app'].icon
+                app.author = appCompose['x-app'].author
+            })
+            return store.appDB[appId]
         }
   } catch (e) {
     log(chalk.red(`Error initializing instance ${appId} on disk ${disk.id}`))

@@ -1,8 +1,7 @@
 import util from 'util';
-import { $, YAML, chalk, fs, question } from 'zx';
-import { config, writeConfig } from '../data/Config.js';
-import { DiskID, Hostname, IPAddress, NetMask, PortNumber, Timestamp, Version } from '../data/CommonTypes.js';
-import { isIP } from 'net';
+import { $, chalk, fs, question } from 'zx';
+import { IPAddress, PortNumber } from '../data/CommonTypes.js';
+
 
 // Dummy key
 export const dummyKey = "_dummy"
