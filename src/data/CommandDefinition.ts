@@ -1,3 +1,6 @@
+import { DocHandle } from "@automerge/automerge-repo";
+import { Store } from "./Store.js";
+
 // Generalized argument types
 type ArgumentType = 'string' | 'number' | 'object';
 
@@ -19,6 +22,7 @@ export interface ArgumentDescriptor {
 // Interface for commands
 export interface CommandDefinition {
     name: string;
-    execute: (...args: any[]) => void;
+    execute: (storeHandle: DocHandle<Store>, ...args: any[]) => void;
     args: ArgumentDescriptor[];
+    scope: 'engine' | 'client' | 'any' | 'cli';
 }

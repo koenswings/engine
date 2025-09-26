@@ -1,25 +1,14 @@
 #!/usr/bin/env zx
 import { $, question, chalk, cd, argv, fs } from 'zx';
 import * as readline from 'readline';
-import { Network, connectEngine } from '../src/data/Network.js';
-import { createClientStore, getApps, getDisks, getEngine, getEngines, getInstances, Store } from '../src/data/Store.js';
+import { createClientStore, Store } from '../src/data/Store.js';
 import { handleCommand } from '../src/utils/commandHandler.js';
-import { deepPrint } from '../src/utils/utils.js';
 
 import pack from '../package.json' with { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
 import { config } from '../src/data/Config.js'
 
-import { CommandDefinition } from '../src/data/CommandDefinition.js';
-import { create } from 'domain';
-import { AppName, AppnetName, Command, EngineID, Hostname, InstanceName, InterfaceName, Version } from '../src/data/CommonTypes.js';
-
-const defaults  = config.defaults
-const engineAddress = argv.e || argv.engine || "127.0.1:1234"
-
-import { WebSocketClientAdapter } from '@automerge/automerge-repo-network-websocket';
-import { DocumentId, PeerId, Repo } from '@automerge/automerge-repo';
-import { Doc } from '@automerge/automerge';
+import { DocumentId, PeerId } from '@automerge/automerge-repo';
 import { localEngineId } from '../src/data/Engine.js';
 
 // **********************
@@ -52,9 +41,8 @@ if (argv.v || argv.version) {
 // Connection to an engine
 // ************************
 
-// TODO - Connect to an engine
-// const network: Network = await createNetwork(store, networkName)
-// await connectEngine(network, engineId, engineAddress)
+const defaults  = config.defaults
+const engineAddress = argv.e || argv.engine || "127.0.1:1234"
 
 const serverUrl = `ws://${engineAddress}`
 const browserPeerId = `browser-${localEngineId}` as PeerId // Unique identifier for the browser client
@@ -65,307 +53,6 @@ console.log(`Using document ID: ${storeDocId}`)
 // const storeUrlPath = "./"+config.settings.storeIdentityFolder+"/store-url.txt"
 const storeHandle = await createClientStore(serverUrl, browserPeerId, storeDocId);
 const store = storeHandle.doc()
-
-
-// ************************
-// Virtual Engines
-// ************************
-
-// interface VirtualEngine {
-//     name: string;
-//     port: number;
-//     status: string;
-// }
-
-// const engines: VirtualEngine[] = [
-//     // {
-//     //     name: "engine1",
-//     //     port: 3001,
-//     //     status: "running"
-//     // },
-//     // {
-//     //     name: "engine2",
-//     //     port: 3002,
-//     //     status: "running"
-//     // },
-//     // {
-//     //     name: "engine3",
-//     //     port: 3003,
-//     //     status: "stopped"
-//     // }
-//   ]
-
-// Create additional engines for testing
-// export const addEngine = async (engine: string, port:number) => {
-//     console.log(`Adding engine '${engine}'.`)
-//     // Compose up the engine
-//     try {
-//         cd('..')
-//         // Build the engine
-//         await $`docker build --target base -t ${engine} .`
-//         // Run the engine
-//         await $`docker run -p ${port}:1234 -d --name ${engine} ${engine}`
-//         // Add the engine to the list
-//         engines.push({
-//             name: engine,
-//             port: port,
-//             status: "running"
-//         })
-//     } catch (e) {
-//         console.log(chalk.red('Error adding engine'));
-//         console.error(e);
-//     } 
-//   }
-
-
-
-// **********************
-// Doc inspections
-// **********************
-
-const ls = ():void => {
-    console.log('NetworkData on this engine:')
-    console.log(deepPrint(store), 3)
-}
-
-const lsEngines = ():void => {
-    console.log('Engines:')
-    const engines = getEngines(store)
-    console.log(`Total engines: ${engines.length}`)
-    console.log(deepPrint(engines, 2))
-}
-
-const lsDisks = ():void => {
-    console.log('Disks:')
-    const disks = getDisks(store)
-    console.log(deepPrint(disks, 2))
-}
-
-const lsApps = ():void => {
-    console.log('Apps:')
-    const apps = getApps(store)
-    console.log(deepPrint(apps, 2))
-}
-
-const lsInstances = ():void => {
-    console.log('Instances:')
-    const instances = getInstances(store)
-    console.log(deepPrint(instances, 2))
-}
-
-
-// **********************
-// Remote Commands
-// **********************
-
-// Network Management
-
-// const enableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
-//     console.log(`Instructing engine ${engineName} to monitor interface ${iface} for engines on network ${networkName}`)
-//     // Find the engine with the name engineName
-//     const engine = getEngines(network).find(e => e.hostname === engineName)
-//     if (engine && engine.id) {
-//         sendCommand(engine.id, `enableAppnetMonitor ${iface} ${networkName}` as Command)
-//     } else {
-//         console.log(`Engine ${engineName}: not found on network ${network.name} or has no id`)
-//     }
-// }
-
-
-// const disableAppnetMonitor = (engineName: Hostname, networkName: AppnetName, iface: InterfaceName):void => {
-//     console.log(`Instructing engine ${engineName} to unmonitor interface ${iface} for engines on network ${networkName}`)
-//     // Find the engine with the name engineName
-//     const engine = getEngines(network).find(e => e.hostname === engineName)
-//     if (engine && engine.id) {
-//         sendCommand(engine.id, `disableAppnetMonitor ${iface} ${networkName}` as Command)
-//     } else {
-//         console.log(`Engine ${engineName} not found on network ${network.name} or has no id`)
-//     }
-// }
-
-// Disk Management
-
-// function createDisk(engine: string, disk: string): void {
-//     console.log(`Creating a fixed disk '${disk}' for engine '${engine}'.`);
-//     sendCommand(engine, `createDisk ${disk}`)  
-// }
-
-// App Management
-
-const createInstance =  (engineName: Hostname, instanceName: InstanceName, typeName:AppName, version:Version, diskName:Hostname):void => {
-    console.log(`Creating instance '${instanceName}' of version ${version} of app ${typeName} on disk '${diskName}' of engine '${engineName}'.`)
-    // Find the engine with the name engineName
-    const engine = getEngines(store).find(e => e.hostname === engineName)
-    if (engine && engine.id) {
-        sendCommand(engine.id, `createInstance ${instanceName} ${typeName} ${version} ${diskName}` as Command)
-    } else {
-        console.log(`Engine ${engineName} not found or has no id`)
-    }
-}
-
-const startInstance =  (engineName: Hostname, instanceName: InstanceName, diskName:Hostname):void => {
-    console.log(`Starting instance '${instanceName}' on disk '${diskName}' of engine '${engineName}'.`)
-    // Find the engine with the name engineName
-    const engine = getEngines(store).find(e => e.hostname === engineName)
-    if (engine && engine.id) {
-        sendCommand(engine.id, `startInstance ${instanceName} ${diskName}` as Command)
-    } else {
-        console.log(`Engine ${engineName} not found or has no id`)
-    }
-}
-
-const runInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
-    console.log(`Running application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
-    // Find the engine with the name engineName
-    const engine = getEngines(store).find(e => e.hostname === engineName)
-    if (engine && engine.id) {
-        sendCommand(engine.id, `runInstance ${instanceName} ${diskName}` as Command)
-    } else {
-        console.log(`Engine ${engineName} not found or has no id`)
-    }
-}
-
-const stopInstance = (engineName: Hostname, instanceName: InstanceName, diskName: Hostname):void => {
-    console.log(`Stopping application '${instanceName}' on disk ${diskName} of engine '${engineName}'.`)
-    // Find the engine with the name engineName
-    const engine = getEngines(store).find(e => e.hostname === engineName)
-    if (engine && engine.id) {
-        sendCommand(engine.id, `stopInstance ${instanceName} ${diskName}` as Command)
-    } else {
-        console.log(`Engine ${engineName} not found or has no id`)
-    }
-}
-
-// Demo commands
-
-
-// function processCoordinates(coords: { x: number; y: number }): void {
-//     console.log(`Processing coordinates: x=${coords.x}, y=${coords.y}`);
-// }
-
-// function processMixedData(data: { id: number; name: string }): void {
-//     console.log(`Processing data: id=${data.id}, name=${data.name}`);
-// }
-
-
-// ************************
-// Remote Command Execution
-// ************************
-
-const sendCommand = (engineId: EngineID, command: Command):void => {
-    console.log(`Sending command '${command}' to engine ${engineId}`)
-
-    const engine = getEngine(store, engineId)
-    console.log(`Pushing commands to ${engineId}`)
-    if (engine && engine.commands) engine.commands.push(command)
-    // // A remote command is added by looking up the engine on the engines property of the network and pushing a coomand to the commands property
-    // const engineId = Object.keys(networkData).find(e => networkData[e].hostName === engineName)
-    // if (engineId) {
-    //     const engine = networkData[engineId]
-    //     if (engine) {
-    //         console.log(`Pushing commands to ${engineName}`)
-    //         engine.commands.push(command)
-    //     }
-    // }
-
-}
-
-
-// Command registry with an example of the new object command
-const commands: CommandDefinition[] = [
-    // {
-    //     name: "addEngine",
-    //     execute: addEngine,
-    //     args: [{ type: "string" }],
-    // },
-    {
-        name: "ls",
-        execute: ls,
-        args: []
-    },
-    {
-        name: "engines",
-        execute: lsEngines,
-        args: []
-    },
-    {
-        name: "disks",
-        execute: lsDisks,
-        args: []
-    },
-    {
-        name: "apps",
-        execute: lsApps,
-        args: []
-    },
-    {
-        name: "instances",
-        execute: lsInstances,
-        args: []
-    },
-    // {
-    //     name: "enableInterfaceMonitor",
-    //     execute: enableAppnetMonitor,
-    //     args: [{ type: "string" }, { type: "string" }, { type: "string" }],
-    // },
-    // {
-    //     name: "disableInterfaceMonitor",
-    //     execute: disableAppnetMonitor,
-    //     args: [{ type: "string" }, { type: "string" }, { type: "string" }],
-    // },
-    // {
-    //     name: "createDisk",
-    //     execute: createDisk,
-    //     args: [{ type: "string" }, { type: "string" }],
-    // },
-    {
-        name: "createInstance",
-        execute: createInstance,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" },  { type: "string" }],
-    },
-    {
-        name: "startInstance",
-        execute: startInstance,
-        args: [{ type: "string" }, { type: "string" },  { type: "string" }],
-    },
-    {
-        name: "runInstance",
-        execute: runInstance,
-        args: [{ type: "string" }, { type: "string" },  { type: "string" }],
-    },
-    {
-        name: "stopInstance",
-        execute: stopInstance,
-        args: [{ type: "string" }, { type: "string" },  { type: "string" }],
-    },
-
-    // {
-    //     name: "processCoordinates",
-    //     execute: processCoordinates,
-    //     args: [
-    //         {
-    //             type: "object",
-    //             objectSpec: {
-    //                 x: { type: 'number' },
-    //                 y: { type: 'number' }
-    //             }
-    //         }
-    //     ],
-    // },
-    // {
-    //     name: "processMixedData",
-    //     execute: processMixedData,
-    //     args: [
-    //         {
-    //             type: "object",
-    //             objectSpec: {
-    //                 id: { type: 'number' },
-    //                 name: { type: 'string' }
-    //             }
-    //         }
-    //     ],
-    // },
-];
 
 
 const rl = readline.createInterface({
@@ -392,7 +79,7 @@ rl.on('line', (line) => {
 
     if (trimmedLine) {
         commandHistory.push(trimmedLine); // Save the command to history
-        handleCommand(commands, trimmedLine); // Process the command
+        handleCommand(storeHandle, 'cli', trimmedLine); // Process the command
     }
 
     rl.prompt();
@@ -400,48 +87,3 @@ rl.on('line', (line) => {
     console.log('Exiting command interpreter.');
     process.exit(0);
 });
-
-
-// OLD CODE
-// Enhanced command interpreter function
-// async function commandInterpreter(): Promise<void> {
-//     if (!process.argv.includes("-i")) {
-//         console.log("This script should be run in interactive mode using the '-i' option.");
-//         process.exit(1);
-//     }
-
-//     while (true) {
-//         try {
-//             let commandLine = await question("Enter command: ");
-//             commandLine = commandLine.trim().replace(/\s+/g, ' ');
-    
-//             if (commandLine === "exit") {
-//                 console.log("Exiting command interpreter.");
-//                 break;
-//             }
-    
-//             const [commandName, ...stringArgs] = commandLine.split(" ");
-//             const command = commands.find(cmd => cmd.name === commandName);
-    
-//             if (!command) {
-//                 console.log(`Unknown command: ${commandName}`);
-//                 continue;
-//             }
-    
-//             // Correctly passing the entire argument descriptor for conversion
-//             const args = stringArgs.map((arg, index) => {
-//                 if (index >= command.args.length) throw new Error("Too many arguments");
-//                 return convertToType(arg, command.args[index]); // Fixed here
-//             });
-    
-//             if (args.length < command.args.length) throw new Error("Insufficient arguments");
-    
-//             command.execute(...args);
-//         } catch (error) {
-//             console.error(`Error: ${error.message}`);
-//             console.log("Please try again.");
-//         }
-//     }    
-// }
-
-//commandInterpreter();

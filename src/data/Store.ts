@@ -251,6 +251,10 @@ export const getInstancesOfDisk = (store: Store, disk: Disk): Instance[] => {
     })
 }
 
+export const findInstanceByName = (store: Store, instanceName: string): Instance | undefined => {
+    return getInstances(store).find(instance => instance.name === instanceName)
+}
+
 export const getDisks = (store: Store): Disk[] => {
     return Object.keys(store.diskDB).flatMap(diskId => {
         const disk = getDisk(store, diskId as DiskID)
@@ -279,6 +283,30 @@ export const findDiskByDevice = (store: Store, deviceName: DeviceName): Disk | u
 
 export const findDiskByName = (store: Store, diskName: string): Disk | undefined => {
     return getDisks(store).find(disk => disk.name === diskName)
+}
+
+export const findDisksByApp = (store: Store, appId: AppID): Disk[] => {
+    const instances = Object.keys(store.instanceDB).flatMap(instanceId => {
+        const instance = getInstance(store, instanceId as InstanceID)
+        if (instance && instance.instanceOf === appId) {
+            return [instance]
+        } else {
+            return []
+        }
+    })
+    const diskIds = Array.from(new Set(instances.map(instance => instance.storedOn))).filter((id): id is DiskID => id !== null)
+    return diskIds.flatMap(diskId => {
+        const disk = getDisk(store, diskId)
+        if (disk) {
+            return [disk]
+        } else {
+            return []
+        }
+    })
+}
+
+export const extractAppName = (appId: AppID): string => {
+    return appId.split('-')[0]
 }
 
 export const getDisk = (store: Store, diskId: DiskID): Disk | undefined => {

@@ -1,4 +1,7 @@
 import { ArgumentDescriptor, CommandDefinition } from "../data/CommandDefinition.js";
+import { DocHandle } from "@automerge/automerge-repo";
+import { Store } from "../data/Store.js";
+import { commands } from "../data/Commands.js";
 
 
 
@@ -38,13 +41,26 @@ const convertToType = (str: string, descriptor: ArgumentDescriptor): any => {
 }
 
 
-export const handleCommand = async (commands: CommandDefinition[], input: string):Promise<void> => {
+export const handleCommand = async (storeHandle: DocHandle<Store>, context: 'client' | 'engine' | 'cli', input: string):Promise<void> => {
     const [commandName, ...stringArgs] = input.split(" ").map(arg => arg.trim()).filter(arg => arg.length > 0);
     const command = commands.find(cmd => cmd.name === commandName);
 
     if (!command) {
         console.log(`Unknown command: ${commandName}`);
         return;
+    }
+
+    // Scope checking
+    if (context !== 'cli') {
+        if (context === 'client' && command.scope === 'engine') {
+            console.log(`Error: Command '${commandName}' can only be executed on an engine. Use 'send <engineId> ${commandName} ...' to execute it remotely.`);
+            return;
+        }
+    
+        if (context === 'engine' && command.scope === 'client') {
+            console.log(`Error: Command '${commandName}' can only be executed on a client.`);
+            return;
+        }
     }
 
     try {
@@ -55,8 +71,9 @@ export const handleCommand = async (commands: CommandDefinition[], input: string
 
         if (args.length < command.args.length) throw new Error("Insufficient arguments");
 
-        await command.execute(...args);
-    } catch (error) {
+        await command.execute(storeHandle, ...args);
+    } catch (error) { // @ts-ignore
         console.error(`Error: ${error.message}`);
     }
 }
+
