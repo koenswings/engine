@@ -76,7 +76,18 @@ This method allows you to provision a new Pi from your development machine.
 
 ## Usage
 
-Once an engine is running, you can interact with it using the command-line client.
+### Autonomous Operation
+
+The primary function of an Engine is to operate autonomously once it is running. It requires no direct interaction for its main tasks:
+
+-   **Auto-Discovery:** It automatically discovers and communicates with other Engines on the local network.
+-   **Auto-Processing:** It automatically detects any inserted disk (e.g., an App Disk) and processes it. For an App Disk, this means mounting the disk, starting the Docker containers for all the apps on it, and announcing the presence of the new apps to all users by updating the shared network state.
+
+### Command-Line Interface (CLI)
+
+In addition to its autonomous operation and the primary method of physical management (inserting/ejecting disks), the Engine provides a command-line interface for occasional administrative tasks. This CLI can be used by an Engine Admin to create new Disks or manage the state of applications.
+
+To use the CLI, connect to a running engine using the `client.ts` script:
 
 ```sh
 # Start the client to connect to a specific engine
@@ -92,6 +103,8 @@ ls engines
 # Create a new application instance on a specific engine
 send <target-engine-id> createInstance my-app-1 ...
 ```
+
+For a full list of available commands and their descriptions, please see the [Command Reference](COMMANDS.md).
 
 ## Development
 
