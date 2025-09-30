@@ -70,49 +70,45 @@ This is the easiest method for setting up a new device. It involves running a si
 
 ### Method 2: Remote Provisioning (For Developers)
 
-This method is primarily used to provision a target Raspberry Pi (Runtime System) from a configured Development System. For details on setting up the development environment, see the [Development Environment Setup](#development-environment-setup) section below.
+This installation method is intended for developers who have set up a development environment to provision a target Raspberry Pi (the Runtime System).
 
-This method allows you to provision a new Pi from your development machine.
-
-1.  **Flash & Boot:** Complete steps 1 and 2 from the method above.
-2.  **Clone Repo:** Ensure you have this repository cloned on your development machine.
-3.  **Run Provisioner:** From the repository root on your dev machine, run the `build-image.ts` script, targeting the new Pi's IP address or `.local` address.
+1.  **Set up Development System:** Follow the instructions in the [Environment Setup](#environment-setup) section to create your Development System. This process will clone the repository for you.
+2.  **Flash & Boot Pi:** Flash a standard **Raspberry Pi OS Lite (64-bit)** image to an SD card and boot the new Pi while it is connected to your network.
+3.  **Run Provisioner:** From the terminal of your Development System, run the `build-image.ts` script, targeting the new Pi's IP address or `.local` address.
 
     ```sh
     ./script/build-image.ts --machine raspberrypi.local
     ```
 
-## Usage
+## Usage & Management
 
-### Autonomous Operation
+Once an Engine is installed and running, there are three primary ways to interact with and manage the system, each suited for different tasks and users.
 
-The primary function of an Engine is to operate autonomously once it is running. It requires no direct interaction for its main tasks:
+### 1. Physical Management (for End-Users & Admins)
 
--   **Auto-Discovery:** It automatically discovers and communicates with other Engines on the local network.
--   **Auto-Processing:** It automatically detects any inserted disk (e.g., an App Disk) and processes it. For an App Disk, this means mounting the disk, starting the Docker containers for all the apps on it, and announcing the presence of the new apps to all users by updating the shared network state.
+The primary and most intuitive way to interact with the system is through direct, physical actions.
 
-### Command-Line Interface (CLI)
+-   **Starting/Stopping Apps:** Simply dock (plug in) or undock (unplug) an **App Disk**. The Engine will automatically start or stop the corresponding applications.
+-   **Backups & Upgrades:** Docking a **Backup Disk** or **Upgrade Disk** will automatically trigger those specific system actions.
 
-In addition to its autonomous operation and the primary method of physical management (inserting/ejecting disks), the Engine provides a command-line interface for occasional administrative tasks. This CLI can be used by an Engine Admin to create new Disks or manage the state of applications.
+### 2. Command-Line Interface (CLI) (for Admins)
 
-To use the CLI, connect to a running engine using the `client.ts` script:
+For more advanced, interactive tasks, an Engine Admin can use the Command-Line Interface (CLI). The CLI is ideal for inspecting the state of the network in real-time and performing specific actions that go beyond simple physical management.
 
-```sh
-# Start the client to connect to a specific engine
-./script/client.ts --engine <engine-ip-or-hostname>
-```
+-   **Purpose:** Inspecting network state, creating new application instances on disks, stopping specific apps remotely.
+-   **How to Use:** The CLI is accessed via the `client.ts` script.
+    ```sh
+    # Connect to a running engine to enter the interactive CLI
+    ./script/client.ts --engine <engine-ip-or-hostname>
+    ```
+-   **Further Reading:** For a full list of available commands, see the [Command Reference](COMMANDS.md).
 
-Once in the client, you can issue commands:
+### 3. Provisioning Scripts (for Admins)
 
-```sh
-# List all engines in the network
-ls engines
+For complex orchestration and administrative tasks, the system provides a suite of powerful provisioning scripts. These are typically used for initial setup of Engine devices, or for advanced tasks like creating new App Disks and building reusable service components.
 
-# Create a new application instance on a specific engine
-send <target-engine-id> createInstance my-app-1 ...
-```
-
-For a full list of available commands and their descriptions, please see the [Command Reference](COMMANDS.md).
+-   **Key Scripts:** `install.sh`, `build-image.ts`, `build-app-instance.ts`, `build-service.ts`.
+-   **Further Reading:** For a detailed description of each script and its options, see the [Provisioning Scripts Reference](SCRIPTS.md).
 
 ## Development
 
