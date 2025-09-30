@@ -1,14 +1,50 @@
 # Engine
 
-Engine is a system for managing and synchronizing distributed applications across a network of devices, such as Raspberry Pis. It uses a CRDT-based approach for state synchronization and provides tools for provisioning devices, deploying applications, and managing their lifecycle.
+Engine is a system for creating a robust, offline-first web application environment. It is designed as a modular, plug-and-play solution that is intuitive for non-technical users and requires little maintenance. By standardizing on cost-efficient hardware and leveraging physical interactions for management tasks, it provides a tangible and affordable way to deploy and maintain web applications on a local network.
 
-## Features
+## Core Concepts
 
-- **Distributed Application Management:** Deploy and manage Dockerized applications across multiple devices.
-- **Automatic Peer Discovery:** Engines automatically discover each other on the local network using mDNS.
-- **CRDT-Based Synchronization:** State is automatically synchronized between all peers using Automerge, ensuring eventual consistency.
-- **Flexible Provisioning:** Supports multiple methods for setting up new engine devices, including a remote provisioning script and a user-friendly local bootstrap script.
-- **Command-Line Interface:** Provides a CLI for inspecting the state of the network and sending commands to engines.
+### Physical-First Management
+
+The system employs a physical metaphor for carrying out IT management operations. For example, a Web App is started by physically docking a disk into a docking station instead of operating an admin application. The idea behind this is that these operations are more intuitive and tangible than using a traditional admin console.
+
+- An App is physically represented by the SSD or USB drive it is contained on (an **App Disk**).
+- The collection of running Apps is determined by the collection of App Disks that are plugged in.
+- Backups are triggered by docking a **Backup Disk**.
+- The person who has physical access to the disk has the rights to run or stop it, similar to using a physical security token.
+
+### Smart & Pro-Active
+
+Instead of a passive UI that waits for an admin, the system pro-actively analyzes its state and suggests management operations when needed.
+
+- When a new App is docked, users are notified when it becomes available.
+- The system proposes an upgrade when an App Disk with a newer version is docked.
+- The system proposes an upgrade of an Engine when a peer with newer system software is detected.
+
+### Live, Offline-First Data
+
+The system is built around a single, shared data structure that represents the state of the entire network. Both the backend **Engines** and the user-facing **Consoles** are treated as equal peers that operate on this same data structure.
+
+Any change made by one peer—such as a user starting an application from a Console, or an Engine detecting a newly docked disk—is automatically synchronized in real-time to all other peers. This is achieved using Conflict-Free Replicated Data Types (CRDTs), which guarantees that the data will always converge and be consistent across the network, even in offline or low-connectivity environments.
+
+This peer-to-peer synchronization model sharply contrasts with the more common client-server approach of sending messages via a REST API. By operating on a shared, self-converging data structure, the system avoids many of the complex failure modes and race conditions typically encountered when building distributed systems with message-passing architectures.
+
+## Overall Solution Architecture
+
+The **Engine** software in this repository is the core backend component of a larger solution designed to create self-contained, offline web environments for rural schools in Africa.
+
+The overall solution provides a complete "internet-in-a-box" and consists of:
+
+- **Appdocker Devices:** Dedicated hardware running the **Engine** software. They act as servers, making web applications available on the local network.
+- **Client Devices:** Hardware used by students and teachers to access the web applications.
+- **The Console:** A web-based user interface that runs on Client devices, allowing users to see, run, and monitor applications.
+- **A Private WiFi Network:** The system deploys its own wireless network, giving users access to all applications without needing an internet connection.
+- **A Curated Set of Offline Apps:** The solution includes several key applications, such as:
+    - An offline version of **Wikipedia**.
+    - **Kolibri**, an educational platform for offline learning and class management.
+    - **Nextcloud**, providing a private, local alternative to Google Drive for file storage and collaboration.
+
+All hardware is standardized on cost-efficient Raspberry Pi devices to simplify setup and maintenance.
 
 ## Installation
 
