@@ -41,7 +41,7 @@ const convertToType = (str: string, descriptor: ArgumentDescriptor): any => {
 }
 
 
-export const handleCommand = async (storeHandle: DocHandle<Store>, context: 'client' | 'engine' | 'cli', input: string):Promise<void> => {
+export const handleCommand = async (storeHandle: DocHandle<Store>, context: 'console' | 'engine', input: string):Promise<void> => {
     const [commandName, ...stringArgs] = input.split(" ").map(arg => arg.trim()).filter(arg => arg.length > 0);
     const command = commands.find(cmd => cmd.name === commandName);
 
@@ -51,16 +51,14 @@ export const handleCommand = async (storeHandle: DocHandle<Store>, context: 'cli
     }
 
     // Scope checking
-    if (context !== 'cli') {
-        if (context === 'client' && command.scope === 'engine') {
-            console.log(`Error: Command '${commandName}' can only be executed on an engine. Use 'send <engineId> ${commandName} ...' to execute it remotely.`);
-            return;
-        }
-    
-        if (context === 'engine' && command.scope === 'client') {
-            console.log(`Error: Command '${commandName}' can only be executed on a client.`);
-            return;
-        }
+    if (context === 'console' && command.scope === 'engine') {
+        console.log(`Error: Command '${commandName}' can only be executed on an engine. Use 'send <engineId> ${commandName} ...' to execute it remotely.`);
+        return;
+    }
+
+    if (context === 'engine' && command.scope === 'console') {
+        console.log(`Error: Command '${commandName}' can only be executed on a console.`);
+        return;
     }
 
     try {

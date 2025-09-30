@@ -42,17 +42,16 @@ if (argv.v || argv.version) {
 // ************************
 
 const defaults  = config.defaults
-const engineAddress = argv.e || argv.engine || "127.0.1:1234"
+const engineAddress = argv.e || argv.engine || "127.0.0.1:1234"
 
 const serverUrl = `ws://${engineAddress}`
-const browserPeerId = `browser-${localEngineId}` as PeerId // Unique identifier for the browser client
+const clientPeerId = `client-on-${localEngineId}` as PeerId // Unique identifier for the client
 const STORE_URL_PATH = "./store/store-url.txt"
 const storeDocUrlStr = fs.readFileSync(STORE_URL_PATH, 'utf-8');
 const storeDocId = storeDocUrlStr.replace('automerge:', '') as DocumentId;
 console.log(`Using document ID: ${storeDocId}`)
 // const storeUrlPath = "./"+config.settings.storeIdentityFolder+"/store-url.txt"
-const storeHandle = await createClientStore(serverUrl, browserPeerId, storeDocId);
-const store = storeHandle.doc()
+const storeHandle = await createClientStore(serverUrl, clientPeerId, storeDocId);
 
 
 const rl = readline.createInterface({
@@ -79,7 +78,7 @@ rl.on('line', (line) => {
 
     if (trimmedLine) {
         commandHistory.push(trimmedLine); // Save the command to history
-        handleCommand(storeHandle, 'cli', trimmedLine); // Process the command
+        handleCommand(storeHandle, 'engine', trimmedLine); // Process the command
     }
 
     rl.prompt();

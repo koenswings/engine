@@ -130,16 +130,16 @@ export const retrieveStore = async (repo: Repo, storeDocId: DocumentId): Promise
 }
 
 // Create a client connection to the store
-export const createClientStore = async (serverUrl: string, browserPeerId: PeerId, storeDocId: DocumentId): Promise<DocHandle<Store>> => {
-    console.log(`Connecting to server at ${serverUrl} with peer ID ${browserPeerId}`);
+export const createClientStore = async (serverUrl: string, clientPeerId: PeerId, storeDocId: DocumentId): Promise<DocHandle<Store>> => {
+    console.log(`Connecting to server at ${serverUrl} with peer ID ${clientPeerId}`);
     const retry = 5000;
     const client = new WebSocketClientAdapter(serverUrl, retry)
     const clientRepo = new Repo({ 
         network: [client],
-        peerId: browserPeerId,
+        peerId: clientPeerId,
         });
     const clientHandle = retrieveStore(clientRepo, storeDocId);
-    console.log(`Connected to server at ${serverUrl} with peer ID ${browserPeerId}`);
+    console.log(`Connected to server at ${serverUrl} with peer ID ${clientPeerId}`);
     return clientHandle;
 }
 

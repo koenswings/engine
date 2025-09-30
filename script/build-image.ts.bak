@@ -88,7 +88,6 @@ if (argv.h || argv.help) {
   console.log(`  --raspap                whether to install RaspAP (default: ${defaults.raspap})`)
   console.log(`  --gadget                whether to run the rpi4-usb script (default: ${defaults.gadget})`)
   console.log(`  --nodocker              whether the engine itself will be dockerized or not (default: ${defaults.nodocker})`)
-  console.log(`  --personalize           run only the first-boot personalization steps (hostname, meta file)`)
   console.log(``)
   process.exit(0)
 }
@@ -100,19 +99,9 @@ if (argv.h || argv.help) {
 
 // Globals
 let githubToken = ""
+const $$ = ssh(`${user}@${machine}`)
 const enginePath = "/home/pi/engine"
 const engineParentPath = enginePath.substring(0, enginePath.lastIndexOf("/"))
-
-let exec;
-const isLocalMode = !argv.machine;
-
-if (isLocalMode) {
-    console.log(chalk.green('Running in Local (Bootstrap) Mode...'));
-    exec = $;
-} else {
-    console.log(chalk.green(`Running in Remote Mode for ${machine}...`));
-    exec = ssh(`${user}@${machine}`);
-}
 
 
 // Sync the assets folder to the remote machine
@@ -129,13 +118,13 @@ const syncEngine = async () => {
             githubToken = fs.readFileSync('./script/build_image_assets/gh_token.txt', 'utf8');
             // console.log(`The GitHub token is: ${githubToken}`);
         }
-        //await sshpass -p ${password} rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
-        //await rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
+        //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
+        //await $`rsync -av build_image_assets/ ${user}@${machine}:~/build_image_assets`;
         // Call the sync-engine script
         await $`./script/sync-engine --user ${user} --machine ${machine}`;
-        // await rsync -av --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r --perms --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
-        // await rsync -av --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
-        // await sudo rsync -v -r --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
+        // await $`rsync -av --chmod=Du=rwx,Dg=rx,Do=rx,Fu=rw,Fg=r,Fo=r --perms --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
+        // await $`rsync -av --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
+        // await $`sudo rsync -v -r --exclude='node_modules' --exclude='.git' --exclude='dist' --exclude='scratchpad' --exclude='.vscode' --exclude='.pnpm-store' ../ ${user}@${machine}:${enginePath}`
     } catch (e) {   
         console.log(chalk.red('Failed to sync the engine to the remote machine'));
         console.error(e);
@@ -147,20 +136,20 @@ const syncEngine = async () => {
 const copyAsset = async (asset: string, destination: string, executable: boolean = false, chmod: string | null = "0644", chown: string | null = "0:0") => {
     console.log(chalk.blue(`Copying asset ${asset} to ${destination}`));
     try {
-        //await exec`sshpass -p ${password} ssh ${user}@${machine} "sudo cp ${enginePath}/script/build_image_assets/${asset} ${destination}"`;
-        await exec`sudo cp ${enginePath}/script/build_image_assets/${asset} ${destination}`;
+        //await $$`sshpass -p ${password} ssh ${user}@${machine} "sudo cp ${enginePath}/script/build_image_assets/${asset} ${destination}"`;
+        await $$`sudo cp ${enginePath}/script/build_image_assets/${asset} ${destination}`;
         console.log(chalk.blue(`chmod to ${chmod} of ${destination}/${asset}`));
         // 644 means that the owner can read and write, and everyone else can read
-        //await sshpass -p ${password} ssh ${user}@${machine} "sudo chmod ${chmod} ${destination}/${asset}"`;
-        await exec`sudo chmod ${chmod} ${destination}/${asset}`;
+        //await $`sshpass -p ${password} ssh ${user}@${machine} "sudo chmod ${chmod} ${destination}/${asset}"`;
+        await $$`sudo chmod ${chmod} ${destination}/${asset}`;
         console.log(chalk.blue(`chown to ${chown} of ${destination}/${asset}`));
         // 0:0 means that the owner and group are both root
-        //await sshpass -p ${password} ssh ${user}@${machine} "sudo chown ${chown} ${destination}/${asset}"`;
-        await exec`sudo chown ${chown} ${destination}/${asset}`;
+        //await $`sshpass -p ${password} ssh ${user}@${machine} "sudo chown ${chown} ${destination}/${asset}"`;
+        await $$`sudo chown ${chown} ${destination}/${asset}`;
         console.log(chalk.blue(`Setting executable to ${executable} of ${destination}/${asset}`));
         if (executable) {
-            //await sshpass -p ${password} ssh  ${user}@${machine} "sudo chmod +x ${destination}/${asset}"`;
-            await exec`sudo chmod +x ${destination}/${asset}`;
+            //await $`sshpass -p ${password} ssh  ${user}@${machine} "sudo chmod +x ${destination}/${asset}"`;
+            await $$`sudo chmod +x ${destination}/${asset}`;
         }
     } catch (e) {
         console.log(chalk.red(`Error copying asset ${asset} to ${destination}`));
@@ -173,11 +162,11 @@ const copyAsset = async (asset: string, destination: string, executable: boolean
 const createDir = async (dir: string, chmod: string | null = "0755", chown: string | null = "0:0") => {
     console.log(chalk.blue(`Creating directory ${dir}`));
     try {
-        await exec`sudo mkdir -p ${dir}`;
+        await $$`sudo mkdir -p ${dir}`;
         console.log(chalk.blue(`chmod to ${chmod} of ${dir}`));
-        await exec`sudo chmod ${chmod} ${dir}`;
+        await $$`sudo chmod ${chmod} ${dir}`;
         console.log(chalk.blue(`chown to ${chown} of ${dir}`));
-        await exec`sudo chown ${chown} ${dir}`;
+        await $$`sudo chown ${chown} ${dir}`;
     } catch (e) {
         console.log(chalk.red(`Error creating directory ${dir}`));
         console.error(e);
@@ -191,8 +180,8 @@ const updateSystem = async () => {
   // We need update to cover InRelease updates
   console.log(chalk.blue('Updating package list...'));
   try {
-      //await exec`sudo apt update --allow-releaseinfo-change -y`;
-      await exec`sudo apt update -y`;
+      //await $$`sudo apt update --allow-releaseinfo-change -y`;
+      await $$`sudo apt update -y`;
   } catch (e) {
     console.log(chalk.red('Error updating package list'));
     console.error(e);
@@ -206,7 +195,7 @@ const upgradeSystem = async () => {
   // Upgrade the packages
   console.log(chalk.blue('Upgrading packages...'));
   try {
-    await exec`sudo DEBIAN_FRONTEND="noninteractive" apt-get upgrade -y`;
+    await $$`sudo DEBIAN_FRONTEND="noninteractive" apt-get upgrade -y`;
   } catch (e) {
     console.log(chalk.red('Error upgrading packages'));
     console.error(e);
@@ -222,17 +211,17 @@ const localiseSystem = async () => {
       // This is a file that contains the list of all available locales.
       await copyAsset('locale.gen', '/etc')
       // Generate the available locales
-      await exec`sudo locale-gen`;
+      await $$`sudo locale-gen`;
       // Change to one selected locale
-      // TODO Check this chatgpt alternative: await exec`sudo update-locale LANG=${language} LC_ALL=${language} LANGUAGE=${language}`;
-      await exec`sudo update-locale LANG=${language}`;
+      // TODO Check this chatgpt alternative: await $$`sudo update-locale LANG=${language} LC_ALL=${language} LANGUAGE=${language}`;
+      await $$`sudo update-locale LANG=${language}`;
       // TODO - Alternative option suggested by ChatGPT
       // Reconfigure locales
-      // await exec`sudo dpkg-reconfigure locales`;
+      // await $$`sudo dpkg-reconfigure locales`;
       // Changing keyboard layout
-      await exec`sudo raspi-config nonint do_configure_keyboard ${keyboard}`
+      await $$`sudo raspi-config nonint do_configure_keyboard ${keyboard}`
       // Set timezone
-      await exec`sudo timedatectl set-timezone ${timezone}`
+      await $$`sudo timedatectl set-timezone ${timezone}`
   } catch (e) {
     console.log(chalk.red('Error localising the system'));
     console.error(e);
@@ -248,7 +237,7 @@ const installCrontabs = async () => {
     // Copy boot.sh to /usr/local/bin
     await copyAsset('boot.sh', '/usr/local/bin', true)
     // Install the crontab defs in the crondefs asset
-    await exec`sudo crontab ${enginePath}/script/build_image_assets/crondefs`
+    await $$`sudo crontab ${enginePath}/script/build_image_assets/crondefs`
     // Alternative Copy the crontabs to /etc/cron.d
     // await copyAsset('crondefs', '/etc/cron.d')
   } catch (e) {
@@ -262,7 +251,7 @@ const installCrontabs = async () => {
 const installTemperature = async () => {
   console.log(chalk.blue('Installing lm-sensors...'));
   try {
-      await exec`sudo apt install lm-sensors -y`;
+      await $$`sudo apt install lm-sensors -y`;
   } catch (e) {
     console.log(chalk.red('Error installing lm-sensors'));
     console.error(e);
@@ -273,7 +262,7 @@ const installTemperature = async () => {
   // Run sensors to display the current temperature
   console.log(chalk.blue('Running sensors...'));
   try {
-      const ret = await exec`sensors`
+      const ret = await $$`sensors`
       console.log(ret.stdout)
   } catch (e) {
     console.log(chalk.red('Error running sensors'));
@@ -287,17 +276,16 @@ const installTemperature = async () => {
 const setHostname = async () => {
     console.log(chalk.blue(`Setting hostname to ${hostname}`));
     try {
-      await exec`sudo hostnamectl set-hostname ${hostname}`;
-      // await exec`sudo hostname ${hostname}`
+      await $$`sudo hostnamectl set-hostname ${hostname}`;
+      // await $$`sudo hostname ${hostname}`
       // Now replace the hostname in the /etc/hosts file
-      await exec`sudo sed -i "s/raspberrypi/${hostname}/g" /etc/hosts`
+      await $$`sudo sed -i "s/raspberrypi/${hostname}/g" /etc/hosts`
     }   catch (e) {
       console.log(chalk.red('Error setting hostname'));
       console.error(e);
       process.exit(1);
     } 
     console.log(chalk.green('Hostname set'));
-    console.log(hostname); // Print hostname for capture
 }
 
 // Put the argon fan script copy code and execute code that is inside build() in a named async function
@@ -316,7 +304,7 @@ const installArgonFanScript = async () => {
   // Execute the argon_fan_script.sh
   console.log(chalk.blue('Executing argon_fan_script.sh...'));
   try {
-      await exec`sudo /usr/local/bin/argon_fan_script.sh`;
+      await $$`sudo /usr/local/bin/argon_fan_script.sh`;
   } catch (e) {
     console.log(chalk.red('Error executing argon_fan_script.sh'));
     console.error(e);
@@ -331,8 +319,8 @@ const installDocker = async () => {
   console.log(chalk.blue('Installing Docker'))
   try {
       // Make the script executable
-      await exec`sudo chmod +x ${enginePath}/script/build_image_assets/install-docker.sh`;
-      await exec`sudo ${enginePath}/script/build_image_assets/install-docker.sh`;
+      await $$`sudo chmod +x ${enginePath}/script/build_image_assets/install-docker.sh`;
+      await $$`sudo ${enginePath}/script/build_image_assets/install-docker.sh`;
   } catch (e) {
     console.log(chalk.red('Error installing Docker'));
     console.error(e);
@@ -344,10 +332,10 @@ const installDocker = async () => {
   console.log(chalk.blue('Adding the docker group'))
   try {
       // Check if the docker group already exists
-      if (await exec`getent group docker`) {
+      if (await $$`getent group docker`) {
           console.log(chalk.blue('The docker group already exists'));
       } else {
-          await exec`sudo groupadd docker`;
+          await $$`sudo groupadd docker`;
       }
   } catch (e) {
     console.log(chalk.red('Error adding the docker group'));
@@ -360,7 +348,7 @@ const installDocker = async () => {
   // Add the ssh user to the docker group
   console.log(chalk.blue('Adding the ssh user to the docker group'))
   try {
-      await exec`sudo usermod -aG docker ${user}`;
+      await $$`sudo usermod -aG docker ${user}`;
   } catch (e) {
     console.log(chalk.red('Error adding the ssh user to the docker group'));
     console.error(e);
@@ -382,7 +370,7 @@ const installDocker = async () => {
   // Restart the Docker service
   console.log(chalk.blue('Restarting the Docker service'))
   try {
-      await exec`sudo systemctl restart docker`;
+      await $$`sudo systemctl restart docker`;
   } catch (e) {
     console.log(chalk.red('Error restarting the Docker service'));
     console.error(e);
@@ -395,11 +383,11 @@ const installDocker = async () => {
   console.log(chalk.blue('Docker info'))
   try {
       // (use sudo because the docker group has not been added yet - requires a reboot)
-      let ret = await exec`sudo docker compose version`
+      let ret = await $$`sudo docker compose version`
       console.log(ret.stdout)
-      ret = await exec`sudo docker version`
+      ret = await $$`sudo docker version`
       console.log(ret.stdout)
-      ret = await exec`sudo docker info`
+      ret = await $$`sudo docker info`
       console.log(ret.stdout)
   } catch (e) {
     console.log(chalk.red('Error printing the Docker info'));
@@ -417,16 +405,16 @@ const buildDockerInfrastructure = async () => {
   try {
       // Check if the frontend network already exists
       // (use sudo because the docker group has not been added yet - requires a reboot)
-      if (await exec`sudo docker network ls --filter name=frontend`) {
+      if (await $$`sudo docker network ls --filter name=frontend`) {
           console.log(chalk.blue('The frontend network already exists'));
       } else {
-          await exec`sudo docker network create --internal frontend`;
+          await $$`sudo docker network create --internal frontend`;
       }
       // Check if the backend network already exists
-      if (await exec`sudo docker network ls --filter name=backend`) {
+      if (await $$`sudo docker network ls --filter name=backend`) {
           console.log(chalk.blue('The backend network already exists'));
       } else {
-          await exec`sudo docker network create --internal backend`;
+          await $$`sudo docker network create --internal backend`;
       }
   } catch (e) {
     console.log(chalk.red('Error creating the frontend or backend network'));
@@ -457,21 +445,21 @@ const installGh = async () => {
   console.log(chalk.blue('Installing gh...'));
   try {
       // Suggested by Copilot
-      // await exec `sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0`;
-      // await exec `sudo apt-add-repository https://cli.github.com/packages`;
-      // await exec `sudo apt update`;
-      // await exec `sudo apt install gh -y`;
+      // await $$ `sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0`;
+      // await $$ `sudo apt-add-repository https://cli.github.com/packages`;
+      // await $$ `sudo apt update`;
+      // await $$ `sudo apt install gh -y`;
       // This is the official installation method from the GitHub CLI website
       // curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
       // && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
       // && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
       // && sudo apt update \
       // && sudo apt install gh -y
-      await exec`curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg`
-      await exec`sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg`
-      await exec`echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null`
-      await exec`sudo apt update`
-      await exec`sudo apt install gh -y`
+      await $$ `curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg`
+      await $$ `sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg`
+      await $$ `echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null`
+      await $$ `sudo apt update`
+      await $$ `sudo apt install gh -y`
 
   } catch (e) {
       console.log(chalk.red('Error installing gh'));
@@ -485,14 +473,14 @@ const installGh = async () => {
 const cloneRepo = async () => {
   console.log(chalk.blue('Cloning the engine repo...'));
   try {
-      await exec`git config --global user.email "koen@swings.be"`;
-      await exec`git config --global user.name "Koen Swings"`;
-      await exec`gh auth login --with-token < ${enginePath}/script/build_image_assets/gh_token.txt`;
+      await $$`git config --global user.email "koen@swings.be"`;
+      await $$`git config --global user.name "Koen Swings"`;
+      await $$`gh auth login --with-token < ${enginePath}/script/build_image_assets/gh_token.txt`;
       // If the repo already exists, remove it
       // Use the test function to check if the directory exists
-      await exec`if [ -d ${enginePath} ]; then sudo rm -rf ${enginePath}; fi`;
+      await $$`if [ -d ${enginePath} ]; then sudo rm -rf ${enginePath}; fi`;
       // Do not use sudo if you clone to a user folder !
-      await exec`cd ${engineParentPath} && git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
+      await $$`cd ${engineParentPath} && git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
   } catch (e) {
     console.log(chalk.red('Error cloning the engine repo'));
     console.error(e);
@@ -505,7 +493,7 @@ const cloneRepo = async () => {
 const installUdev = async () => {
   console.log(chalk.blue('Installing udev and udev rules...'));
   try {
-      await exec`sudo apt install udev -y`;
+      await $$`sudo apt install udev -y`;
       await copyAsset('90-docking.rules', '/etc/udev/rules.d')
       // Create the /disks folder for mounting the disks
       await createDir('/disks', "0755", "0:0")
@@ -521,7 +509,7 @@ const installUdev = async () => {
 const rebootSystem = async () => {
   console.log(chalk.blue('Rebooting the system...'));
   try {
-      await exec`sudo reboot`;
+      await $$`sudo reboot`;
   } catch (e) {
     console.log(chalk.red('Error rebooting the system'));
     console.error(e);
@@ -534,8 +522,8 @@ const usbGadget = async () => {
   console.log(chalk.blue('Running the rpi4-usb script...'));
   try {
       // Make the script executable
-      await exec`sudo chmod +x ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
-      await exec`sudo ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
+      await $$`sudo chmod +x ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
+      await $$`sudo ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
   } catch (e) {
     console.log(chalk.red('Error running the rpi4-usb script'));
     console.error(e);
@@ -550,8 +538,8 @@ const installRaspAP = async () => {
   try {
     const raspap_version = "2.8.5"
     // Make the script executable
-    await exec`sudo chmod +x ${enginePath}/script/build_image_assets/install-raspap.sh`;
-    await exec`sudo ${enginePath}/script/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;  
+    await $$`sudo chmod +x ${enginePath}/script/build_image_assets/install-raspap.sh`;
+    await $$`sudo ${enginePath}/script/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;  
   } catch (e) {
     console.log(chalk.red('Error installing RaspAP'));
     console.error(e);
@@ -565,8 +553,8 @@ const installZerotier = async () => {
   console.log(chalk.blue('Installing Zerotier...'));
   try {
     // Make the script executable
-    await exec`sudo chmod +x ${enginePath}/script/build_image_assets/install-zerotier.sh`;
-    await exec`sudo ${enginePath}/script/build_image_assets/install-zerotier.sh`;  
+    await $$`sudo chmod +x ${enginePath}/script/build_image_assets/install-zerotier.sh`;
+    await $$`sudo ${enginePath}/script/build_image_assets/install-zerotier.sh`;  
   } catch (e) {
     console.log(chalk.red('Error installing Zerotier'));
     console.error(e);
@@ -578,7 +566,7 @@ const installZerotier = async () => {
 const installRSync = async () => {
   console.log(chalk.blue('Installing rsync...'));
   try {
-      await exec`sudo apt install rsync -y`;
+      await $$`sudo apt install rsync -y`;
   } catch (e) {
     console.log(chalk.red('Error installing rsync'));
     console.error(e);
@@ -587,39 +575,27 @@ const installRSync = async () => {
   console.log(chalk.green('rsync installed'));
 } 
 
-const installBaseNpm = async () => {
-  console.log(chalk.blue('Installing base node, n, npm and pnpm for script execution...'));
+const installNpm = async () => {
+  console.log(chalk.blue('Installing node, n, npm and pnpm...'));
   try {
-    await exec`sudo apt install npm -y`
-    await exec`sudo npm install -g -y n pnpm`
-    await exec`sudo n 20`
+    await $$`sudo apt install npm -y`
+    await $$`sudo npm install -g -y n pnpm`
+    await $$`sudo n 19.6.0`
   } catch (e) {
-    console.log(chalk.red('Error installing base node, n, npm and pnpm...'));
+    console.log(chalk.red('Error installing node, n, npm and pnpm...'));
     console.error(e);
     process.exit(1);
   }
-  console.log(chalk.green('Base node, n, npm and pnpm installed'));
+  console.log(chalk.green('node, n, npm and pnpm installed'));
 } 
-
-const installEngineNode = async () => {
-    console.log(chalk.blue('Installing node version for engine...'));
-    try {
-        await exec`sudo n 24.8.0`
-    } catch (e) {
-        console.log(chalk.red('Error installing engine node version...'));
-        console.error(e);
-        process.exit(1);
-    }
-    console.log(chalk.green('Engine node version installed'));
-}
 
 const configurePnpm = async () => {
   console.log(chalk.blue('Setting up pnpm...'));
   try {
-    // await exec`SHELL=bash PNPM_HOME=/pnpm PATH=\"$PNPM_HOME:$PATH\" sudo pnpm setup`
-    await exec`sudo pnpm setup`
-    // await exec`sudo source /home/pi/.bashrcm`
-    // await exec`sudo pnpm add -g ts-node"`
+    // await $$`SHELL=bash PNPM_HOME=/pnpm PATH=\"$PNPM_HOME:$PATH\" sudo pnpm setup`
+    await $$`sudo pnpm setup`
+    // await $$`sudo source /home/pi/.bashrcm`
+    // await $$`sudo pnpm add -g ts-node"`
   } catch (e) {
     console.log(chalk.red('Error setting up pnpm...'));
     console.error(e);
@@ -631,9 +607,9 @@ const configurePnpm = async () => {
 // const installEnv = async () => {
 //   console.log(chalk.blue('Setting the environment variables...'));
 //   try {
-//     await exec`sudo export SHELL=bash`
-//     await exec`sudo export PNPM_HOME=/pnpm`
-//     await exec`sudo export PATH="$PNPM_HOME:$PATH"`
+//     await $$`sudo export SHELL=bash`
+//     await $$`sudo export PNPM_HOME=/pnpm`
+//     await $$`sudo export PATH="$PNPM_HOME:$PATH"`
 //   } catch (e) {
 //     console.log(chalk.red('Error setting the environment variables...'));
 //     console.error(e);
@@ -645,9 +621,9 @@ const configurePnpm = async () => {
 export const readRemoteDiskId = async ():Promise<DiskID | undefined> => {
   log(`Reading disk id remotely`)
   try {
-    //const rootDevice = (await exec`lsblk -o NAME,TYPE,MOUNTPOINT | grep /`).stdout.split('\n')[0].split(' ')[0]
-    const rootDevice = (await exec`findmnt / -no SOURCE`).stdout.split('/')[2]
-    const sn = (await exec`hdparm -I /dev/${rootDevice} | grep 'Serial\ Number'`).stdout
+    //const rootDevice = (await $$`lsblk -o NAME,TYPE,MOUNTPOINT | grep /`).stdout.split('\n')[0].split(' ')[0]
+    const rootDevice = (await $$`findmnt / -no SOURCE`).stdout.split('/')[2]
+    const sn = (await $$`hdparm -I /dev/${rootDevice} | grep 'Serial\ Number'`).stdout
     //log(`Serial number is ${sn}`)
     const id = sn.trim().split(':')
     //log(`split ID is ${id}`)
@@ -679,7 +655,7 @@ const addMeta = async () => {
   //   engineId: id+"-engine",
   //   diskId: id+"-disk",
   // }
-  // await sudo echo ${YAML.stringify(diskMetadata)} > /META.yaml`
+  // await $`sudo echo ${YAML.stringify(diskMetadata)} > /META.yaml`
   // Write the contents of the diskMetadata object to the /META.yaml file
   console.log(chalk.blue('Adding metadata...'));
   try {
@@ -688,16 +664,16 @@ const addMeta = async () => {
       // fs.writeFileSync('./script/build_image_assets/META.yaml', diskMetadataYAML)
       // // Copy the META.yaml file to the remote machine using zx
       // await copyAsset('META.yaml', '/')
-      // await exec`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
+      // await $$`echo '${YAML.stringify(diskMetadata)}' | sudo tee /META.yaml`;
 
-      //await exec`sudo echo 'hostname: ${hostname}' >> ${enginePath}/META.yaml`
-      await exec`sudo echo 'diskId: ${id}' >> ${enginePath}/META.yaml`
-      await exec`sudo echo 'diskName: ${id}' >> ${enginePath}/META.yaml`
-      await exec`sudo echo 'created: ${new Date().getTime()}' >> ${enginePath}/META.yaml`
-      await exec`sudo echo 'version: ${version}' >> ${enginePath}/META.yaml`
-      await exec`sudo echo 'lastDocked: ${new Date().getTime()}' >> ${enginePath}/META.yaml`
+      //await $$`sudo echo 'hostname: ${hostname}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'diskId: ${id}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'diskName: ${id}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'created: ${new Date().getTime()}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'version: ${version}' >> ${enginePath}/META.yaml`
+      await $$`sudo echo 'lastDocked: ${new Date().getTime()}' >> ${enginePath}/META.yaml`
       // Move the META.yaml file to the root directory
-      await exec`sudo mv ${enginePath}/META.yaml /META.yaml`
+      await $$`sudo mv ${enginePath}/META.yaml /META.yaml`
   } catch (e) {
     console.log(chalk.red('Error adding metadata'));
     console.error(e);
@@ -708,10 +684,10 @@ const addMeta = async () => {
 const installPm2 = async () => {
   console.log(chalk.blue('Installing pm2...'));
   try {
-      await exec`sudo npm install -g pm2`
-      await exec`cd ${enginePath}`
+      await $$`sudo npm install -g pm2`
+      await $$`cd ${enginePath}`
       console.log(chalk.blue('Installing pm2-logrotate...'))
-      await exec`cd ${enginePath} && sudo pm2 install pm2-logrotate`
+      await $$`cd ${enginePath} && sudo pm2 install pm2-logrotate`
   } catch (e) {
     console.log(chalk.red('Error installing pm2'));
     console.error(e);
@@ -728,9 +704,9 @@ const startEngine = async (productionMode:boolean) => {
       // Compose build
       // (use sudo because the docker group has not been added yet - requires a reboot)
       if (productionMode) {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
       } else {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
       }
   } catch (e) {
     console.log(chalk.red('Error building the engine image'));
@@ -745,9 +721,9 @@ const startEngine = async (productionMode:boolean) => {
       // Compose up 
       // (use sudo because the docker group has not been added yet - requires a reboot)
       if (productionMode) {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
       } else {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
+        await $$`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
       }
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
@@ -759,13 +735,13 @@ const startEngine = async (productionMode:boolean) => {
 
 const installEnginePM2 = async () => {
   console.log(chalk.blue('Installing the engine...'))
-  await exec`cd ${enginePath} && sudo pnpm install_packages`
+  await $$`cd ${enginePath} && sudo pnpm install_packages`
 }
 
 const buildEnginePM2 = async () => {
   console.log(chalk.blue('Building the engine with tsc...'))
-  // await exec`sudo npm install -g tsc`
-  await exec`cd ${enginePath} && sudo pnpm build`
+  // await $$`sudo npm install -g tsc`
+  await $$`cd ${enginePath} && sudo pnpm build`
 }
 
 const startEnginePM2 = async (productionMode:boolean) => {
@@ -774,19 +750,19 @@ const startEnginePM2 = async (productionMode:boolean) => {
 
         // We require idempotency - check if the engine has already started before starting and persisting it
         try {
-            await exec`pm2 show engine`
+            await $$`pm2 show engine`
         } catch (e) {
             console.log(chalk.blue(`Starting a ${productionMode ? "production" : "dev"} mode engine with pm2...`))
             await copyAsset('pm2.config.cjs', enginePath)
             if (productionMode) {
-                await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env production`
+                await $$`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env production`
             } else {
-                await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env development`
+                await $$`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env development`
             }
             console.log(chalk.blue('Saving the pm2 process list...'))
-            await exec`cd ${enginePath} && sudo pm2 save`
+            await $$`cd ${enginePath} && sudo pm2 save`
             console.log(chalk.blue('Enabling pm2 to start on boot...'))
-            await exec`cd ${enginePath} && sudo pm2 startup`
+            await $$`cd ${enginePath} && sudo pm2 startup`
         }
 
 
@@ -804,7 +780,7 @@ const startEnginePM2 = async (productionMode:boolean) => {
 const installVarious = async () => {
   console.log(chalk.blue('Installing tcpdump, vim and hdparm...'));
   try {
-      await exec`sudo apt install tcpdump vim hdparm -y`;
+      await $$`sudo apt install tcpdump vim hdparm -y`;
   } catch (e) {
     console.log(chalk.red('Error installing tcpdump, vim and hdparm'));
     console.error(e);
@@ -820,7 +796,7 @@ const test = async () => {
   // Install rsync
   await installRSync()
   // Install npm, n and pnpm
-  await installEngineNode()
+  await installNpm()
   // Configure pnpm
   await configurePnpm()
     // Install pm2
@@ -831,7 +807,7 @@ const test = async () => {
   await buildEnginePM2()
   // Start the engine
   await startEnginePM2(productionMode)
-    // await exec`cd ${enginePath} && sudo pnpm start`
+    // await $$`cd ${enginePath} && sudo pnpm start`
 }
     
 
@@ -845,14 +821,8 @@ const build = async () => {
         await upgradeSystem()
     }
     
-    if (!isLocalMode) {
-        // Sync the engine to the remote machine
-        await syncEngine()
-    }
-
-    // Install base node/npm for script execution
-    await installBaseNpm();
-    await configurePnpm();
+    // Sync the engine to the remote machine
+    await syncEngine()
 
     // Set the hostname
     await setHostname()
@@ -867,7 +837,7 @@ const build = async () => {
     // This should be boot.sh
     // console.log(chalk.blue('Switching off HDMI power...'));
     // try {
-    //     await exec`vcgencmd display_power 0`;
+    //     await $$`vcgencmd display_power 0`;
     // } catch (e) {
     //   console.log(chalk.red('Error switching off HDMI power'));
     //   console.error(e);
@@ -893,7 +863,7 @@ const build = async () => {
     // Install the git, dnsutlis, tree, lshw and cloud-guest-utils packages
     console.log(chalk.blue('Installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils...'));
     try {
-        await exec`sudo apt install git dnsutils tree lshw cloud-guest-utils -y`;
+        await $$`sudo apt install git dnsutils tree lshw cloud-guest-utils -y`;
     } catch (e) {
       console.log(chalk.red('Error installing git, dnsutils, tree, lshw and cloud-guest-utils'));
       console.error(e);
@@ -929,8 +899,12 @@ const build = async () => {
     await addMeta()
 
     if (nodocker) {
-        // Install engine-specific node version
-        await installEngineNode()
+        // Install rsync
+        await installRSync()
+        // Install npm, n and pnpm
+        await installNpm()
+        // Configure pnpm
+        await configurePnpm()
         // Install pm2
         await installPm2()
         // Install the engine
@@ -957,18 +931,12 @@ const build = async () => {
     await rebootSystem()
 }
 
-const main = async () => {
-    if (argv.personalize) {
-        await setHostname();
-        await addMeta();
-    } else if (argv.test) {
-        await test();
-    } else {
-        await build();
-    }
-    console.log(chalk.green(`Script completed successfully.`));
-    process.exit(0);
+if (argv.test) {
+  await test()
+  process.exit(0);
 }
 
-await main();
+await build()
+console.log(chalk.green(`Build completed successfully. System renamed`));
+process.exit(0);
 

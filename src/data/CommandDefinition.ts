@@ -24,5 +24,5 @@ export interface CommandDefinition {
     name: string;
     execute: (storeHandle: DocHandle<Store>, ...args: any[]) => void;
     args: ArgumentDescriptor[];
-    scope: 'engine' | 'client' | 'any' | 'cli';
+    scope: 'engine' | 'console' | 'any';  // 'engine' means it can only be run on an engine, 'console' means it can only be run on the console, 'any' means it can be run on either 
 }
