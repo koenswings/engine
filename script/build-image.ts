@@ -592,7 +592,7 @@ const installBaseNpm = async () => {
   try {
     await exec`sudo apt install npm -y`
     await exec`sudo npm install -g -y n pnpm`
-    await exec`sudo n 20`
+    await exec`sudo n 22.20.0`
   } catch (e) {
     console.log(chalk.red('Error installing base node, n, npm and pnpm...'));
     console.error(e);
@@ -604,7 +604,7 @@ const installBaseNpm = async () => {
 const installEngineNode = async () => {
     console.log(chalk.blue('Installing node version for engine...'));
     try {
-        await exec`sudo n 24.8.0`
+        await exec`sudo n 22.20.0`
     } catch (e) {
         console.log(chalk.red('Error installing engine node version...'));
         console.error(e);
@@ -625,7 +625,7 @@ const configurePnpm = async () => {
     console.error(e);
     process.exit(1);
   }
-  console.log(chalk.green('Pnpm set up'));
+  console.log(chalk.green('pnpm set up'));
 } 
 
 // const installEnv = async () => {

@@ -13,7 +13,7 @@ apt-get update -y
 apt-get install -y npm git curl
 npm install -g n zx
 echo "--> Setting Node.js version for zx execution..."
-n 20
+n 22.20.0
 
 # 2. Get the main application code
 echo "--> Cloning repository..."
