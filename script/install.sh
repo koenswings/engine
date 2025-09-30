@@ -28,7 +28,7 @@ pnpm install --no-frozen-lockfile
 
 # 4. Run the main provisioning script in Local Mode
 echo "--> Executing main build script in Local Mode..."
-# Use npx to ensure the zx binary from the local node_modules is used
-npx zx ./script/build-image.ts
+# Execute the main build script using its new wrapper
+./script/build-image
 
 echo "--- Bootstrap Installation Complete ---"

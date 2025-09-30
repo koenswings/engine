@@ -17,7 +17,7 @@ This document provides a reference for the main provisioning and utility scripts
 -   **Purpose:** The primary, all-in-one script for provisioning a full Engine device. It can run in two modes:
     1.  **Remote Mode:** Configures a fresh Raspberry Pi over the network.
     2.  **Local Mode:** Configures the local machine it is running on (used by `install.sh`).
--   **Usage (Remote):** `./script/build-image.ts --machine <pi-address> [options]`
+-   **Usage (Remote):** `./script/build-image --machine <pi-address> [options]`
 -   **Details:** This script handles everything from setting the hostname and installing Docker to deploying the Engine software itself.
 
 ---
@@ -25,7 +25,7 @@ This document provides a reference for the main provisioning and utility scripts
 ### `build-app-instance.ts`
 
 -   **Purpose:** Used to create a new **App Disk**. This script takes an existing application definition from a git repository and prepares it as a runnable instance on a specified, mounted disk.
--   **Usage:** `./script/build-app-instance.ts [options] <appName>`
+-   **Usage:** `./script/build-app-instance [options] <appName>`
 -   **Options:**
     -   `--instance <name>`: A user-friendly name for the instance (defaults to the app name).
     -   `--disk <deviceName>`: The device name of the disk (e.g., `sda1`).
@@ -37,7 +37,7 @@ This document provides a reference for the main provisioning and utility scripts
 ### `build-service.ts`
 
 -   **Purpose:** Used to build a Docker image for a specific service component from its git repository and push it to a container registry like Docker Hub.
--   **Usage:** `./script/build-service.ts [options] <serviceName>`
+-   **Usage:** `./script/build-service [options] <serviceName>`
 -   **Options:**
     -   `--registry <url>`: The container registry URL.
     -   `--user <user>`: The user account for the registry.
@@ -50,7 +50,7 @@ This document provides a reference for the main provisioning and utility scripts
 ### `sync-engine.ts`
 
 -   **Purpose:** A utility script to synchronize code changes from a Development System to a running Runtime System (a Raspberry Pi).
--   **Usage:** `./script/sync-engine.ts --machine <pi-address>`
+-   **Usage:** `./script/sync-engine --machine <pi-address>`
 -   **Details:** This script uses `rsync` to efficiently copy only the changed files, making it ideal for rapid development and testing cycles.
 
 ---
@@ -58,5 +58,5 @@ This document provides a reference for the main provisioning and utility scripts
 ### `client.ts`
 
 -   **Purpose:** This script is the entry point for the interactive Command-Line Interface (CLI).
--   **Usage:** `./script/client.ts --engine <engine-address>`
+-   **Usage:** `./script/client --engine <engine-address>`
 -   **Details:** For a full list of commands available within the CLI, see the [Command Reference](COMMANDS.md).

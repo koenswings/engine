@@ -77,7 +77,7 @@ This installation method is intended for developers who have set up a developmen
 3.  **Run Provisioner:** From the terminal of your Development System, run the `build-image.ts` script, targeting the new Pi's IP address or `.local` address.
 
     ```sh
-    ./script/build-image.ts --machine raspberrypi.local
+    ./script/build-image --machine raspberrypi.local
     ```
 
 ## Usage & Management
@@ -99,7 +99,7 @@ For more advanced, interactive tasks, an Engine Admin can use the Command-Line I
 -   **How to Use:** The CLI is accessed via the `client.ts` script.
     ```sh
     # Connect to a running engine to enter the interactive CLI
-    ./script/client.ts --engine <engine-ip-or-hostname>
+    ./script/client --engine <engine-ip-or-hostname>
     ```
 -   **Further Reading:** For a full list of available commands, see the [Command Reference](COMMANDS.md).
 
