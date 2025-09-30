@@ -1,4 +1,6 @@
 import { $, ssh, argv, cd, chalk, fs, question, YAML } from 'zx';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import pack from '../package.json' with { type: "json" };
 import { generateHostName } from '../src/utils/nameGenerator.js';
 import { config } from '../src/data/Config.js';
@@ -68,7 +70,7 @@ if (argv.prod) {
 // Add commandline option to print the help of the script
 if (argv.h || argv.help) {
   console.log(`Builds a Raspberry Pi image with the specified configuration.`)
-  console.log(`Usage: ./build-image.ts [options]` )
+  console.log(`Usage: ./script/build-image [options]` )
   console.log(`Options:`)
   console.log(`  -h, --help              display help for command`)  
   console.log(`  -v, --version           output the version number`)
@@ -100,19 +102,30 @@ if (argv.h || argv.help) {
 
 // Globals
 let githubToken = ""
-const enginePath = "/home/pi/engine"
-const engineParentPath = enginePath.substring(0, enginePath.lastIndexOf("/"))
 
 let exec;
+let enginePath;
 const isLocalMode = !argv.machine;
 
 if (isLocalMode) {
     console.log(chalk.green('Running in Local (Bootstrap) Mode...'));
     exec = $;
+
+    // In local mode, the script is running from within the cloned repo.
+    // We need to find the project root dynamically.
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    enginePath = dirname(__dirname); // Resolves to the project root, e.g., /tmp/engine-install
+    console.log(`Project path detected: ${enginePath}`);
+
 } else {
     console.log(chalk.green(`Running in Remote Mode for ${machine}...`));
     exec = ssh(`${user}@${machine}`);
+    enginePath = "/home/pi/engine"; // The hardcoded path is correct for remote mode
 }
+
+const engineParentPath = dirname(enginePath);
+const permanentEnginePath = "/home/pi/engine";
 
 
 // Sync the assets folder to the remote machine
@@ -777,16 +790,19 @@ const startEnginePM2 = async (productionMode:boolean) => {
             await exec`pm2 show engine`
         } catch (e) {
             console.log(chalk.blue(`Starting a ${productionMode ? "production" : "dev"} mode engine with pm2...`))
-            await copyAsset('pm2.config.cjs', enginePath)
+            // Copy the pm2 config to the permanent path before starting
+            await exec`sudo cp ${enginePath}/script/build_image_assets/pm2.config.cjs ${permanentEnginePath}/`
+            await exec`sudo chown pi:pi ${permanentEnginePath}/pm2.config.cjs`
+
             if (productionMode) {
-                await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env production`
+                await exec`cd ${permanentEnginePath} && sudo pm2 start pm2.config.cjs --env production`
             } else {
-                await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs --env development`
+                await exec`cd ${permanentEnginePath} && sudo pm2 start pm2.config.cjs --env development`
             }
             console.log(chalk.blue('Saving the pm2 process list...'))
-            await exec`cd ${enginePath} && sudo pm2 save`
+            await exec`cd ${permanentEnginePath} && sudo pm2 save`
             console.log(chalk.blue('Enabling pm2 to start on boot...'))
-            await exec`cd ${enginePath} && sudo pm2 startup`
+            await exec`cd ${permanentEnginePath} && sudo pm2 startup`
         }
 
 
@@ -933,10 +949,20 @@ const build = async () => {
         await installEngineNode()
         // Install pm2
         await installPm2()
-        // Install the engine
+        // Install the engine dependencies
         await installEnginePM2()
         // Build the engine
         await buildEnginePM2()
+
+        // In local mode, copy from temp dir to permanent location before starting
+        if (isLocalMode) {
+            const permanentEnginePath = "/home/pi/engine";
+            console.log(chalk.blue(`Copying engine to permanent location: ${permanentEnginePath}`));
+            await exec`sudo mkdir -p ${permanentEnginePath}`;
+            await exec`sudo rsync -a --delete ${enginePath}/ ${permanentEnginePath}/`;
+            await exec`sudo chown -R pi:pi /home/pi/engine`;
+        }
+
         // Start the engine
         await startEnginePM2(productionMode)
     } else {
