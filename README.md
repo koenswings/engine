@@ -11,6 +11,8 @@ The system employs a physical metaphor for carrying out IT management operations
 - An App is physically represented by the SSD or USB drive it is contained on (an **App Disk**).
 - The collection of running Apps is determined by the collection of App Disks that are plugged in.
 - Backups are triggered by docking a **Backup Disk**.
+- Network file systems are created when a **Files Disk** is docked.
+- Custom upgrade operations are auto-triggered when an **Upgrade Disk** is docked.
 - The person who has physical access to the disk has the rights to run or stop it, similar to using a physical security token.
 
 ### Smart & Pro-Active
@@ -28,6 +30,10 @@ The system is built around a single, shared data structure that represents the s
 Any change made by one peer—such as a user starting an application from a Console, or an Engine detecting a newly docked disk—is automatically synchronized in real-time to all other peers. This is achieved using Conflict-Free Replicated Data Types (CRDTs), which guarantees that the data will always converge and be consistent across the network, even in offline or low-connectivity environments.
 
 This peer-to-peer synchronization model sharply contrasts with the more common client-server approach of sending messages via a REST API. By operating on a shared, self-converging data structure, the system avoids many of the complex failure modes and race conditions typically encountered when building distributed systems with message-passing architectures.
+
+### Scalability & Performance
+
+The system is designed to scale horizontally. Performance can be optimized by simply adding more Appdocker devices to the network and redistributing the App Disks among them.
 
 ## Overall Solution Architecture
 
@@ -63,6 +69,8 @@ This is the easiest method for setting up a new device. It involves running a si
     ```
 
 ### Method 2: Remote Provisioning (For Developers)
+
+This method is primarily used to provision a target Raspberry Pi (Runtime System) from a configured Development System. For details on setting up the development environment, see the [Development Environment Setup](#development-environment-setup) section below.
 
 This method allows you to provision a new Pi from your development machine.
 
@@ -108,7 +116,49 @@ For a full list of available commands and their descriptions, please see the [Co
 
 ## Development
 
-This project is built with TypeScript and runs on Node.js.
+This project uses a two-part environment for development: a containerized **Development System** for writing code, and a physical **Runtime System** (a Raspberry Pi) for testing.
+
+### Environment Setup
+
+The **Development System** provides a containerized environment for code editing, compilation, and testing of non-system-dependent features. It is a limited environment that excludes capabilities requiring deep OS integration, such as detecting new disks (`udev`) or discovering other engines on the network (mDNS). It has been primarily tested on macOS hosts.
+
+For evaluating the full functionality, including hardware and network interactions, the **Runtime System** (a physical Raspberry Pi) is required.
+
+The development system is managed using [Docker Dev Environments](https://docs.docker.com/desktop/dev-environments/).
+
+**Host Machine Prerequisites:**
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Visual Studio Code](https://code.visualstudio.com/)
+- The [Portainer extension](https://www.portainer.io/solutions/docker-desktop-extension) for Docker Desktop (optional but recommended).
+
+**Creating the Environment:**
+1.  Open Docker Desktop.
+2.  Go to the "Dev Environments" tab.
+3.  Create a new environment using this repository's Git URL. Docker will clone the repository and set up the containerized environment for you.
+4.  Once created, you can connect to the environment directly from VS Code using the Docker extension.
+
+The runtime system is a dedicated Raspberry Pi provisioned with the Engine software. It can be created using any of the methods described in the [Installation](#installation) section.
+
+Once both systems are set up, you can sync code changes from your Development System to the Runtime System using the provided script:
+
+```sh
+./script/sync-engine --machine <runtime-pi-address>
+```
+
+### System Requirements
+
+The Engine is developed and tested on **Debian-based Linux distributions** (such as Raspberry Pi OS and Ubuntu). All automated provisioning scripts (`build-image.ts`, `install.sh`) are written using the `apt` package manager and are intended for this family of operating systems.
+
+However, the core Engine software does not have a hard dependency on Debian itself. It relies on standard, modern Linux technologies that are common across most distributions:
+
+-   **`systemd`**: For service management and hostname control.
+-   **`udev`**: For detecting hardware events, such as disk insertions.
+-   **mDNS/Avahi**: For peer-to-peer network discovery.
+-   **Docker**: For application containerization.
+
+Therefore, running the Engine on a non-Debian distribution (like Fedora, Arch Linux, or CentOS) is theoretically possible, but it would require adapting the installation scripts to use the appropriate native package manager (e.g., `dnf` instead of `apt`).
+
+### Common Commands
 
 - **Key Technologies:** TypeScript, Node.js, Docker, Automerge, zx.
 - **Install Dependencies:** `pnpm install`
