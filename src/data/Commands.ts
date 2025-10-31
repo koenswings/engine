@@ -1,41 +1,155 @@
 import { CommandDefinition } from "./CommandDefinition.js";
-import { Store, getApps, getDisks, getEngines, getInstances, getEngine, findDiskByName, findInstanceByName } from "./Store.js";
+import { Store, getApps, getDisks, getEngines, getInstances, getEngine, findDiskByName, findInstanceByName, getLocalEngine, createClientStore } from "./Store.js";
 import { deepPrint } from "../utils/utils.js";
 import { buildInstance, startInstance, runInstance, stopInstance } from "./Instance.js";
-import { AppName, Command, DeviceName, DiskName, EngineID, Hostname, InstanceName, Version } from "./CommonTypes.js";
+import { buildEngine, syncEngine, clearKnownHost, rebootEngine } from "./Engine.js";
+import { AppName, Command, DiskName, EngineID, Hostname, InstanceName, Version } from "./CommonTypes.js";
 import { localEngineId } from "./Engine.js";
-import { chalk } from "zx";
-import { DocHandle } from "@automerge/automerge-repo";
+import { chalk, ssh, fs, $ } from "zx";
 
-// **********************
-// Local command execution
-// **********************
+$.verbose = false;
+import { DocHandle, Repo } from "@automerge/automerge-repo";
+import { config } from "./Config.js";
+import { generateHostName } from "../utils/nameGenerator.js";
+import pack from '../../package.json' with { type: "json" };
+import { sendCommand } from "../utils/commandUtils.js";
+import { testContext } from "../../test/testContext.js";
 
-const ls = (storeHandle: DocHandle<Store>): void => {
+
+import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
+
+import { lookup } from 'dns/promises';
+
+const connect = async (storeHandle: DocHandle<Store> | null, args: string) => {
+    // Basic parser to separate engine names from a potential --timeout flag
+    const parts = args.split(' ');
+    const engineNames = parts.filter(p => !p.startsWith('--'));
+    const timeoutFlagIndex = parts.findIndex(p => p === '--timeout');
+    const timeoutSeconds = timeoutFlagIndex !== -1 && parts[timeoutFlagIndex + 1] 
+        ? parseInt(parts[timeoutFlagIndex + 1], 10) 
+        : undefined;
+
+    // Look up the actual hostnames from the config based on the logical names
+    const hostnames = engineNames.map(name => {
+        return name+'.local' as Hostname;
+    });
+
+    const peerId = 'testrunner-' + Math.random().toString(36).substring(2);
+    const storeDocUrlStr = fs.readFileSync("./store-identity/store-url.txt", 'utf-8');
+    const DOCUMENT_ID = storeDocUrlStr.trim() as any;
+
+    // createClientStore now handles DNS resolution and timeouts
+    const { handle, repo } = await createClientStore(hostnames, peerId as any, DOCUMENT_ID, timeoutSeconds);
+    
+    testContext.storeHandle = handle;
+    testContext.repo = repo;
+};
+
+// Command to disconnect the test runner
+const disconnect = () => {
+    if (testContext.repo) {
+        console.log(chalk.blue("Disconnecting test runner..."));
+        const repo = testContext.repo as Repo;
+        // This is a bit of a hack to get the adapters, as they are not exposed.
+        // It assumes the adapters are stored on the repo object by createClientStore, which they are not.
+        // This will need to be fixed.
+        // [...repo.networkSubsystem.networkAdapters].forEach(adapter => repo.networkSubsystem.removeNetworkAdapter(adapter));
+        testContext.repo = undefined;
+        testContext.storeHandle = undefined;
+    }
+};
+
+
+const buildEngineWrapper = async (storeHandle: DocHandle<Store> | null, argsString: string) => {
+    console.log(chalk.blue(`Executing remote buildEngine command with args: ${argsString}`));
+
+    // Basic parser for a string of command-line args
+    const parseArgs = (str: string): any => {
+        const output: { [key: string]: any } = {};
+        const parts = str.match(/--(\w+)(?:[= ]([^\s"'\[\]]+|"[^"]*"|'[^']*'))?/g) || [];
+        parts.forEach(part => {
+            const match = part.match(/--(\w+)(?:[= ](.+))?/);
+            if (match) {
+                const key = match[1];
+                const value = match[2] ? match[2].replace(/["']/g, '') : true;
+                output[key] = value;
+            }
+        });
+        return output;
+    };
+
+    const parsedArgs = parseArgs(argsString);
+    const defaults = config.defaults;
+
+    const machine = parsedArgs.machine;
+    if (!machine) {
+        console.error(chalk.red('buildEngine command requires a --machine argument.'));
+        return;
+    }
+
+    // Clear the known_hosts entry for the target machine before attempting to connect
+    await clearKnownHost(machine);
+
+    const user = parsedArgs.user || defaults.user;
+    const exec = ssh(`${user}@${machine}`);
+    const buildArgs = {
+        exec,
+        isLocalMode: false,
+        machine: machine,
+        user: user,
+        hostname: parsedArgs.hostname || generateHostName(),
+        language: parsedArgs.language || defaults.language,
+        keyboard: parsedArgs.keyboard || defaults.keyboard,
+        timezone: parsedArgs.timezone || defaults.timezone,
+        upgrade: parsedArgs.upgrade !== undefined ? parsedArgs.upgrade : defaults.upgrade,
+        argon: parsedArgs.argon !== undefined ? parsedArgs.argon : defaults.argon,
+        zerotier: parsedArgs.zerotier !== undefined ? parsedArgs.zerotier : defaults.zerotier,
+        raspap: parsedArgs.raspap !== undefined ? parsedArgs.raspap : defaults.raspap,
+        gadget: parsedArgs.gadget !== undefined ? parsedArgs.gadget : defaults.gadget,
+        temperature: parsedArgs.temperature !== undefined ? parsedArgs.temperature : defaults.temperature,
+        version: pack.version,
+        productionMode: parsedArgs.prod || false,
+        enginePath: "/home/pi/engine",
+    };
+    try {
+        await syncEngine(user, machine);
+        await buildEngine(buildArgs);
+        console.log(chalk.green('buildEngine command finished successfully.'));
+    } catch (e: any) {
+        console.error(chalk.red(`buildEngine command failed: ${e.message}`));
+    }
+}
+
+const ls = (storeHandle: DocHandle<Store> | null): void => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('NetworkData on this engine:');
     console.log(deepPrint(storeHandle.doc()), 3);
 }
 
-const lsEngines = (storeHandle: DocHandle<Store>): void => {
+const lsEngines = (storeHandle: DocHandle<Store> | null): void => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Engines:');
     const engines = getEngines(storeHandle.doc());
     console.log(`Total engines: ${engines.length}`);
     console.log(deepPrint(engines, 2));
 }
 
-const lsDisks = (storeHandle: DocHandle<Store>): void => {
+const lsDisks = (storeHandle: DocHandle<Store> | null): void => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Disks:');
     const disks = getDisks(storeHandle.doc());
     console.log(deepPrint(disks, 2));
 }
 
-const lsApps = (storeHandle: DocHandle<Store>): void => {
+const lsApps = (storeHandle: DocHandle<Store> | null): void => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Apps:');
     const apps = getApps(storeHandle.doc());
     console.log(deepPrint(apps, 2));
 }
 
-const lsInstances = (storeHandle: DocHandle<Store>): void => {
+const lsInstances = (storeHandle: DocHandle<Store> | null): void => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Instances:');
     const instances = getInstances(storeHandle.doc());
     console.log(deepPrint(instances, 2));
@@ -43,15 +157,20 @@ const lsInstances = (storeHandle: DocHandle<Store>): void => {
 
 const buildInstanceWrapper = async (storeHandle: DocHandle<Store>, instanceName: InstanceName, appName: AppName, gitAccount: string, gitTag: string, diskName: DiskName) => {
     const store = storeHandle.doc()
+    if (!store) {
+        console.error(chalk.red("Store is not available to create instance."));
+        return;
+    }
     const disk = findDiskByName(store, diskName)
     if (!disk || !disk.device) {
-        console.log(chalk.red(`Disk ${diskName} not found or has no device on engine ${localEngineId}`))
+        console.log(chalk.red(`Disk '${diskName}' not found or has no device on engine ${localEngineId}`))
         return
     }
-    buildInstance(instanceName, appName, gitAccount, gitTag as Version, disk.device)
+    await buildInstance(instanceName, appName, gitAccount, gitTag as Version, disk.device)
 }
 
-const startInstanceWrapper = async (storeHandle: DocHandle<Store>, instanceName: InstanceName, diskName: DiskName) => {
+const startInstanceWrapper = async (storeHandle: DocHandle<Store> | null, instanceName: InstanceName, diskName: DiskName) => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available.")); return; }
     const store = storeHandle.doc()
     const instance = findInstanceByName(store, instanceName)
     const disk = findDiskByName(store, diskName)
@@ -66,7 +185,8 @@ const startInstanceWrapper = async (storeHandle: DocHandle<Store>, instanceName:
     startInstance(storeHandle, instance, disk)
 }
 
-const runInstanceWrapper = async (storeHandle: DocHandle<Store>, instanceName: InstanceName, diskName: DiskName) => {
+const runInstanceWrapper = async (storeHandle: DocHandle<Store> | null, instanceName: InstanceName, diskName: DiskName) => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available.")); return; }
     const store = storeHandle.doc()
     const instance = findInstanceByName(store, instanceName)
     const disk = findDiskByName(store, diskName)
@@ -81,7 +201,8 @@ const runInstanceWrapper = async (storeHandle: DocHandle<Store>, instanceName: I
     runInstance(storeHandle, instance, disk)
 }
 
-const stopInstanceWrapper = async (storeHandle: DocHandle<Store>, instanceName: InstanceName, diskName: DiskName) => {
+const stopInstanceWrapper = async (storeHandle: DocHandle<Store> | null, instanceName: InstanceName, diskName: DiskName) => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available.")); return; }
     const store = storeHandle.doc()
     const instance = findInstanceByName(store, instanceName)
     const disk = findDiskByName(store, diskName)
@@ -96,84 +217,52 @@ const stopInstanceWrapper = async (storeHandle: DocHandle<Store>, instanceName: 
     stopInstance(storeHandle, instance, disk)
 }
 
-// ************************
-// Remote Command Execution
-// ************************
-
-const sendCommand = (storeHandle: DocHandle<Store>, engineId: EngineID, command: Command): void => {
-    console.log(`Sending command '${command}' to engine ${engineId}`);
-
-    const engine = getEngine(storeHandle.doc(), engineId);
-    if (engine && engine.commands) {
-        console.log(`Pushing commands to ${engineId}`);
-        storeHandle.change(doc => {
-            const engine = getEngine(doc, engineId)
-            if (engine) engine.commands.push(command)
-        })
-    } else {
-        console.log(`Engine ${engineId} not found or has no commands array.`);
+const sendWrapper = (storeHandle: DocHandle<Store> | null, args: string) => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
+    const firstSpaceIndex = args.indexOf(' ');
+    if (firstSpaceIndex === -1) {
+        console.error(chalk.red("Send command requires at least two arguments: <engineId> <command>"));
+        return;
     }
+    const engineId = args.substring(0, firstSpaceIndex);
+    const command = args.substring(firstSpaceIndex + 1);
+    sendCommand(storeHandle, engineId as EngineID, command as Command);
+}
+
+const rebootWrapper = async (storeHandle: DocHandle<Store> | null) => {
+    if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
+    const localEngine = getLocalEngine(storeHandle.doc());
+    await rebootEngine(storeHandle, localEngine);
 }
 
 export const commands: CommandDefinition[] = [
-    {
-        name: "ls",
-        execute: ls,
-        args: [],
-        scope: 'any'
-    },
-    {
-        name: "engines",
-        execute: lsEngines,
-        args: [],
-        scope: 'any'
-    },
-    {
-        name: "disks",
-        execute: lsDisks,
-        args: [],
-        scope: 'any'
-    },
-    {
-        name: "apps",
-        execute: lsApps,
-        args: [],
-        scope: 'any'
-    },
-    {
-        name: "instances",
-        execute: lsInstances,
-        args: [],
-        scope: 'any'
-    },
+    { name: "ls", execute: ls, args: [], scope: 'any' },
+    { name: "engines", execute: lsEngines, args: [], scope: 'any' },
+    { name: "disks", execute: lsDisks, args: [], scope: 'any' },
+    { name: "apps", execute: lsApps, args: [], scope: 'any' },
+    { name: "instances", execute: lsInstances, args: [], scope: 'any' },
     {
         name: "send",
-        execute: (storeHandle, engineId, ...commandParts) => sendCommand(storeHandle, engineId, commandParts.join(' ') as Command),
-        args: [{ type: "string" }, { type: "string" }], // Simplified for now, will need to handle variable args
+        execute: sendWrapper,
+        args: [{ type: "string" }],
         scope: 'any'
     },
+    { name: "createInstance", execute: buildInstanceWrapper, args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }], scope: 'engine' },
+    { name: "startInstance", execute: startInstanceWrapper, args: [{ type: "string" }, { type: "string" }], scope: 'engine' },
+    { name: "runInstance", execute: runInstanceWrapper, args: [{ type: "string" }, { type: "string" }], scope: 'engine' },
+    { name: "stopInstance", execute: stopInstanceWrapper, args: [{ type: "string" }, { type: "string" }], scope: 'engine' },
     {
-        name: "createInstance",
-        execute: buildInstanceWrapper,
-        args: [{ type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }, { type: "string" }],
+        name: "reboot",
+        execute: rebootWrapper,
+        args: [],
         scope: 'engine'
     },
     {
-        name: "startInstance",
-        execute: startInstanceWrapper,
-        args: [{ type: "string" }, { type: "string" }],
+        name: "buildEngine",
+        execute: buildEngineWrapper,
+        args: [{ type: "string" }],
         scope: 'engine'
     },
-    {
-        name: "runInstance",
-        execute: runInstanceWrapper,
-        args: [{ type: "string" }, { type: "string" }],
-        scope: 'engine'
-    },
-    {
-        name: "stopInstance",
-        execute: stopInstanceWrapper,
-        args: [{ type: "string" }, { type: "string" }],
-        scope: 'engine'
-    },
+    { name: "connect", execute: connect, args: [{ type: "string" }], scope: 'any' },
+    { name: "disconnect", execute: disconnect, args: [], scope: 'any' },
 ];

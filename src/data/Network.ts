@@ -1,8 +1,8 @@
-import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
+import { BrowserWebSocketClientAdapter, WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { Engine } from './Engine.js'
 import { log } from '../utils/utils.js';
 import { IPAddress, InterfaceName, PortNumber } from './CommonTypes.js';
-import { Repo } from "@automerge/automerge-repo";
+import { DocumentId, Repo } from "@automerge/automerge-repo";
 import { config } from './Config.js';
 
 const settings = config.settings
@@ -37,7 +37,7 @@ export interface Network {
  */
 export type Connections = { [key: IPAddress]: Connection }   // key is the ip address
 export type Connection = {
-    adapter: BrowserWebSocketClientAdapter;
+    adapter: WebSocketClientAdapter;
     missedDiscoveryCount: number;
 }
 
@@ -51,7 +51,7 @@ const MAX_MISSED_DISCOVERIES = 3;
 // Functions
 // **********
 
-export const manageDiscoveredPeers = (repo: Repo, discoveredAddresses: Set<IPAddress>): void => {
+export const manageDiscoveredPeers = (repo: Repo, discoveredAddresses: Set<IPAddress>, storeDocId: DocumentId): void => {
   const port = settings.port as PortNumber || 1234 as PortNumber
     // Increment missed discovery count for all existing connections
     for (const connection of Object.values(network.connections)) {
@@ -64,7 +64,7 @@ export const manageDiscoveredPeers = (repo: Repo, discoveredAddresses: Set<IPAdd
         if (network.connections[connectionKey]) {
             network.connections[connectionKey].missedDiscoveryCount = 0;
         } else {
-            connectEngine(repo, address);
+            connectEngine(repo, address, storeDocId);
         }
     }
 
@@ -100,7 +100,7 @@ export const disconnectEngine = (repo: Repo, address: IPAddress, port: PortNumbe
 
 
 
-export const connectEngine = (repo:Repo, address: IPAddress): BrowserWebSocketClientAdapter | undefined => {
+export const connectEngine = (repo:Repo, address: IPAddress, storeDocId: DocumentId): WebSocketClientAdapter | undefined => {
 
   const port = settings.port as PortNumber || 1234 as PortNumber
 
@@ -111,8 +111,9 @@ export const connectEngine = (repo:Repo, address: IPAddress): BrowserWebSocketCl
   if (!network.connections.hasOwnProperty(`${address}:${port}`) && address !== 'localhost' && address !== '127.0.0.1') {
     log(`Creating a new connection to ${address}:${port}`)
 
-    const clientConnection = new BrowserWebSocketClientAdapter(`ws://${address}:${port}`)
+    const clientConnection = new WebSocketClientAdapter(`ws://${address}:${port}`)
     repo.networkSubsystem.addNetworkAdapter(clientConnection)
+    repo.find(storeDocId) // Trigger the connection by finding the store document
 
       // The peer ID is the engine ID
 

@@ -1,4 +1,6 @@
 import { $, YAML, chalk, fs, os, sleep } from "zx";
+
+$.verbose = false;
 import { addOrUpdateEnvVariable, deepPrint, log, randomPort, readEnvVariable, uuid } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
 import { Store, getDisk, getEngine, getLocalEngine, getInstancesOfEngine,  } from "./Store.js";

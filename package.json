@@ -23,10 +23,14 @@
     "cleanOld": "tsc --build --clean",
     "clean": "rm -fr dist/*",
     "build": "pnpm clean && tsc",
-    "test": "tsc --build --clean && tsc && mocha 'dist/test/*.js' --exit",
+    "testold": "tsc --build --clean && tsc && mocha 'dist/test/*.js' --exit",
     "testdev": "tsc --build --clean && tsc && VERBOSITY=3 mocha --reporter list 'dist/test/*.js' --exit",
     "testDB": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db mocha 'dist/test/*.js' --exit",
-    "testdevDB": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db VERBOSITY=3 mocha --reporter list 'dist/test/*.js' --exit"
+    "testdevDB": "tsc --build --clean && tsc && YPERSISTENCE=./yjs-db VERBOSITY=3 mocha --reporter list 'dist/test/*.js' --exit",
+    "test": "pnpm test:full",
+    "test:full": "pnpm build && mocha 'dist/test/0*.test.js' --exit",
+    "test:auto": "TEST_MODE=automated pnpm build && mocha 'dist/test/01-e2e-execution.test.js' --exit",
+    "test:config": "pnpm build && mocha 'dist/test/00-config.test.js' --exit"
   },
   "keywords": [],
   "author": "Koen Swings",
@@ -63,12 +67,8 @@
     "rimraf": "^6.0.1",
     "tsx": "^4.20.4",
     "valtio": "^1.13.2",
-    "valtio-yjs": "^0.5.1",
     "ws": "^8.18.3",
-    "y-leveldb": "^0.1.2",
-    "y-protocols": "^1.0.6",
     "yaml": "^2.8.1",
-    "yjs": "^13.6.27",
     "zx": "^7.2.4"
   }
 }

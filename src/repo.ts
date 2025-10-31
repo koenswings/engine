@@ -19,7 +19,8 @@ export const startAutomergeServer = async (dataDir:string, port:PortNumber):Prom
     // 3. Create the Automerge repo.
     const repo = new Repo({
         storage: storage,
-        network: [network]
+        network: [network],
+        sharePolicy: async (peerId) => true // Allow all peers to sync
     });
 
     log(`Automerge server is running on port ${port}`);

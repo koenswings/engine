@@ -2,8 +2,9 @@ import { DocHandle } from '@automerge/automerge-repo'
 import { Store } from '../data/Store.js'
 import { log, deepPrint } from '../utils/utils.js'
 import { EngineID, InstanceID } from '../data/CommonTypes.js'
-import { handleCommand } from '../utils/commandHandler.js'
+import { handleCommand } from '../utils/commandUtils.js'
 import { generateHTML } from './instancesMonitor.js'
+import { commands } from '../data/Commands.js';
 
 
 
@@ -32,7 +33,7 @@ const engineCommandsMonitor = (patch, storeHandle): boolean => {
         const command = patch.value as string
         const engineId = patch.path[1] as EngineID
         log(`New command added for engine ${engineId}: ${command}`)
-        handleCommand(storeHandle, 'engine', command)
+        handleCommand(commands, storeHandle, 'engine', command)
         return true
     } else {
         return false

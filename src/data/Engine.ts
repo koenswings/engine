@@ -1,92 +1,25 @@
-import { $, chalk, os, sleep } from 'zx';
-import { deepPrint, log } from '../utils/utils.js';
+import { $, chalk, os, question, YAML, fs, path, sleep } from 'zx';
+
+$.verbose = false;
+import { deepPrint, log, uuid } from '../utils/utils.js';
 import { readMetaUpdateId, DiskMeta } from './Meta.js';
 import { Version, Command, Hostname, Timestamp, DiskID, EngineID } from './CommonTypes.js';
 import { Store, getAppsOfEngine, getDisksOfEngine, getInstancesOfEngine } from './Store.js';
 import { DocHandle } from '@automerge/automerge-repo';
 
 export interface Engine {
-    id: EngineID,
-    hostname: Hostname;
-    version: Version;
-    hostOS: string;
-    // dockerMetrics?: DockerMetrics;
-    // dockerLogs?: DockerLogs;
-    // dockerEvents?: DockerEvents;
-    created: Timestamp;
-    lastBooted: Timestamp; // The last time this engine was started. We must use a timestamp number as Date objects are not supported in YJS
-    lastRun: Timestamp; // The last time this engine was alive. Set by a heartbeat. 
-    lastHalted: Timestamp | null; // The last time that some other engine discovered that this Engine is down. null if it has never been down so far
-    //disks?: Disk[];
-    // disks: {[key:DiskID]:boolean};
-    //networkInterfaces: NetworkInterface[];
-    // restrictedInterfaces?: InterfaceName[]    
-    // connectedInterfaces?: {[key: InterfaceName]: Interface} // The key is the interface name and the value is the Interface object
-    commands: Command[];
-    //commands?: YArrayRef;
+  id: EngineID,
+  hostname: Hostname;
+  version: Version;
+  hostOS: string;
+  created: Timestamp;
+  lastBooted: Timestamp;
+  lastRun: Timestamp;
+  lastHalted: Timestamp | null;
+  commands: Command[];
 }
 
-// We give an engine an Interface once it has an IP address on that interface
-// export interface Interface {
-//     name: InterfaceName,
-//     ip4: IPAddress,
-//     netmask: NetMask,
-//     cidr: CIDR
-// }
-
-// const initialiseLocalEngine = async ():Promise<Engine> => {
-
-//     const meta: DiskMeta = await readMeta()
-//     if (!meta) {
-//         console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
-//         process.exit(1)
-//     }
-
-//     const $localEngine = proxy<Engine>({})
-//     $localEngine.id = meta.id
-//     $localEngine.hostName = os.hostname()
-//     $localEngine.version = meta.version
-//     $localEngine.hostOS = os.type()
-//     $localEngine.dockerMetrics = {
-//             memory: os.totalmem().toString(),
-//             cpu: os.loadavg().toString(),
-//             network: "",
-//             disk: ""
-//         }
-//     $localEngine.dockerLogs = { logs: [] }
-//     $localEngine.dockerEvents = { events: [] }
-//     $localEngine.created = meta.created
-//     $localEngine.lastBooted = (new Date()).getTime()
-//     $localEngine.disks = []
-//     $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-//     $localEngine.connectedInterfaces = {}
-//     $localEngine.commands = []
-//     //log(`Proxied engine object: ${deepPrint($localEngine, 2)}`)
-//     return $localEngine
-// }
-
-// const updateLocalEngine = async ():Promise<Engine> => {
-//     const meta: DiskMeta = await readMeta()
-//     if (!meta) {
-//         console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
-//         process.exit(1)
-//     }
-//     const $localEngine = proxy<Engine>({})
-//     $localEngine.id = meta.id
-//     $localEngine.hostName = os.hostname()
-//     $localEngine.version = meta.version
-//     $localEngine.hostOS = os.type()
-//     $localEngine.dockerMetrics = {
-//         memory: os.totalmem().toString(),
-//         cpu: os.loadavg().toString(),
-//         network: "",
-//         disk: ""
-//     }
-//     $localEngine.created = meta.created
-//     $localEngine.lastBooted = (new Date()).getTime()
-//     $localEngine.restrictedInterfaces = config.settings.interfaces ? config.settings.interfaces : []
-//     return $localEngine
-// }
+import { config } from './Config.js';
 
 const getLocalEngineId = async (): Promise<EngineID> => {
     log(`Getting local engine id`)
@@ -96,320 +29,741 @@ const getLocalEngineId = async (): Promise<EngineID> => {
         process.exit(1)
     }
     return createEngineIdFromDiskId(meta.diskId)
-    // return "ENGINE_"+meta.diskId as EngineID
-    //return meta.diskId as EngineID
 }
-
 export const createEngineIdFromDiskId = (diskId: DiskID): EngineID => {
-    return "ENGINE_" + diskId as EngineID
+  return "ENGINE_" + diskId as EngineID
 }
 
 export const initialiseLocalEngine = async (): Promise<Engine> => {
-    const meta: DiskMeta | undefined = await readMetaUpdateId()
-    if (!meta) {
-        console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
-        process.exit(1)
-    }
-    // @ts-ignore
-    const localEngine: Engine = {
-        id: createEngineIdFromDiskId(meta.diskId),
-        hostname: os.hostname() as Hostname,
-        version: meta.version ? meta.version : "0.0.1" as Version,
-        hostOS: os.type(),
-        // dockerMetrics: {
-        //     memory: os.totalmem().toString(),
-        //     cpu: os.loadavg().toString(),
-        //     network: "",
-        //     disk: ""
-        // },
-        // dockerLogs: { logs: [] },
-        // dockerEvents: { events: [] },
-        created: meta.created,
-        lastBooted: (new Date()).getTime() as Timestamp,
-        lastRun: (new Date()).getTime() as Timestamp,
-        lastHalted: null,
-        commands: []
-    }
-    return localEngine
+  const meta: DiskMeta | undefined = await readMetaUpdateId()
+  if (!meta) {
+    console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
+    process.exit(1)
+  }
+  const localEngine: Engine = {
+    id: createEngineIdFromDiskId(meta.diskId),
+    hostname: os.hostname() as Hostname,
+    version: meta.version ? meta.version : "0.0.1" as Version,
+    hostOS: os.type(),
+    created: meta.created,
+    lastBooted: (new Date()).getTime() as Timestamp,
+    lastRun: (new Date()).getTime() as Timestamp,
+    lastHalted: null,
+    commands: []
+  }
+  return localEngine
 }
 
 export const createOrUpdateEngine = async (storeHandle: DocHandle<Store>, engineId: EngineID): Promise<Engine | undefined> => {
-    const store: Store = storeHandle.doc()
-    const storedEngine: Engine | undefined = store.engineDB[engineId]
-    try {
-        if (!storedEngine) {
-            // Create a new instance object
-            log(`Creating new engine object for local engine ${engineId}`)
-            const engine: Engine = await initialiseLocalEngine()
-            storeHandle.change(doc => {
-                log(`Creating new engine object in store for local engine ${engineId}`)
-                doc.engineDB[engineId] = engine
-            })
-            return engine
-        } else {
-            // Update the existing instance object
-            log(`Granularly updating existing engine object ${engineId}`)
-            storeHandle.change(doc => {
-                const engine = doc.engineDB[engineId]
-                engine.hostname = os.hostname() as Hostname
-                engine.lastBooted = (new Date()).getTime() as Timestamp
-                engine.lastRun = (new Date()).getTime() as Timestamp
-            })
-            return storedEngine
+  const store: Store = storeHandle.doc()
+  const storedEngine: Engine | undefined = store.engineDB[engineId]
+  try {
+    if (!storedEngine) {
+      log(`Creating new engine object for local engine ${engineId}`)
+      const engine: Engine = await initialiseLocalEngine()
+      storeHandle.change(doc => {
+        log(`Creating new engine object in store for local engine ${engineId}`)
+        doc.engineDB[engineId] = engine
+      })
+      return engine
+    } else {
+      log(`Granularly updating existing engine object ${engineId}`)
+      storeHandle.change(doc => {
+        const engine = doc.engineDB[engineId]
+        if (engine) {
+          engine.hostname = os.hostname() as Hostname
+          engine.lastBooted = (new Date()).getTime() as Timestamp
+          engine.lastRun = (new Date()).getTime() as Timestamp
         }
-    } catch (e) {
-        log(chalk.red(`Error initializing engine ${engineId}`))
-        console.error(e)
-        return undefined
+      })
+      return storedEngine
     }
+  } catch (e) {
+    log(chalk.red(`Error initializing engine ${engineId}`))
+    console.error(e)
+    return undefined
+  }
 }
 
 export const localEngineId = await getLocalEngineId()
-// export const localEngine = await initialiseLocalEngine()
 
-// export const bindEngine = ($engine:Engine, networks:Network[]):void => {
-//     log(`Binding engine ${$engine.id} to all networks`)
-//     log(`$engine: ${deepPrint($engine)}`)
-//     networks.forEach((network) => {
-//         const dummy = {}
-//         dummy[dummyKey] = true
+export const rebootEngine = async (storeHandle: DocHandle<Store>, engine: Engine) => {
+    log(`Gracefully rebooting engine ${engine.hostname}`);
+    storeHandle.change(doc => {
+        const eng = doc.engineDB[engine.id];
+        if (eng) {
+            eng.lastRun = new Date().getTime() as Timestamp;
+        }
+    });
 
-//         // Bind the $engine proxy to the network
-//         const yEngine = network.doc.getMap($engine.id)
-//         network.unbind = bind($engine as Record<string, any>, yEngine)
-//         log(`Bound engine ${$engine.id} to network ${network.appnet.name}`)
+    log('Waiting 5 seconds for state to sync before rebooting...');
+    await sleep(5000);
 
-//         // Create a proxy for the disks array
-//         $engine.disks = proxy<{[key:DiskID]:boolean}>(dummy) 
-
-//         // Bind the proxy for the disk Ids array to a corresponding Yjs Map
-//         bind($engine.disks, network.doc.getMap(`${$engine.id}_disks`))
-//     })
-// }
-
-
-// export const getDisks = (store:Store, engine: Engine):Disk[] => {
-//     const diskIds = getKeys(engine.disks) as DiskID[]
-//     return diskIds.map(diskId => getDisk(store, diskId))
-// }
-
-
-export const addCommand = (engine: Engine, command: Command): void => {
-    log(`Adding command ${command} to engine ${engine.hostname}`)
-    if (engine.commands) engine.commands.push(command)
+    log(`Executing reboot command for ${engine.hostname}`);
+    $`sudo reboot now`;
 }
-
-
-// export const findDisk = (store:Store, engine: Engine, diskId: DiskID): Disk | undefined => {
-//     const hasDisk = engine.disks[diskId]
-//     return hasDisk ? store.diskDB[diskId] : undefined
-// }
-
-// export const findDiskByName = (store:Store, engine: Engine, diskName: Hostname): Disk | undefined => {
-//     const diskIds = getKeys(engine.disks) as DiskID[]
-//     const diskId = diskIds.find(diskId => {
-//         const disk = getDisk(store, diskId)
-//         return disk && disk.name === diskName
-//     })
-//     return diskId ? store.diskDB[diskId] : undefined
-// }
-
-// export const findDiskByName = (store:Store, engine: Engine, diskName: DiskName): Disk | undefined => {
-//     return getDisks(store, engine).find(disk => disk.name === diskName)
-// }
-
-// export const findDiskById = (store:Store, engine: Engine, diskId: DiskID): Disk | undefined => {
-//     return getDisks(store, engine).find(disk => disk.id === diskId)
-// }
-
-// export const findDiskByDevice = (store:Store, engine: Engine, device: string):Disk | undefined => {
-//     const diskIds = getKeys(engine.disks) as DiskID[]
-//     const diskId = diskIds.find(diskId => {
-//         const disk = getDisk(store, diskId)
-//         return disk && disk.device === device
-//     })
-//     return diskId ? store.diskDB[diskId] : undefined
-// }
-
-// export const findDiskByDevice = (store:Store, engine: Engine, device: DeviceName):Disk | undefined => {
-//     return getDisks(store, engine).find(disk => disk.device === device)
-// }
-
-
-// export const getDiskNames = (store:Store, engine:Engine) => {
-//     const diskIds = getKeys(engine.disks) as DiskID[]
-//     return diskIds.flatMap(diskId => {
-//         const disk = getDisk(store, diskId)
-//         return disk ? disk.name : []
-//     })
-// }
-// export const getDiskNames = (store:Store, engine:Engine):DiskName[] => {
-//     return getDisks(store, engine).map(disk => disk.name)
-// }
-
-
-// export const addDisk = (store:Store, engine: Engine, disk: Disk):void => {
-//     log(`Updating disk ${disk.name} of engine ${engine.hostName}:`)
-
-//     // Check if engine already has the disk
-//     const diskIds = getKeys(engine.disks) as DiskID[]
-//     const existingDisk = findDisk(store, engine, disk.id)
-//     if (existingDisk) {
-//         log(`Engine ${engine.hostName} already has disk ${disk.name}. Merging the new disk with the existing disk.`)
-//         Object.assign(existingDisk, disk)
-//     } else {
-//         //log(deepPrint(disk))
-//         log(`Pushing a new disk ${disk.name} to engine ${engine.hostName}`)
-//         engine.disks[disk.id] = true
-//     }
-// }
-
-// export const undockDisk = async (store:Store, engine: Engine, disk: Disk):Promise<void> => {
-//     // const index = engine.disks.indexOf(disk)
-//     // if (index > -1) {
-//     //   engine.disks.splice(index, 1)
-//     // }
-//     log(`Removing disk ${disk.id} from engine ${engine.id} and all its instances form the networks`)
-//     // Remove all instances from the appnet if the disk still has the engine as its parent (it might have been inserted elsewhere)
-//     // TODO - This is sensitive to race conditions: suppose the disk is being inserted into another engine at the same time
-//     if (disk.engineId === engine.id) {
-//         const instances = getKeys(disk.instances) as InstanceID[]
-//         for (const instanceID of instances) {
-//         // instances.forEach(async instanceID => {
-//             const instance = getInstance(store, instanceID)
-//             await stopInstance(store, instance, disk)
-//             log(`Instance ${instance.id} stopped`)
-
-//             store.networks.forEach(network => {
-//                 removeInstanceFromAppnet(network.appnet, instanceID)
-//             })
-//         }
-//         log(`Stopped all instances of disk ${disk.id} on engine ${engine.hostname}`)
-
-//         // HACK - wait for the containers to be removed before unmounting the disks
-//         // log(`Waiting for 5 seconds before unmounting the disk`)
-//         // await sleep(5000)
-//     }
-//     // 
-//     delete engine.disks[disk.id]
-
-// }
-
-// export const removeDiskByName = (store:Store, engine: Engine, diskName: DiskName):void => {
-//     const disk = findDiskByName(store, engine, diskName)
-//     if (disk) delete engine.disks[disk.id]
-// }
-
-// export const addConnectedInterface = (engine: Engine, ifaceName: InterfaceName, ip4: IPAddress, netmask: NetMask, cidr: CIDR):void => {
-//     const iface:Interface = {
-//         name: ifaceName,
-//         ip4: ip4,
-//         netmask: netmask,
-//         cidr: cidr
-//     }
-
-//     // We shouldn't be doing this - 
-//     if (!engine.connectedInterfaces) {
-//         engine.connectedInterfaces = {}
-//     }
-
-//     // And add it to the local engine
-//     engine.connectedInterfaces[ifaceName] = iface
-// }
-
-// export const isConnected = (engine: Engine, ifaceName: InterfaceName):boolean => {
-//     const isConn = engine && (engine.connectedInterfaces) && engine.connectedInterfaces[ifaceName] && engine.connectedInterfaces[ifaceName].hasOwnProperty('ip4')
-//     // if isConn is undefined, return false
-//     return isConn ? true : false
-// }
-
-
-// export const setRestrictedInterfaces = (engine: Engine, ifaceNames: InterfaceName[]):void => {
-//     engine.restrictedInterfaces = ifaceNames
-// }
-
-// export const removeConnectedInterface = (engine: Engine, iface: Interface):void => {
-//     if (engine.connectedInterfaces) {
-//         delete engine.connectedInterfaces[iface.name]
-//     }
-// }   
-
-// export const removeConnectedInterfaceByName = (engine: Engine, ifaceName: InterfaceName):void => {
-//     if (engine.connectedInterfaces && engine.connectedInterfaces[ifaceName]) {
-//         delete engine.connectedInterfaces[ifaceName]
-//     }
-// }
-
-// export const findConnectedInterface = (engine: Engine, ifaceName: InterfaceName):Interface | undefined => {
-//     return engine.connectedInterfaces ? engine.connectedInterfaces[ifaceName] : undefined
-// }
-
-// export const getConnectedInterfaces = (engine: Engine):InterfaceName[] => {
-//     return engine.connectedInterfaces ? getKeys(engine.connectedInterfaces) as InterfaceName[] : []
-// }
-
-// export const getInterfacesToRemoteEngine = (engine: Engine, remoteIp: IPAddress):Interface[] => {
-//         if (engine.connectedInterfaces) {
-//             // Iterate over all values of engine.connectedInterfaces
-//             return Object.values(engine.connectedInterfaces).filter((iface) => {
-//                 const netmask = iface.netmask
-//                 const ip4 = iface.ip4
-//                 const onNet = sameNet(remoteIp, ip4, netmask)
-//                 return onNet
-//          })
-//     } else {
-//         return []
-//     }
-// }
-
-
-
-
-
-
-// export const getEngineApps = (store:Store, engine: Engine) => {
-//     const diskIds = getKeys(engine.disks) as DiskID[]
-//     return diskIds.reduce(
-//       (acc, diskId) => {
-//         const disk = getDisk(store, diskId)
-//         return disk ? acc.concat(disk.apps) : []
-//       },
-//       [])
-// }
-
-// export const getEngineApps = (store:Store, engine: Engine):App[] => {
-//     const apps = getDisks(store, engine).reduce(
-//         (acc, disk) => {
-//             return acc.concat(getApps(store, disk))
-//         },
-//         [] as App[])
-//     // Remove all duplicates (apps with the same id)
-//     return apps.filter((app, index, self) =>
-//         index === self.findIndex((t) => (
-//             t.id === app.id
-//         ))
-//     )
-// }
-
-// export const getEngineInstances = (store:Store, engine: Engine):Instance[] => {
-//     return getDisks(store, engine).reduce(
-//       (acc, disk) => {
-//         return acc.concat((getInstances(store, disk)))
-//       },
-//       [] as Instance[])
-// }
-
-export const rebootEngine = (engine: Engine) => {
-    log(`Rebooting engine ${engine.hostname}`)
-    $`sudo reboot now`
-}
-
 export const inspectEngine = (store: Store, engine: Engine) => {
-    log(chalk.bgGray(`Engine: ${deepPrint(engine)}`))
-    const disks = getDisksOfEngine(store, engine)
-    log(chalk.bgGray(`Disks: ${deepPrint(disks)}`))
-    const apps = getAppsOfEngine(store, engine)
-    log(chalk.bgGray(`Apps: ${deepPrint(apps)}`))
-    const instances = getInstancesOfEngine(store, engine)
-    log(chalk.bgGray(`Instances: ${deepPrint(instances)}`))
+  log(chalk.bgGray(`Engine: ${deepPrint(engine)}`))
+  const disks = getDisksOfEngine(store, engine)
+  log(chalk.bgGray(`Disks: ${deepPrint(disks)}`))
+  const apps = getAppsOfEngine(store, engine)
+  log(chalk.bgGray(`Apps: ${deepPrint(apps)}`))
+  const instances = getInstancesOfEngine(store, engine)
+  log(chalk.bgGray(`Instances: ${deepPrint(instances)}`))
+}
+
+// ##################################################################################################
+// Installation and system setup functions (formerly in build-engine.ts)
+// ##################################################################################################
+
+export const syncEngine = async (user: string, machine: string) => {
+  console.log(chalk.blue('Syncing the engine to the remote machine'))
+  try {
+    if (!fs.existsSync('./script/build_image_assets/gh_token.txt')) {
+      const githubToken = await question('Enter the GitHub token: ');
+      fs.writeFileSync('./script/build_image_assets/gh_token.txt', githubToken);
+    }
+    await $`./script/sync-engine --user ${user} --machine ${machine}`;
+  } catch (e) {
+    console.log(chalk.red('Failed to sync the engine to the remote machine'));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+export const buildEngine = async (args: any) => {
+  const {
+    exec, enginePath, isLocalMode, user, machine, hostname, language, keyboard, timezone,
+    upgrade, argon, zerotier, raspap, gadget, temperature, version, productionMode
+  } = args;
+
+  await updateSystem(exec);
+  if (upgrade) await upgradeSystem(exec);
+
+  await installBaseNpm(exec);
+  await configurePnpm(exec);
+  await setHostname(exec, hostname);
+  await localiseSystem(exec, enginePath, language, keyboard, timezone);
+  await installCrontabs(exec, enginePath);
+
+  if (argon) await installArgonFanScript(exec, enginePath);
+  if (temperature) await installTemperature(exec);
+
+  await installUdev(exec, enginePath);
+  await installVarious(exec);
+  await installVarious2(exec);
+  await installGh(exec);
+
+  await buildAppsInfrastructure(exec);
+
+  if (raspap) await installRaspAP(exec, enginePath);
+  if (zerotier) await installZerotier(exec, enginePath);
+
+  await addMeta(exec, hostname, version);
+
+  await installEngineNode(exec);
+  await installPm2(exec, enginePath);
+  await installEnginePM2(exec, enginePath);
+  await buildEnginePM2(exec, enginePath);
+
+  if (isLocalMode) {
+    const permanentEnginePath = "/home/pi/engine";
+    console.log(chalk.blue(`Copying engine to permanent location: ${permanentEnginePath}`));
+    await exec`sudo mkdir -p ${permanentEnginePath}`;
+    await exec`sudo rsync -a --delete ${enginePath}/ ${permanentEnginePath}/`;
+    await exec`sudo chown -R pi:pi /home/pi/engine`;
+  }
+
+  await startEnginePM2(exec, enginePath, "/home/pi/engine", productionMode);
+
+  if (gadget) await usbGadget(exec, enginePath);
+
+  await rebootSystem(exec);
+}
+
+export const clearKnownHost = async (machine: string) => {
+  console.log(chalk.yellow(`  - Clearing known_hosts entry for ${machine}...`));
+  const knownHostsPath = path.join(os.homedir(), '.ssh', 'known_hosts');
+  try {
+    await $`ssh-keygen -R ${machine}`;
+    console.log(chalk.green(`    - Entry for ${machine} removed from ${knownHostsPath}.`));
+  } catch (e: any) {
+    console.log(chalk.yellow(`    - Host not found in known_hosts or an error occurred. Continuing...`));
+  }
+}
+
+export const copyAsset = async (exec: any, enginePath: string, asset: string, destination: string, executable: boolean = false, chmod: string | null = "0644", chown: string | null = "0:0") => {
+  console.log(chalk.blue(`Copying asset ${asset} to ${destination}`));
+  try {
+    await exec`sudo cp ${enginePath}/script/build_image_assets/${asset} ${destination}`;
+    await exec`sudo chmod ${chmod} ${destination}/${asset}`;
+    await exec`sudo chown ${chown} ${destination}/${asset}`;
+    if (executable) {
+      await exec`sudo chmod +x ${destination}/${asset}`;
+    }
+  } catch (e) {
+    console.log(chalk.red(`Error copying asset ${asset} to ${destination}`));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+export const createDir = async (exec: any, dir: string, chmod: string | null = "0755", chown: string | null = "0:0") => {
+  console.log(chalk.blue(`Creating directory ${dir}`));
+  try {
+    await exec`sudo mkdir -p ${dir}`;
+    await exec`sudo chmod ${chmod} ${dir}`;
+    await exec`sudo chown ${chown} ${dir}`;
+  } catch (e) {
+    console.log(chalk.red(`Error creating directory ${dir}`));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+export const updateSystem = async (exec: any) => {
+  console.log(chalk.blue('Updating package list...'));
+  try {
+    await exec`sudo apt update -y`;
+  } catch (e) {
+    console.log(chalk.red('Error updating package list'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Package list updated'));
+}
+
+export const upgradeSystem = async (exec: any) => {
+  console.log(chalk.blue('Upgrading packages...'));
+  try {
+    await exec`sudo DEBIAN_FRONTEND="noninteractive" apt-get upgrade -y`;
+  } catch (e) {
+    console.log(chalk.red('Error upgrading packages'));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+export const localiseSystem = async (exec: any, enginePath: string, language: string, keyboard: string, timezone: string) => {
+  console.log(chalk.blue('Localising the system...'));
+  try {
+    await copyAsset(exec, enginePath, 'locale.gen', '/etc')
+    await exec`sudo locale-gen`;
+    await exec`sudo update-locale LANG=${language}`;
+    await exec`sudo raspi-config nonint do_configure_keyboard ${keyboard}`
+    await exec`sudo timedatectl set-timezone ${timezone}`
+  } catch (e) {
+    console.log(chalk.red('Error localising the system'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('System localised'));
+}
+
+export const installCrontabs = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Installing crontabs...'));
+  try {
+    await copyAsset(exec, enginePath, 'boot.sh', '/usr/local/bin', true)
+    await exec`sudo crontab ${enginePath}/script/build_image_assets/crondefs`
+  } catch (e) {
+    console.log(chalk.red('Error installing crontabs'));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+export const installTemperature = async (exec: any) => {
+  console.log(chalk.blue('Installing lm-sensors...'));
+  try {
+    await exec`sudo apt install lm-sensors -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing lm-sensors'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('lm-sensors installed'));
+
+  console.log(chalk.blue('Running sensors...'));
+  try {
+    const ret = await exec`sensors`
+    console.log(ret.stdout)
+  } catch (e) {
+    console.log(chalk.red('Error running sensors'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Sensors run'));
+}
+
+export const setHostname = async (exec: any, hostname: string) => {
+  console.log(chalk.blue(`Setting hostname to ${hostname}`));
+  try {
+    await exec`sudo hostnamectl set-hostname ${hostname}`;
+    await exec`sudo sed -i "s/raspberrypi/${hostname}/g" /etc/hosts`
+  } catch (e) {
+    console.log(chalk.red('Error setting hostname'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Hostname set'));
+  console.log(hostname); // Print hostname for capture
+}
+
+export const installArgonFanScript = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Installing argon_fan_script.sh...'));
+  try {
+    await copyAsset(exec, enginePath, 'argon_fan_script.sh', '/usr/local/bin', true, "0755")
+  } catch (e) {
+    console.log(chalk.red('Error installing argon_fan_script.sh'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Argon fan script installed'));
+
+  console.log(chalk.blue('Executing argon_fan_script.sh...'));
+  try {
+    await exec`sudo /usr/local/bin/argon_fan_script.sh`;
+  } catch (e) {
+    console.log(chalk.red('Error executing argon_fan_script.sh'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Argon fan script executed'));
+}
+
+export const installGh = async (exec: any) => {
+  console.log(chalk.blue('Installing gh...'));
+  try {
+    await exec`curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg`
+    await exec`sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg`
+    await exec`echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null`
+    await exec`sudo apt update`
+    await exec`sudo apt install gh -y`
+
+  } catch (e) {
+    console.log(chalk.red('Error installing gh'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('gh installed'));
+}
+
+export const cloneRepo = async (exec: any, enginePath: string, engineParentPath: string, githubToken: string) => {
+  console.log(chalk.blue('Cloning the engine repo...'));
+  try {
+    await exec`git config --global user.email "koen@swings.be"`;
+    await exec`git config --global user.name "Koen Swings"`;
+    await exec`gh auth login --with-token < ${enginePath}/script/build_image_assets/gh_token.txt`;
+    await exec`if [ -d ${enginePath} ]; then sudo rm -rf ${enginePath}; fi`;
+    await exec`cd ${engineParentPath} && git clone https://koenswings:${githubToken}@github.com/koenswings/engine.git`;
+  } catch (e) {
+    console.log(chalk.red('Error cloning the engine repo'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine repo cloned'));
+}
+
+export const installUdev = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Installing udev and udev rules...'));
+  try {
+    await exec`sudo apt install udev -y`;
+    await copyAsset(exec, enginePath, '90-docking.rules', '/etc/udev/rules.d')
+    await createDir(exec, '/disks', "0755", "0:0")
+  } catch (e) {
+    console.log(chalk.red('Error installing udev and udev rules'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Udev and udev rules installed'));
+}
+
+export const rebootSystem = async (exec: any) => {
+  console.log(chalk.blue('Rebooting the system...'));
+  try {
+    await exec`sudo reboot`;
+  } catch (e) {
+    console.log(chalk.red('Error rebooting the system'));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+export const usbGadget = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Running the rpi4-usb script...'));
+  try {
+    await exec`sudo chmod +x ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
+    await exec`sudo ${enginePath}/script/build_image_assets/rpi4-usb.sh`;
+  } catch (e) {
+    console.log(chalk.red('Error running the rpi4-usb script'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('rpi4-usb script run'));
+}
+
+export const installRaspAP = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Installing RaspAP...'));
+  try {
+    const raspap_version = "2.8.5"
+    await exec`sudo chmod +x ${enginePath}/script/build_image_assets/install-raspap.sh`;
+    await exec`sudo ${enginePath}/script/build_image_assets/install-raspap.sh -b ${raspap_version} -y -o 0 -a 0`;
+  } catch (e) {
+    console.log(chalk.red('Error installing RaspAP'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('RaspAP installed'));
+}
+
+export const installZerotier = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Installing Zerotier...'));
+  try {
+    await exec`sudo chmod +x ${enginePath}/script/build_image_assets/install-zerotier.sh`;
+    await exec`sudo ${enginePath}/script/build_image_assets/install-zerotier.sh`;
+  } catch (e) {
+    console.log(chalk.red('Error installing Zerotier'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Zerotier installed'));
+}
+
+export const installRSync = async (exec: any) => {
+  console.log(chalk.blue('Installing rsync...'));
+  try {
+    await exec`sudo apt install rsync -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing rsync'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('rsync installed'));
+}
+
+export const installBaseNpm = async (exec: any) => {
+  console.log(chalk.blue('Installing base node, n, npm and pnpm for script execution...'));
+  try {
+    await exec`sudo apt install npm -y`
+    await exec`sudo npm install -g -y n pnpm`
+    await exec`sudo n 22.20.0`
+  } catch (e) {
+    console.log(chalk.red('Error installing base node, n, npm and pnpm...'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Base node, n, npm and pnpm installed'));
+}
+
+export const installEngineNode = async (exec: any) => {
+  console.log(chalk.blue('Installing node version for engine...'));
+  try {
+    await exec`sudo n 22.20.0`
+  } catch (e) {
+    console.log(chalk.red('Error installing engine node version...'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine node version installed'));
+}
+
+export const configurePnpm = async (exec: any) => {
+  console.log(chalk.blue('Setting up pnpm...'));
+  try {
+    await exec`sudo pnpm setup`
+  } catch (e) {
+    console.log(chalk.red('Error setting up pnpm...'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('pnpm set up'));
+}
+
+export const readRemoteDiskId = async (exec: any): Promise<DiskID | undefined> => {
+  log(`Reading disk id remotely`)
+  try {
+    const rootDevice = (await exec`findmnt / -no SOURCE`).stdout.split('/')[2]
+    const sn = (await exec`hdparm -I /dev/${rootDevice} | grep 'Serial\ Number'`).stdout
+    const id = sn.trim().split(':')
+    if (id.length === 2) {
+      log(`Remote disk id is ${id[1].trim()}`)
+      return id[1].trim() as DiskID
+    } else {
+      log(`Cannot read disk id for device ${rootDevice}`)
+      return undefined
+    }
+  } catch (e) {
+    log(`Error reading disk id of the root device: ${e}`)
+    return undefined
+  }
+}
+
+export const addMeta = async (exec: any, hostname: string, version: string) => {
+  let id = await readRemoteDiskId(exec)
+  if (id === undefined) {
+    console.log(chalk.red('Remote disk has no disk id.  Generating one.'))
+    id = uuid() as DiskID
+  }
+  console.log(chalk.blue('Adding metadata...'));
+  try {
+    await exec`sudo rm -f /META.yaml`;
+    await exec`echo 'diskId: ${id}' | sudo tee -a /META.yaml`;
+    await exec`echo 'diskName: ${id}' | sudo tee -a /META.yaml`;
+    await exec`echo 'hostname: ${hostname}' | sudo tee -a /META.yaml`;
+    await exec`echo 'created: ${new Date().getTime()}' | sudo tee -a /META.yaml`;
+    await exec`echo 'version: ${version}' | sudo tee -a /META.yaml`;
+    await exec`echo 'lastDocked: ${new Date().getTime()}' | sudo tee -a /META.yaml`;
+  } catch (e) {
+    console.log(chalk.red('Error adding metadata'));
+    console.error(e);
+    process.exit(1);
+  }
+}
+
+export const installPm2 = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Installing pm2...'));
+  try {
+    await exec`sudo npm install -g pm2`
+    await exec`cd ${enginePath}`
+    console.log(chalk.blue('Installing pm2-logrotate...'))
+    await exec`cd ${enginePath} && sudo pm2 install pm2-logrotate`
+  } catch (e) {
+    console.log(chalk.red('Error installing pm2'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('pm2 installed'));
+}
+
+export const installEnginePM2 = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Installing the engine...'))
+  await exec`cd ${enginePath} && sudo pnpm install_packages`
+}
+
+export const buildEnginePM2 = async (exec: any, enginePath: string) => {
+  console.log(chalk.blue('Building the engine with tsc...'))
+  await exec`cd ${enginePath} && sudo pnpm build`
+}
+
+export const startEnginePM2 = async (exec: any, enginePath: string, permanentEnginePath: string, productionMode: boolean) => {
+  console.log(chalk.blue('Starting the engine with pm2...'));
+  try {
+    try {
+      // We require idempotency - check if the engine has already started before starting and persisting it
+      await exec`pm2 show engine`
+    } catch (e) {
+      console.log(chalk.blue(`Starting a ${productionMode ? "production" : "dev"} mode engine with pm2...`))
+      await exec`sudo cp ${enginePath}/script/build_image_assets/pm2.config.cjs ${permanentEnginePath}/`
+      await exec`sudo chown pi:pi ${permanentEnginePath}/pm2.config.cjs`
+
+      if (productionMode) {
+        await exec`cd ${permanentEnginePath} && sudo pm2 start pm2.config.cjs --env production`
+      } else {
+        await exec`cd ${permanentEnginePath} && sudo pm2 start pm2.config.cjs --env development`
+      }
+      console.log(chalk.blue('Saving the pm2 process list...'))
+      await exec`cd ${permanentEnginePath} && sudo pm2 save`
+      console.log(chalk.blue('Enabling pm2 to start on boot...'))
+      await exec`cd ${permanentEnginePath} && sudo pm2 startup`
+    }
+  } catch (e) {
+    console.log(chalk.red('Error starting the engine with pm2'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine started with pm2'))
+}
+
+export const installVarious = async (exec: any) => {
+  console.log(chalk.blue('Installing tcpdump, vim and hdparm...'));
+  try {
+    await exec`sudo apt install tcpdump vim hdparm -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing tcpdump, vim and hdparm'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('tcpdump, vim and hdparm installed'));
+}
+
+export const installVarious2 = async (exec: any) => {
+  // Install the git, dnsutlis, tree, lshw and cloud-guest-utils packages
+  console.log(chalk.blue('Installing lm-sensors, git, dnsutils, tree, lshw and cloud-guest-utils...'));
+  try {
+    await exec`sudo apt install git dnsutils tree lshw cloud-guest-utils -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing git, dnsutils, tree, lshw and cloud-guest-utils'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('git, dnsutils, tree, lshw and cloud-guest-utils installed'));
+}
+
+
+export const buildAppsInfrastructure = async (exec: any) => {
+  // Create the /apps, /apps/catalog, and /apps/instances directories 
+  console.log(chalk.blue('Creating the /services, /apps, and /instances directories'))
+  try {
+    await createDir(exec, '/services')
+    await createDir(exec, '/apps')
+    await createDir(exec, '/instances')
+  } catch (e) {
+    console.log(chalk.red('Error creating the /services, /apps, and /instances directories'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('The /services, /apps, and /instances directories have been created'));
+}
+
+
+
+// ##################################################################################################
+// Obsolete functions
+// To be kept for reference only
+// ##################################################################################################
+
+const installDocker = async (exec, enginePath, user) => {
+
+  // Run the install-docker.sh script
+  console.log(chalk.blue('Installing Docker'))
+  try {
+    // Make the script executable
+    await exec`sudo chmod +x ${enginePath}/script/build_image_assets/install-docker.sh`;
+    await exec`sudo ${enginePath}/script/build_image_assets/install-docker.sh`;
+  } catch (e) {
+    console.log(chalk.red('Error installing Docker'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker installed'));
+
+  // Add the docker group if it does not already exist
+  console.log(chalk.blue('Adding the docker group'))
+  try {
+    // Check if the docker group already exists
+    if (await exec`getent group docker`) {
+      console.log(chalk.blue('The docker group already exists'));
+    } else {
+      await exec`sudo groupadd docker`;
+    }
+  } catch (e) {
+    console.log(chalk.red('Error adding the docker group'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker group added'));
+
+
+  // Add the ssh user to the docker group
+  console.log(chalk.blue('Adding the ssh user to the docker group'))
+  try {
+    await exec`sudo usermod -aG docker ${user}`;
+  } catch (e) {
+    console.log(chalk.red('Error adding the ssh user to the docker group'));
+    console.error(e);
+    process.exit(1);
+  }
+
+  // Copy the daemon.json asset to /etc/docker
+  console.log(chalk.blue('Configuring Docker'))
+  try {
+    await copyAsset(enginePath, exec, 'daemon.json', '/etc/docker', false, "0644")
+  } catch (e) {
+    console.log(chalk.red('Error configuring Docker'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker configured'));
+
+
+  // Restart the Docker service
+  console.log(chalk.blue('Restarting the Docker service'))
+  try {
+    await exec`sudo systemctl restart docker`;
+  } catch (e) {
+    console.log(chalk.red('Error restarting the Docker service'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker service restarted'));
+
+
+  // Print the Docker Compose, the Docker version and the Docker info
+  console.log(chalk.blue('Docker info'))
+  try {
+    // (use sudo because the docker group has not been added yet - requires a reboot)
+    let ret = await exec`sudo docker compose version`
+    console.log(ret.stdout)
+    ret = await exec`sudo docker version`
+    console.log(ret.stdout)
+    ret = await exec`sudo docker info`
+    console.log(ret.stdout)
+  } catch (e) {
+    console.log(chalk.red('Error printing the Docker info'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Docker info printed'));
+}
+
+const buildDockerInfrastructure = async (exec: any) => {
+
+  // Create the internal docker networks frontend and backend if they do not already exist
+  console.log(chalk.blue('Creating the frontend network'))
+  try {
+    // Check if the frontend network already exists
+    // (use sudo because the docker group has not been added yet - requires a reboot)
+    if (await exec`sudo docker network ls --filter name=frontend`) {
+      console.log(chalk.blue('The frontend network already exists'));
+    } else {
+      await exec`sudo docker network create --internal frontend`;
+    }
+    // Check if the backend network already exists
+    if (await exec`sudo docker network ls --filter name=backend`) {
+      console.log(chalk.blue('The backend network already exists'));
+    } else {
+      await exec`sudo docker network create --internal backend`;
+    }
+  } catch (e) {
+    console.log(chalk.red('Error creating the frontend or backend network'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Frontend and backend networks created'));
+}
+
+const startDockerEngine = async (exec: any, enginePath: string, productionMode:boolean) => {
+  // Build the engine image
+  console.log(chalk.blue(`Building a ${productionMode ? "production" : "dev"} mode engine image...`))
+  try {
+      // Compose build
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      if (productionMode) {
+        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
+      } else {
+        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
+      }
+  } catch (e) {
+    console.log(chalk.red('Error building the engine image'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine image built'));
+
+  // Start the engine
+  console.log(chalk.blue('Composing up the engine...'));
+  try {
+      // Compose up 
+      // (use sudo because the docker group has not been added yet - requires a reboot)
+      if (productionMode) {
+        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
+      } else {
+        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
+      }
+  } catch (e) {
+    console.log(chalk.red('Error composing up the engine'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Engine composed up'));
 }

@@ -7,7 +7,8 @@ import { Instance } from './Instance.js'
 import { AppID, DeviceName, DiskID, EngineID, Hostname, InstanceID } from './CommonTypes.js'
 import { DocHandle, DocumentId, PeerId, Repo } from '@automerge/automerge-repo'
 import { chalk, fs } from "zx"
-import { WebSocketClientAdapter } from '@automerge/automerge-repo-network-websocket'
+//import { WebSocketClientAdapter } from '@automerge/automerge-repo-network-websocket'
+import { BrowserWebSocketClientAdapter, WebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 
 // The single, hard-coded, predictable document ID for the main store.
 //const STORE_DOC_ID = "ad40c014-180a-4590-bd11-b25da3ac22d3" as DocumentId;
@@ -130,17 +131,66 @@ export const retrieveStore = async (repo: Repo, storeDocId: DocumentId): Promise
 }
 
 // Create a client connection to the store
-export const createClientStore = async (serverUrl: string, clientPeerId: PeerId, storeDocId: DocumentId): Promise<DocHandle<Store>> => {
-    console.log(`Connecting to server at ${serverUrl} with peer ID ${clientPeerId}`);
-    const retry = 5000;
-    const client = new WebSocketClientAdapter(serverUrl, retry)
-    const clientRepo = new Repo({ 
-        network: [client],
-        peerId: clientPeerId,
+import { lookup } from 'dns/promises';
+import { config } from './Config.js'
+
+// ... (other imports)
+
+export const createClientStore = async (hostnames: string[], clientPeerId: PeerId, storeDocId: DocumentId, timeout?: number): Promise<{handle: DocHandle<Store>, repo: Repo}> => {
+    console.log(`Connecting to hosts ${hostnames.join(', ')} with peer ID ${clientPeerId}`);
+    
+    const connectPromise = (async () => {
+        const urls = await Promise.all(hostnames.map(async (hostname) => {
+            try {
+                console.log(chalk.blue(`Resolving hostname ${hostname}...`));
+                const { address } = await lookup(hostname);
+                console.log(chalk.green(`  - Resolved to ${address}`));
+                const port = config.settings.port || 4321;
+                return `ws://${address}:${port}`;
+            } catch (e) {
+                console.error(chalk.red(`  - Failed to resolve hostname ${hostname}. Using it directly.`));
+                // Fallback to using the hostname directly if lookup fails
+                const port = config.settings.port || 4321;
+                return `ws://${hostname}:${port}`;
+            }
+        }));
+
+        const retryDelay = 2000;
+        const adapters = urls.map(url => new WebSocketClientAdapter(url, retryDelay));
+        const repo = new Repo({ 
+            network: adapters,
+            peerId: clientPeerId,
         });
-    const clientHandle = retrieveStore(clientRepo, storeDocId);
-    console.log(`Connected to server at ${serverUrl} with peer ID ${clientPeerId}`);
-    return clientHandle;
+        const handle = await retrieveStore(repo, storeDocId);
+        return { handle, repo };
+    })();
+
+    try {
+        let result;
+        if (timeout) {
+            console.log(chalk.blue(`Attempting to connect with a ${timeout} second timeout...`));
+            const timeoutPromise = new Promise<never>((_, reject) => 
+                setTimeout(() => reject(new Error(`Connection timed out after ${timeout} seconds`)), timeout * 1000)
+            );
+            result = await Promise.race([connectPromise, timeoutPromise]);
+        } else {
+            console.log(chalk.blue(`Attempting to connect with no timeout...`));
+            result = await connectPromise;
+        }
+        
+        console.log(`Connected successfully with peer ID ${clientPeerId}`);
+        return result;
+
+    } catch (e) {
+        console.error(chalk.red('Failed to connect to engine(s).'));
+        // The repo might not be created if the lookup fails early, so check for it.
+        // In the future, the repo creation should be inside the promise.
+        if (connectPromise) {
+            const res = await connectPromise;
+            if (res.repo) res.repo.shutdown();
+        }
+        throw e;
+    }
 }
 
 export const getLocalEngine = (store: Store): Engine => {

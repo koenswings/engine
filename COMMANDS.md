@@ -63,3 +63,13 @@ These commands perform actions on the system. Some are restricted to an `engine`
 - **Description:** Stops a running application instance and its associated Docker containers.
 - **Usage:** `stopInstance <instanceName> <diskName>`
 - **Scope:** `engine`
+
+---
+
+## Provisioning Commands
+
+### `buildEngine`
+- **Description:** Executes the `build-engine` script to provision a new Raspberry Pi Engine from the current engine. This command streams the output of the build script to the console.
+- **Usage:** `buildEngine "--machine <hostname> --user <user> ..."`
+- **Scope:** `engine`
+- **Note:** The arguments must be passed as a single, quoted string.

@@ -4,7 +4,7 @@ import { chalk } from 'zx';
 import { Store, getLocalEngine } from '../data/Store.js';
 import { manageDiscoveredPeers } from '../data/Network.js'
 import ciao from '@homebridge/ciao'
-import { Repo } from '@automerge/automerge-repo';
+import { DocumentId, Repo } from '@automerge/automerge-repo';
 import { IPAddress } from '../data/CommonTypes.js';
 
 export const startAdvertising = (store: Store): void => {
@@ -37,12 +37,12 @@ export const startAdvertising = (store: Store): void => {
     })
 }
 
-const discoverEngines = (repo:Repo): void => {
+const discoverEngines = (repo:Repo, storeDocId: DocumentId): void => {
     mDnsSd.discover({
         name: '_engine._tcp.local'
     }).then((deviceList) => {
         const discoveredAddresses = new Set<IPAddress>(deviceList.map(device => device.address as IPAddress));
-        manageDiscoveredPeers(repo, discoveredAddresses);
+        manageDiscoveredPeers(repo, discoveredAddresses, storeDocId);
 
         if (deviceList.length === 0) {
             log(chalk.bgBlackBright(`No remote engines found`))
@@ -55,8 +55,8 @@ const discoverEngines = (repo:Repo): void => {
     });
 }
 
-export const enableMulticastDNSEngineMonitor = (store: Store, repo:Repo): void => {
+export const enableMulticastDNSEngineMonitor = (store: Store, repo:Repo, storeDocId: DocumentId): void => {
     startAdvertising(store)
-    setInterval(() => discoverEngines(repo), 10000)
-    discoverEngines(repo)
+    setInterval(() => discoverEngines(repo, storeDocId), 10000)
+    discoverEngines(repo, storeDocId)
 }

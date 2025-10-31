@@ -2,7 +2,8 @@
 import { $, question, chalk, cd, argv, fs } from 'zx';
 import * as readline from 'readline';
 import { createClientStore, Store } from '../src/data/Store.js';
-import { handleCommand } from '../src/utils/commandHandler.js';
+import { handleCommand } from '../src/utils/commandUtils.js';
+import { commands } from '../src/data/Commands.js';
 
 import pack from '../package.json' with { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
@@ -51,7 +52,7 @@ const storeDocUrlStr = fs.readFileSync(STORE_URL_PATH, 'utf-8');
 const storeDocId = storeDocUrlStr.replace('automerge:', '') as DocumentId;
 console.log(`Using document ID: ${storeDocId}`)
 // const storeUrlPath = "./"+config.settings.storeIdentityFolder+"/store-url.txt"
-const storeHandle = await createClientStore(serverUrl, clientPeerId, storeDocId);
+const { handle: storeHandle } = await createClientStore([serverUrl], clientPeerId, storeDocId);
 
 
 const rl = readline.createInterface({
@@ -78,7 +79,7 @@ rl.on('line', (line) => {
 
     if (trimmedLine) {
         commandHistory.push(trimmedLine); // Save the command to history
-        handleCommand(storeHandle, 'engine', trimmedLine); // Process the command
+        handleCommand(commands, storeHandle, 'engine', trimmedLine); // Process the command
     }
 
     rl.prompt();

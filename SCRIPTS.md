@@ -12,12 +12,12 @@ This document provides a reference for the main provisioning and utility scripts
 
 ---
 
-### `build-image.ts`
+### `build-engine`
 
 -   **Purpose:** The primary, all-in-one script for provisioning a full Engine device. It can run in two modes:
     1.  **Remote Mode:** Configures a fresh Raspberry Pi over the network.
     2.  **Local Mode:** Configures the local machine it is running on (used by `install.sh`).
--   **Usage (Remote):** `./script/build-image --machine <pi-address> [options]`
+-   **Usage (Remote):** `./script/build-engine --machine <pi-address> [options]`
 -   **Details:** This script handles everything from setting the hostname and installing Docker to deploying the Engine software itself.
 
 ---

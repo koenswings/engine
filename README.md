@@ -60,7 +60,7 @@ There are two primary methods for installing the engine software onto a new Rasp
 
 This is the easiest method for setting up a new device. It involves running a single command on the new Pi.
 
-1.  **Flash OS:** Flash a standard **Raspberry Pi OS Lite (64-bit)** image to an SD card.
+1.  **Flash OS:** Flash a standard **Raspberry Pi OS Lite (64-bit)** image to an SD card. It is recommended to use the latest available version.
 2.  **Boot & Connect:** Boot the Pi while connected to your network via Ethernet. Log in via SSH (`ssh pi@raspberrypi.local`).
 3.  **Run Installer:** Execute the following command. It will download and run the installer, which sets up all dependencies and the engine software, and then reboots the device.
 
@@ -77,7 +77,7 @@ This installation method is intended for developers who have set up a developmen
 3.  **Run Provisioner:** From the terminal of your Development System, run the `build-image.ts` script, targeting the new Pi's IP address or `.local` address.
 
     ```sh
-    ./script/build-image --machine raspberrypi.local
+    ./script/build-engine --machine raspberrypi.local
     ```
 
 ## Usage & Management

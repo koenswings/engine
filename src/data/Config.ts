@@ -1,242 +1,189 @@
-import { $, YAML, chalk } from "zx"
-import { log } from "../utils/utils.js"
+import { $, YAML, chalk, fs } from "zx";
+import { log } from "../utils/utils.js";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// const $$ = $({
-//   verbose: false
-// })
-
-$.verbose = false
-
-// Startup configuration
-// Sample:
-// startup:
-//   commands:
-//     - enableAppnetMonitor appnet eth0 
-//     - enableAppnetMonitor appnet wlan0
-// export interface Startup {
-//   commands: string[]
-// }
-
-export interface Config {
-  settings: Settings,
-  defaults: ScriptDefaults,
-  testSetup: TestSetup,
-}
+// ##################################################################################################
+// Type Definitions
+// ##################################################################################################
 
 export interface Settings {
-  mdns?: boolean, // Whether to enable mDNS
-  port?: number, // The port on which the index server is running
-  isDev?: boolean, // Whether this is a development environment
-  storeDataFolder: string, // The path to the store database
-  storeIdentityFolder: string, // The path to the store identity - This should be part of the code repository
+    mdns: boolean;
+    isDev: boolean;
+    port: number;
+    storeDataFolder: string;
+    storeIdentityFolder: string;
 }
 
-// export interface AppnetConfig {
-//   name: AppnetName,
-//   id?: number
-// }
+export interface Defaults {
+    user: string;
+    machine: string;
+    password: string;
+    engine: string;
+    network: string;
+    language: string;
+    keyboard: string;
+    timezone: string;
+    upgrade: boolean;
+    hdmi: boolean;
+    temperature: boolean;
+    argon: boolean;
+    zerotier: boolean;
+    raspap: boolean;
+    gadget: boolean;
+    nodocker: boolean;
+    gitAccount: string;
+}
 
-// export type AppnetSetup = AppnetConfig[]
+export interface InstanceConfig {
+    instanceName: string;
+    appName: string;
+    version: string;
+    title: string;
+}
 
-// export const getAppnetId = (config: Config, appnetName: AppnetName): number | undefined => {
-//   // Find the id of a given appnet
-//   const appnets = config.settings.appnets
-//   if (appnets) {
-//     const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
-//     return appnetConfig ? appnetConfig.id : undefined
-//   } else { return undefined }
-// }
+export interface DiskConfig {
+    diskId: string;
+    type: "AppDisk";
+    instances: InstanceConfig[];
+}
 
-// export const setAppnetId = (config: Config, appnetName: string, id:number):void => {
-//   // Find the id of a given appnet
-//   const appnets = config.settings.appnets
-//   if (appnets) {
-//     const appnetConfig = appnets.find((appnet) => appnet.name === appnetName)
-//     if (appnetConfig) {
-//       appnetConfig.id = id
-//     } 
-//   }
-// }
+export interface EngineConfig {
+    name: string;
+    hostname: string;
+}
+
+export type TestAction = 
+    | { type: "runCommand"; command: string; }
+    | { type: "sendCommand"; targetEngineName: string; command: string; };
+
+export interface TestAssertion {
+    description: string;
+    path: string;
+    should: string;
+}
+
+export interface TestSequenceItem {
+    stage: number;
+    description: string;
+    manualInstruction: string | null;
+    action: TestAction | null;
+    assert: TestAssertion[];
+}
+
+export interface TestSetup {
+    resetBeforeTest: boolean;
+    engines: EngineConfig[];
+    disks: DiskConfig[];
+    interactiveTestSequence: TestSequenceItem[];
+    automatedTestSequence: TestSequenceItem[];
+}
 
 export interface Config {
-  defaults: ScriptDefaults,
-  testSetup: TestSetup,
-  //appnetSetup: AppnetSetup
+    settings: Settings;
+    defaults: Defaults;
+    testSetup: TestSetup;
 }
 
-// ********************************************************************************************************************
-// Read the defaults from the YAML file and override the default configuration using the command line
-// ********************************************************************************************************************
+// ##################################################################################################
+// Validation Logic
+// ##################################################################################################
 
-// This is the list of configuration parameters for this script
-// - the remote host to connect to
-// - the user to use to connect to the remote host
-// - the password to use to connect to the remote host
-// - the hostname to set on the remote host
-// - the language to set on the remote host
-// - the keyboard layout to set on the remote host
-// - the timezone to set on the remote host
-// - wether to upadate the system
-// - wether to upgrade the system 
-// - whether to switch off HDMI power
-// - wether to install temperature measurement
-// - whether to install the Argon fan script
-// - wether to install Zerotier
-// - wether to install RaspAP
-// The parameters must be read from the command line
-// The defaults for these parameters (in case no value is provided on the commandline) must be read from a YAML file
-
-// Please provide a sample YAML file here in comments
-// user: pi
-// machine: raspberrypi.local
-// password: raspberry
-// hostname: raspberrypi
-// language: en_GB.UTF-8
-// keyboard: us
-// timezone: Europe/Brussels
-// update: true
-// upgrade: true
-// hdmi: false
-// temperature: true
-// argon: true
-// zerotier: true
-// raspap: true
-
-// Please define a TypeScript type for the object read from the YAML file
-export interface ScriptDefaults {
-  user: string,
-  machine: string,
-  password: string,
-  engine: string,
-  engineId: string,
-  network: string,
-  language: string,
-  keyboard: string,
-  timezone: string,
-  update: boolean,
-  upgrade: boolean,
-  hdmi: boolean,
-  temperature: boolean,
-  argon: boolean,
-  zerotier: boolean,
-  raspap: boolean,
-  gadget: boolean,
-  nodocker: boolean
-  gitAccount: string
+function validate<T>(obj: any, validator: (obj: any, path: string) => string[]): string[] {
+    return validator(obj, '');
 }
 
-// Test Setup
-// Sample:
-// appnet: appnet
-// interface: eth0
-// testDisk1: 
-//   - name: loving-jennings.local
-//   - apps:
-//     - name: kolibri
-//       version: 1.0-0.15.5-dev
-//       title: Kolibri
-//       description: |
-//         Kolibri is an adaptable set of open solutions specially developed to support learning for the half of the world without Internet access. 
-//         Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-//       url: https://learningequality.org/kolibri/
-//       category: education
-//       icon: icon.png
-//       author: Koen Swings
-// testDisk2: 
-//   - name: bold-banzai.local
-//   - apps:
-//     - name: kolibri
-//       version: 1.0-0.15.5-dev
-//       title: Kolibri
-//       description: |
-//         Kolibri is an adaptable set of open solutions specially developed to support learning for the half of the world without Internet access. 
-//         Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-//       url: https://learningequality.org/kolibri/
-//       category: education
-//       icon: icon.png
-//       author: Koen Swings
-export interface TestSetup {
-  appnet: string,
-  interface: string,
-  testDisk1: TestDisk,
-  testDisk2: TestDisk
+function validateSettings(obj: any, path: string): string[] {
+    const errors: string[] = [];
+    if (typeof obj.mdns !== 'boolean') errors.push(`'${path}mdns' must be a boolean.`);
+    if (typeof obj.isDev !== 'boolean') errors.push(`'${path}isDev' must be a boolean.`);
+    if (typeof obj.port !== 'number') errors.push(`'${path}port' must be a number.`);
+    if (typeof obj.storeDataFolder !== 'string') errors.push(`'${path}storeDataFolder' must be a string.`);
+    if (typeof obj.storeIdentityFolder !== 'string') errors.push(`'${path}storeIdentityFolder' must be a string.`);
+    return errors;
 }
 
-export interface TestDisk {
-  diskId: string,
-  engineId: string,
-  engineName: string,
-  apps: TestApp[],
-  // Optional properties for version, hostOS
-  version?: string,
-  hostOS?: string
+function validateDefaults(obj: any, path: string): string[] {
+    const errors: string[] = [];
+    if (typeof obj.user !== 'string') errors.push(`'${path}user' must be a string.`);
+    // Add other default checks here as needed for completeness
+    return errors;
 }
 
-export interface TestApp {
-  id: string,
-  name: string,
-  version: string,
-  title: string,
-  description: string,
-  url: string,
-  category: string,
-  icon: string
+function validateTestAction(obj: any, path: string): string[] {
+    if (obj === null) return [];
+    const errors: string[] = [];
+    if (typeof obj !== 'object') return [`'${path}' must be an object or null.`];
+    
+    switch (obj.type) {
+        case 'runCommand':
+            if (typeof obj.command !== 'string') errors.push(`'${path}command' must be a string for runCommand.`);
+            break;
+        case 'sendCommand':
+            if (typeof obj.targetEngineName !== 'string') errors.push(`'${path}targetEngineName' must be a string for sendCommand.`);
+            if (typeof obj.command !== 'string') errors.push(`'${path}command' must be a string for sendCommand.`);
+            break;
+        default:
+            errors.push(`'${path}type' has an unknown value: ${obj.type}.`);
+    }
+    return errors;
 }
 
+function validateTestSequenceItem(obj: any, path: string): string[] {
+    const errors: string[] = [];
+    if (typeof obj.stage !== 'number') errors.push(`'${path}stage' must be a number.`);
+    if (typeof obj.description !== 'string') errors.push(`'${path}description' must be a string.`);
+    if (typeof obj.manualInstruction !== 'string' && obj.manualInstruction !== null) errors.push(`'${path}manualInstruction' must be a string or null.`);
+    errors.push(...validateTestAction(obj.action, `${path}action.`));
+    if (!Array.isArray(obj.assert)) errors.push(`'${path}assert' must be an array.`);
+    return errors;
+}
 
+function validateTestSetup(obj: any, path: string): string[] {
+    const errors: string[] = [];
+    if (typeof obj.resetBeforeTest !== 'boolean') errors.push(`'${path}resetBeforeTest' must be a boolean.`);
+    if (!Array.isArray(obj.engines)) errors.push(`'${path}engines' must be an array.`);
+    if (!Array.isArray(obj.disks)) errors.push(`'${path}disks' must be an array.`);
+    if (!Array.isArray(obj.interactiveTestSequence)) errors.push(`'${path}interactiveTestSequence' must be an array.`);
+    else errors.push(...obj.interactiveTestSequence.flatMap((item, i) => validateTestSequenceItem(item, `${path}interactiveTestSequence[${i}].`)));
+    if (!Array.isArray(obj.automatedTestSequence)) errors.push(`'${path}automatedTestSequence' must be an array.`);
+    else errors.push(...obj.automatedTestSequence.flatMap((item, i) => validateTestSequenceItem(item, `${path}automatedTestSequence[${i}].`)));
+    return errors;
+}
 
-const readConfig = async (path: string): Promise<Config> => {
-  // Now read the defaults from the YAML file and verify that it has the correct type using typeof.  
-  let config: Config
+function validateConfig(obj: any): string[] {
+    const errors: string[] = [];
+    if (!obj) return ["Config object is null or undefined."];
+    errors.push(...validateSettings(obj.settings, 'settings.'));
+    errors.push(...validateDefaults(obj.defaults, 'defaults.'));
+    errors.push(...validateTestSetup(obj.testSetup, 'testSetup.'));
+    return errors.filter(e => e); // Filter out empty strings/nulls
+}
+
+// ##################################################################################################
+// Configuration Loading
+// ##################################################################################################
+
+const readConfig = (path: string): Config => {
   try {
-    await $`pwd`
-    const configFile = await $`cat ${path}`
-    config = YAML.parse(configFile.stdout)
-    // log(chalk.green('Config read'));
-    return config
-  } catch (e) {
-    log(chalk.red('Error reading config!!'));
-    console.error(e)
-    console.trace()
-    process.exit(1)
-  }
-}
+    const configFile = fs.readFileSync(path, 'utf8');
+    const parsedConfig = YAML.parse(configFile);
 
-export const writeConfig = async (config: Config, path: string) => {
-  try {
-    await $`echo ${YAML.stringify(config)} > ${path}`
-    // log(chalk.green('Config written'));
+    const validationErrors = validateConfig(parsedConfig);
+    if (validationErrors.length > 0) {
+        console.error(chalk.red('Config file validation failed!'));
+        validationErrors.forEach(error => console.error(chalk.red(`  - ${error}`)));
+        process.exit(1);
+    }
+
+    log(chalk.green('Config file is valid.'));
+    return parsedConfig as Config;
+
   } catch (e) {
-    log(chalk.red('Error writing config'));
+    log(chalk.red('Error reading or parsing config.yaml!'));
     console.error(e);
     process.exit(1);
   }
 }
 
-export const config = await readConfig('config.yaml')
-
-// export const updateConfig = async (newConfig: Config) => {
-//   writeConfig(newConfig, 'config.yaml')
-//   config = newConfig
-// }
-
-// TODO - Implement some type checking on parsed JSON as discussed in https://dev.to/codeprototype/safely-parsing-json-to-a-typescript-interface-3lkj
-// {
-//   "user": "pi",
-//   "machine": "raspberrypi.local",
-//   "password": "raspberry",
-//   "engine": "127.0.0.1",
-//   "network": "appnet",
-//   "language": "en_ZW.UTF-8",
-//   "keyboard": "us",
-//   "timezone": "Europe/Brussels",
-//   "update": false,
-//   "upgrade": false,
-//   "hdmi": false,
-//   "temperature": true,
-//   "argon": true,
-//   "zerotier": false,
-//   "raspap": false,
-//   "gadget": true,
-//   "gitAccount": "koenswings"
-// }
+export const config = readConfig('./config.yaml');

@@ -4,7 +4,6 @@ import { Timestamp } from '../data/CommonTypes.js'
 import { inspectEngine } from '../data/Engine.js'
 import { Store, getLocalEngine } from '../data/Store.js'
 import { log, contains, deepPrint } from '../utils/utils.js'
-import { Array } from 'yjs'
 
 export const enableTimeMonitor = (interval, callback) => {
     setInterval(callback, interval)

@@ -22,7 +22,7 @@ export interface ArgumentDescriptor {
 // Interface for commands
 export interface CommandDefinition {
     name: string;
-    execute: (storeHandle: DocHandle<Store>, ...args: any[]) => void;
+    execute: (storeHandle: DocHandle<Store> | null, ...args: any[]) => void;
     args: ArgumentDescriptor[];
-    scope: 'engine' | 'console' | 'any';  // 'engine' means it can only be run on an engine, 'console' means it can only be run on the console, 'any' means it can be run on either 
+    scope: 'engine' | 'console' | 'any';
 }

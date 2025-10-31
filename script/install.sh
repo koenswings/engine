@@ -29,6 +29,6 @@ pnpm install --no-frozen-lockfile
 # 4. Run the main provisioning script in Local Mode
 echo "--> Executing main build script in Local Mode..."
 # Execute the main build script using its new wrapper
-./script/build-image
+./script/build-engine
 
 echo "--- Bootstrap Installation Complete ---"

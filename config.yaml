@@ -4,13 +4,6 @@ settings:
   port: 4321
   storeDataFolder: store-data
   storeIdentityFolder: store-identity
-  # localEngineName: c3325f72e49c
-  # appnets:
-  #   - name: appnet
-  # interfaces:
-  #   - eth0
-  #   - wlan0
-  #   - lo
 defaults:
   user: pi
   machine: raspberrypi.local
@@ -20,7 +13,6 @@ defaults:
   language: en_ZW.UTF-8
   keyboard: us
   timezone: Europe/Brussels
-  update: false
   upgrade: false
   hdmi: false
   temperature: true
@@ -31,80 +23,133 @@ defaults:
   nodocker: true   # Whether the engine itself will be dockerized
   gitAccount: koenswings
 testSetup:
-  appnet: appnet
-  interface: eth0
-  testDisk1:
-    diskId: loving-jennings-disk
-    engineId: loving-jennings-engine
-    engineName: loving-jennings
-    apps:
-      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0  # the id of the app
-        name: kolibri-ovqmdq6vgkm0c8m7i4                      # the id of the instance
-        version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        title: Kolibri
-        description: >
-          Kolibri is an adaptable set of open solutions specially developed to
-          support learning for the half of the world without Internet access. 
+  resetBeforeTest: true
+  engines:
+    - name: "engine-1"
+      hostname: "engine-1.local"
+    - name: "engine-2"
+      hostname: "engine-2.local"
+  disks:
+    - diskId: "disk-A-kiwix"
+      type: "AppDisk"
+      instances:
+        - instanceName: "kiwix-main"
+          appName: "kiwix"
+          version: "latest"
+          title: "Kiwix"
+    - diskId: "disk-B-kolibri"
+      type: "AppDisk"
+      instances:
+        - instanceName: "kolibri-main"
+          appName: "kolibri"
+          version: "latest"
+          title: "Kolibri"
+    - diskId: "disk-C-nextcloud"
+      type: "AppDisk"
+      instances:
+        - instanceName: "nextcloud-main"
+          appName: "nextcloud"
+          version: "latest"
+          title: "Nextcloud"
 
-          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-        url: https://learningequality.org/kolibri/
-        category: education
-        icon: icon.png
-        author: Koen Swings
-      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        name: kolibri-6y0v6kfygybm0c8m7i5
-        version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        title: Kolibri
-        description: >
-          Kolibri is an adaptable set of open solutions specially developed to
-          support learning for the half of the world without Internet access. 
+  interactiveTestSequence:
+    - stage: 1
+      description: "Provision engine-1."
+      manualInstruction: "Flash a new SD card with Raspberry Pi OS Lite (64-bit) and power it on as the ONLY new device on the network at raspberrypi.local. Press Enter to begin provisioning."
+      action:
+        type: "runCommand"
+        command: "buildEngine \"--machine raspberrypi.local --hostname engine-1\""
+      assert: []
 
-          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-        url: https://learningequality.org/kolibri/
-        category: education
-        icon: icon.png
-        author: Koen Swings
-      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        name: kolibri-n2h0r6haftmm0c8m7i5
-        version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        title: Kolibri
-        description: >
-          Kolibri is an adaptable set of open solutions specially developed to
-          support learning for the half of the world without Internet access. 
+    - stage: 2
+      description: "Boot engine-1 and connect to it."
+      manualInstruction: "The provisioning of engine-1 is complete and it has rebooted. Wait for it to come online at engine-1.local, then press Enter."
+      action:
+        type: "runCommand"
+        command: "connect engine-1"
+      assert:
+        - { description: "One engine should be online.", path: "engineDB", should: "have.lengthOf(1)" }
 
-          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-        url: https://learningequality.org/kolibri/
-        category: education
-        icon: icon.png
-        author: Koen Swings
-      - id: kolibri-49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        name: kolibri-y3oyzhdf378m0c98chi
-        version: 49b56c7cd6a6b7983e7dc3c4bab2852d48fd9fa0
-        title: Kolibri
-        description: >
-          Kolibri is an adaptable set of open solutions specially developed to
-          support learning for the half of the world without Internet access. 
+    - stage: 3
+      description: "Prepare Kiwix App Disk on engine-1."
+      manualInstruction: "Attach a blank, ext4-formatted USB drive to engine-1. Wait for it to be detected (you can use 'ls disks' in a separate client to find its generated ID, e.g., 'disk-xxxxxxxx'), then press Enter."
+      action: null
+      assert:
+        - { description: "A new disk should be detected on the network.", path: "diskDB", should: "have.lengthOf(1)" }
 
-          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-        url: https://learningequality.org/kolibri/
-        category: education
-        icon: icon.png
-        author: Koen Swings
-  testDisk2:
-    diskId: eager-wu-disk
-    engineId: eager-wu-engine
-    engineName: eager-wu
-    apps:
-      - name: kolibri
-        version: 1.0-0.15.5-dev
-        title: Kolibri
-        description: >
-          Kolibri is an adaptable set of open solutions specially developed to
-          support learning for the half of the world without Internet access. 
+    - stage: 4
+      description: "Create the Kiwix instance on the new disk."
+      manualInstruction: null
+      action:
+        type: "sendCommand"
+        targetEngineName: "engine-1"
+        command: "createInstance kiwix-main kiwix koenswings latest disk-A-kiwix"
+      assert:
+        - { description: "The Kiwix instance should be created.", path: "find(instanceDB, { name: 'kiwix-main' })", should: "not.equal(undefined)" }
 
-          Centered around an offline-first learning platform that runs on a variety of low-cost and legacy devices, the Kolibri Product Ecosystem includes a curricular tool, a library of open educational resources, and a toolkit of resources to support training and implementation in formal, informal, and non-formal learning environments.
-        url: https://learningequality.org/kolibri/
-        category: education
-        icon: icon.png
-        author: Koen Swings
+    - stage: 5
+      description: "Disconnect from all engines to prepare for engine-2."
+      manualInstruction: "Press Enter to disconnect the test client."
+      action:
+        type: "runCommand"
+        command: "disconnect"
+      assert:
+        - { description: "Test client should be disconnected.", path: "system.isConnected", should: "equal(false)" }
 
+    - stage: 6
+      description: "Provision engine-2."
+      manualInstruction: "Take engine-1 OFFLINE. Flash a new SD card for engine-2 and power it ON at raspberrypi.local. Press Enter to begin provisioning."
+      action:
+        type: "runCommand"
+        command: "buildEngine \"--machine raspberrypi.local --hostname engine-2\""
+      assert: []
+
+    - stage: 7
+      description: "Boot both engines and connect."
+      manualInstruction: "Provisioning of engine-2 is complete. Insert the SD cards into their respective Pis and power ON both engine-1 and engine-2. Wait for them to boot, then press Enter."
+      action:
+        type: "runCommand"
+        command: "connect engine-1 engine-2"
+      assert:
+        - { description: "Two engines should be online.", path: "engineDB", should: "have.lengthOf(2)" }
+
+  automatedTestSequence:
+    - stage: 1
+      description: "Connect to the predefined testbed of two engines."
+      manualInstruction: "ASSUMPTION: Both engine-1 and engine-2 are running with their respective disks attached."
+      action:
+        type: "runCommand"
+        command: "connect engine-1 engine-2"
+      assert:
+        - { description: "Two engines should be present.", path: "engineDB", should: "have.lengthOf(2)" }
+        - { description: "Three instances should be present.", path: "instanceDB", should: "have.lengthOf(3)" }
+
+    - stage: 2
+      description: "Stop the Nextcloud instance via command."
+      manualInstruction: null
+      action:
+        type: "sendCommand"
+        targetEngineName: "engine-2"
+        command: "stopInstance nextcloud-main disk-C-nextcloud"
+      assert:
+        - { description: "The Nextcloud instance should now be 'Stopped'.", path: "find(instanceDB, { name: 'nextcloud-main' }).status", should: "equal('Stopped')" }
+
+    - stage: 3
+      description: "Send reboot command to engine-2."
+      manualInstruction: null
+      action:
+        type: "sendCommand"
+        targetEngineName: "engine-2"
+        command: "reboot"
+      assert: [] # No assertions, the engine will be rebooting
+
+    - stage: 4
+      description: "Verify engine-2 has rebooted successfully."
+      manualInstruction: "Wait for engine-2 to fully reboot (approx. 1 minute). Press Enter to continue."
+      action:
+        type: "runCommand"
+        command: "connect engine-1 engine-2"
+      assert:
+        - description: "Engine-2's lastBooted property should have been updated."
+          path: "system.checkReboot"
+          should: "equal(true)"

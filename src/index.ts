@@ -1,35 +1,21 @@
-import { log } from './utils/utils.js'
-import { firstBoot } from './y-websocket/yjsUtils.js'
+import { log } from './utils/utils.js';
+import { startEngine } from "./start.js";
+import { chalk } from "zx";
 
-import { startEngine } from "./start.js"
-import { chalk } from "zx"
-
-startEngine().then(() => {
-    if (firstBoot) {
-        log('+++++++++++++++++++++++++++++++++++++', 1)
-        log('+ Engine started for the first time +', 1)
-        log('+++++++++++++++++++++++++++++++++++++', 1)
-    } else {
-        log('++++++++++++++++++++++++++++++++++', 1)
-        log('+++++++++ Engine started +++++++++', 1)
-        log('++++++++++++++++++++++++++++++++++', 1)        
+const main = async () => {
+    try {
+        await startEngine();
+        log('++++++++++++++++++++++++++++++++++', 1);
+        log('+++++++++ Engine started +++++++++', 1);
+        log('++++++++++++++++++++++++++++++++++', 1);        
+    } catch (error) {
+        log(chalk.red('Error starting engine'));
+        console.error(error);
+        process.exit(1); // Exit with an error code if startup fails
     }
 
-}).catch((error) => {
-    log(chalk.red('Error starting engine'))
-    console.error(error)
-})
+    // Keep the process alive indefinitely so background services can run
+    await new Promise(() => {});
+};
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+main();

@@ -1,2 +1,0 @@
-#!/bin/sh
-./node_modules/.bin/tsx  script/build-image.ts $@
