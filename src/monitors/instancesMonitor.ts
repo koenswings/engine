@@ -3,8 +3,7 @@ import http from 'http'
 
 import { log, deepPrint, getKeys, findIp } from '../utils/utils.js'
 import { Store, getInstance } from '../data/Store.js'
-import { getIp } from '../data/Network.js'
-import { InstanceID, InterfaceName, PortNumber } from '../data/CommonTypes.js'
+import { InstanceID, InterfaceName, IPAddress, PortNumber } from '../data/CommonTypes.js'
 import { getEngineOfInstance } from '../data/Store.js'
 import { DocHandle } from '@automerge/automerge-repo'
 
@@ -99,7 +98,7 @@ export const generateHTML = async (storeHandle:DocHandle<Store>):Promise<void> =
                     const port = instance.port
                     // const ip = await findIp(`${hostname}.local` as IPAddress)
                     // HACK - Assuming engines are only used over eth0 - We should restrict the interaces and then enumerate the addresses on all restricted interfaces
-                    const ip = await getIp(engine, 'eth0' as InterfaceName)
+                    const ip = await findIp(hostname+'.local' as IPAddress)
                     if (ip) {
                         return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId} (${instance.status})</a> or use <a href="http://${ip}:${port}">this</a></li>`
                     } else {

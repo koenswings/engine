@@ -68,14 +68,15 @@ testSetup:
         type: "runCommand"
         command: "connect engine-1"
       assert:
-        - { description: "One engine should be online.", path: "engineDB", should: "have.lengthOf(1)" }
+        - { description: "Engine-1 should be online.", path: "system.isEngineOnline('engine-1.local')", should: "equal(true)" }
+        - { description: "Client should be connected.", path: "system.isConnected", should: "equal(true)" }
 
     - stage: 3
       description: "Prepare Kiwix App Disk on engine-1."
-      manualInstruction: "Attach a blank, ext4-formatted USB drive to engine-1. Wait for it to be detected (you can use 'ls disks' in a separate client to find its generated ID, e.g., 'disk-xxxxxxxx'), then press Enter."
+      manualInstruction: "Attach a blank, ext4-formatted USB drive to engine-1, and label it 'disk-A-kiwix'. Wait for it to be detected (you can use 'ls disks' in a separate client to find its generated ID, e.g., 'disk-xxxxxxxx'), then press Enter."
       action: null
       assert:
-        - { description: "A new disk should be detected on the network.", path: "diskDB", should: "have.lengthOf(1)" }
+        - { description: "Disk 'disk-A-kiwix' should be detected.", path: "find(diskDB, { name: 'disk-A-kiwix' })", should: "not.equal(undefined)" }
 
     - stage: 4
       description: "Create the Kiwix instance on the new disk."
@@ -111,7 +112,9 @@ testSetup:
         type: "runCommand"
         command: "connect engine-1 engine-2"
       assert:
-        - { description: "Two engines should be online.", path: "engineDB", should: "have.lengthOf(2)" }
+        - { description: "Engine-1 should be online.", path: "system.isEngineOnline('engine-1.local')", should: "equal(true)" }
+        - { description: "Engine-2 should be online.", path: "system.isEngineOnline('engine-2.local')", should: "equal(true)" }
+        - { description: "Client should be connected.", path: "system.isConnected", should: "equal(true)" }
 
   automatedTestSequence:
     - stage: 1

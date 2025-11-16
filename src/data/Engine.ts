@@ -22,36 +22,39 @@ export interface Engine {
 import { config } from './Config.js';
 
 const getLocalEngineId = async (): Promise<EngineID> => {
-    log(`Getting local engine id`)
-    const meta: DiskMeta | undefined = await readMetaUpdateId()
-    if (!meta) {
-        console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
-        process.exit(1)
-    }
+  log(`Getting local engine id`)
+  try {
+    const meta: DiskMeta = await readMetaUpdateId()
     return createEngineIdFromDiskId(meta.diskId)
+  } catch (error) {
+    console.error(`Error getting local engine id: ${error}`)
+    process.exit(1)
+  }
 }
+
 export const createEngineIdFromDiskId = (diskId: DiskID): EngineID => {
   return "ENGINE_" + diskId as EngineID
 }
 
 export const initialiseLocalEngine = async (): Promise<Engine> => {
-  const meta: DiskMeta | undefined = await readMetaUpdateId()
-  if (!meta) {
-    console.error(`No meta file found on root disk. Cannot create local engine. Exiting.`)
+  try {
+    const meta: DiskMeta = await readMetaUpdateId()
+    const localEngine: Engine = {
+      id: createEngineIdFromDiskId(meta.diskId),
+      hostname: os.hostname() as Hostname,
+      version: meta.version ? meta.version : "0.0.1" as Version,
+      hostOS: os.type(),
+      created: meta.created,
+      lastBooted: (new Date()).getTime() as Timestamp,
+      lastRun: (new Date()).getTime() as Timestamp,
+      lastHalted: null,
+      commands: []
+    }
+    return localEngine
+  } catch (e) {
+    console.error(`Error initializing local engine: ${e}`)
     process.exit(1)
   }
-  const localEngine: Engine = {
-    id: createEngineIdFromDiskId(meta.diskId),
-    hostname: os.hostname() as Hostname,
-    version: meta.version ? meta.version : "0.0.1" as Version,
-    hostOS: os.type(),
-    created: meta.created,
-    lastBooted: (new Date()).getTime() as Timestamp,
-    lastRun: (new Date()).getTime() as Timestamp,
-    lastHalted: null,
-    commands: []
-  }
-  return localEngine
 }
 
 export const createOrUpdateEngine = async (storeHandle: DocHandle<Store>, engineId: EngineID): Promise<Engine | undefined> => {
@@ -88,19 +91,20 @@ export const createOrUpdateEngine = async (storeHandle: DocHandle<Store>, engine
 export const localEngineId = await getLocalEngineId()
 
 export const rebootEngine = async (storeHandle: DocHandle<Store>, engine: Engine) => {
-    log(`Gracefully rebooting engine ${engine.hostname}`);
-    storeHandle.change(doc => {
-        const eng = doc.engineDB[engine.id];
-        if (eng) {
-            eng.lastRun = new Date().getTime() as Timestamp;
-        }
-    });
+  log(`Gracefully rebooting engine ${engine.hostname}`);
+  storeHandle.change(doc => {
+    const eng = doc.engineDB[engine.id];
+    if (eng) {
+      eng.lastRun = new Date().getTime() as Timestamp;
+      eng.lastHalted = new Date().getTime() as Timestamp;
+    }
+  });
 
-    log('Waiting 5 seconds for state to sync before rebooting...');
-    await sleep(5000);
+  log('Waiting 5 seconds for state to sync before rebooting...');
+  await sleep(5000);
 
-    log(`Executing reboot command for ${engine.hostname}`);
-    $`sudo reboot now`;
+  log(`Executing reboot command for ${engine.hostname}`);
+  $`sudo reboot now`;
 }
 export const inspectEngine = (store: Store, engine: Engine) => {
   log(chalk.bgGray(`Engine: ${deepPrint(engine)}`))
@@ -732,17 +736,17 @@ const buildDockerInfrastructure = async (exec: any) => {
   console.log(chalk.green('Frontend and backend networks created'));
 }
 
-const startDockerEngine = async (exec: any, enginePath: string, productionMode:boolean) => {
+const startDockerEngine = async (exec: any, enginePath: string, productionMode: boolean) => {
   // Build the engine image
   console.log(chalk.blue(`Building a ${productionMode ? "production" : "dev"} mode engine image...`))
   try {
-      // Compose build
-      // (use sudo because the docker group has not been added yet - requires a reboot)
-      if (productionMode) {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
-      } else {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
-      }
+    // Compose build
+    // (use sudo because the docker group has not been added yet - requires a reboot)
+    if (productionMode) {
+      await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml build`;
+    } else {
+      await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml build`;
+    }
   } catch (e) {
     console.log(chalk.red('Error building the engine image'));
     console.error(e);
@@ -753,13 +757,13 @@ const startDockerEngine = async (exec: any, enginePath: string, productionMode:b
   // Start the engine
   console.log(chalk.blue('Composing up the engine...'));
   try {
-      // Compose up 
-      // (use sudo because the docker group has not been added yet - requires a reboot)
-      if (productionMode) {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
-      } else {
-        await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
-      }
+    // Compose up 
+    // (use sudo because the docker group has not been added yet - requires a reboot)
+    if (productionMode) {
+      await exec`cd ${enginePath} && sudo docker compose -f compose-engine-prod.yaml up -d`;
+    } else {
+      await exec`cd ${enginePath} && sudo docker compose -f compose-engine-dev.yaml up -d`;
+    }
   } catch (e) {
     console.log(chalk.red('Error composing up the engine'));
     console.error(e);

@@ -1,6 +1,7 @@
 import util from 'util';
 import { $, chalk, fs, question } from 'zx';
 import { IPAddress, PortNumber } from '../data/CommonTypes.js';
+import net from 'net';
 
 
 // Dummy key
@@ -78,6 +79,31 @@ export const log = (msg:string, level?:number):void => {
 export const setVerbosity = (level:number):void => {
   verbosityLevel = level
 }
+
+export const isEngineOnline = (hostname: string, port: number): Promise<boolean> => {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const timeout = 2000; // 2 seconds
+    socket.setTimeout(timeout);
+
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve(false);
+    });
+
+    socket.on('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+
+    socket.connect(port, hostname);
+  });
+};
 
 // // Execute promises sequentially
 // export const sequential = (promises) => {

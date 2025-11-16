@@ -48,7 +48,7 @@ const devMeta: DiskMeta = {
 // created:    1731446400000 
 // lastDocked: 1733673600000 
 
-export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMeta | undefined> => {
+export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMeta> => {
   let path
   let device: DeviceName
   // If the config file has the isDev option set to true, we return the devMeta
@@ -127,11 +127,11 @@ export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMet
       return meta
     } else {
       log(`No META file found at path ${path}. This disk has not yet been touched by the system.`)
-      return undefined
+      throw new Error(`No META file found at path ${path}`)
     }
   } catch (e) {
     log(`Error reading metadata: ${e}`)
-    return undefined
+    throw e
   }
 }
 

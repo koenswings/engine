@@ -4,7 +4,7 @@ import { $, YAML, fs, question, os, path, chalk } from 'zx';
 
 $.verbose = false;
 import { DocHandle, Repo } from '@automerge/automerge-repo';
-import { Store, getInstances, getEngines } from '../src/data/Store.js';
+import { Store, getInstances, getRunningEngines } from '../src/data/Store.js';
 import { Command, EngineID } from '../src/data/CommonTypes.js';
 import { commands } from '../src/data/Commands.js';
 import { Config, TestAction, TestSequenceItem } from '../src/data/Config.js';
@@ -12,6 +12,7 @@ import { pEvent } from 'p-event';
 import _ from 'lodash';
 import { testContext } from './testContext.js';
 import { handleCommand } from '../src/utils/commandUtils.js';
+import { isEngineOnline } from '../src/utils/utils.js';
 
 const CONFIG_PATH = 'config.yaml';
 
@@ -35,18 +36,24 @@ if (testMode === 'automated') {
 describe('E2E Test Runner', () => {
 
     // Helper to get a value from the store or test runner state
-    const getValueFromPath = (path: string) => {
+    const getValueFromPath = async (path: string) => {
         if (path.startsWith('system.')) {
             const systemProperty = path.split('.')[1];
             if (systemProperty === 'isConnected') {
                 return testContext.repo && testContext.repo.peers.length > 0;
+            }
+            if (path.startsWith('system.isEngineOnline')) {
+                const match = path.match(/system.isEngineOnline\('([\w.-]+)'\)/);
+                if (!match) throw new Error(`Invalid isEngineOnline path: ${path}`);
+                const hostname = match[1];
+                return await isEngineOnline(hostname, config.settings.port);
             }
             if (path.startsWith('system.checkReboot')) {
                 const store = testContext.storeHandle?.doc();
                 if (!store) return false;
                 const engineName = Object.keys(preRebootState).pop();
                 if (!engineName) return false;
-                const engine = getEngines(store).find(e => e.hostname === engineName);
+                const engine = getRunningEngines(store).find(e => e.hostname === engineName);
                 const oldState = preRebootState[engineName];
                 if (engine && engine.lastBooted > oldState.lastBooted && engine.lastRun > oldState.lastRun) {
                     const duration = (Date.now() - rebootTimers[engineName]) / 1000;
@@ -206,7 +213,7 @@ describe('E2E Test Runner', () => {
                     if (action.type === 'sendCommand' && action.command === 'reboot') {
                         const store = testContext.storeHandle?.doc();
                         if (store) {
-                            const targetEngine = getEngines(store).find(e => e.hostname === action.targetEngineName);
+                            const targetEngine = getRunningEngines(store).find(e => e.hostname === action.targetEngineName);
                             if (targetEngine) {
                                 console.log(chalk.yellow(`  - Storing pre-reboot state for ${action.targetEngineName}`));
                                 preRebootState[action.targetEngineName] = {
@@ -224,7 +231,7 @@ describe('E2E Test Runner', () => {
                 for (let i = 0; i < 15; i++) { // Poll for up to 15 seconds
                     try {
                         for (const assertion of testStep.assert) {
-                            const actualValue = getValueFromPath(assertion.path);
+                            const actualValue = await getValueFromPath(assertion.path);
                             executeAssertion(actualValue, assertion.should);
                         }
                         lastError = undefined;

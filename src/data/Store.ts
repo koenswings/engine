@@ -210,13 +210,12 @@ export const getEngine = (store: Store, engineId: EngineID): Engine | undefined 
     }
 }
 
-export const getEngines = (store: Store): Engine[] => {
+export const getRunningEngines = (store: Store): Engine[] => {
     const engineIds = Object.keys(store.engineDB) as EngineID[]
     return engineIds.flatMap(engineId => {
         const engine = getEngine(store, engineId)
         if (engine) {
-            const isRunning = (engine.lastBooted && engine.lastHalted && (engine.lastBooted > engine.lastHalted))
-                || (!engine.lastHalted && engine.lastBooted)
+            const isRunning = !engine.lastHalted || (engine.lastBooted > engine.lastHalted)
             if (isRunning) {
                 return [engine]
             }
@@ -237,8 +236,8 @@ export const getAppsOfEngine = (store: Store, engine: Engine): App[] => {
     })
 }
 
-export const findEngineByHostname = (store: Store, engineName: Hostname): Engine | undefined => {
-    return getEngines(store).find(engine => engine.hostname === engineName)
+export const findRunningEngineByHostname = (store: Store, engineName: Hostname): Engine | undefined => {
+    return getRunningEngines(store).find(engine => engine.hostname === engineName)
 }
 
 export const getApps = (store: Store): App[] => {

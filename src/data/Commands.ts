@@ -1,5 +1,5 @@
 import { CommandDefinition } from "./CommandDefinition.js";
-import { Store, getApps, getDisks, getEngines, getInstances, getEngine, findDiskByName, findInstanceByName, getLocalEngine, createClientStore } from "./Store.js";
+import { Store, getApps, getDisks, getRunningEngines, getInstances, getEngine, findDiskByName, findInstanceByName, getLocalEngine, createClientStore } from "./Store.js";
 import { deepPrint } from "../utils/utils.js";
 import { buildInstance, startInstance, runInstance, stopInstance } from "./Instance.js";
 import { buildEngine, syncEngine, clearKnownHost, rebootEngine } from "./Engine.js";
@@ -129,7 +129,7 @@ const ls = (storeHandle: DocHandle<Store> | null): void => {
 const lsEngines = (storeHandle: DocHandle<Store> | null): void => {
     if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Engines:');
-    const engines = getEngines(storeHandle.doc());
+    const engines = getRunningEngines(storeHandle.doc());
     console.log(`Total engines: ${engines.length}`);
     console.log(deepPrint(engines, 2));
 }

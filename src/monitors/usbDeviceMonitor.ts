@@ -1,12 +1,12 @@
 import chokidar from 'chokidar'
-import { getKeys, log } from '../utils/utils.js'
-import { DiskMeta, readMetaUpdateId } from '../data/Meta.js';
+import { getKeys, log, uuid } from '../utils/utils.js'
+import { DiskMeta, readHardwareId, readMetaUpdateId } from '../data/Meta.js';
 import { $, fs, YAML, chalk } from 'zx'
 
 $.verbose = false;
 import { Disk, createOrUpdateDisk, processDisk } from '../data/Disk.js'
 import { findDiskByDevice, Store, getDisksOfEngine, getLocalEngine } from '../data/Store.js'
-import { DeviceName, DiskID, InstanceID } from '../data/CommonTypes.js'
+import { DeviceName, DiskID, DiskName, InstanceID, Timestamp } from '../data/CommonTypes.js'
 import { Instance, Status, stopInstance } from '../data/Instance.js';
 import { config } from '../data/Config.js'
 import { DocHandle } from '@automerge/automerge-repo';
@@ -17,7 +17,7 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
     // 1. Monitor /dev iso /dev/engine
     // 2. Monitor /dev/disk/by-label
     // 3. Monitor dmesg output
-    
+
     const store: Store = storeHandle.doc()
     const localEngine = getLocalEngine(store)
 
@@ -35,7 +35,7 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
     const addDevice = async function (path: string) {
         log(`A disk on device ${path} has been added`)
         const device = path.split('/').pop() as DeviceName
-    
+
         if (validDevice(device)) {
             log(`The disk on device ${device} has a valid device name`)
             log(`Processing the disk on device ${device}`)
@@ -50,17 +50,42 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
                     log(`Device ${device} has been successfully mounted`)
                 }
 
+                let meta: DiskMeta
                 if (fs.existsSync(`/disks/${device}/META.yaml`)) {
                     log(`Found a META file on device ${device}. This disk has been processed by the system before.`)
-                    const meta: DiskMeta | undefined = await readMetaUpdateId(device)
-                    if (meta) {
+                    try {
+                        meta = await readMetaUpdateId(device)
                         const disk: Disk = createOrUpdateDisk(storeHandle, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
                         await processDisk(storeHandle, disk)
-                    } else {
-                        log('Error processing the META file.')
+                    } catch (error) {
+                        log('Error processing the META file on the disk: ' + error)
                     }
                 } else {
-                    log('Could not find a META file. This disk has not yet been processed by the system.')
+                    log('Could not find a META file. Creating one now.')
+                    const diskId = await readHardwareId(device) as DiskID
+                    // The disk name should be the name of the volume if available, otherwise 'Unnamed Disk'
+                    let diskName: DiskName
+                    try {
+                        const volumeNameOutput = await $`lsblk -no LABEL /dev/${device}`
+                        const volumeName = volumeNameOutput.stdout.trim()
+                        // Check if it is a valid volume name (not empty) - it should also not have any newlines
+                        if (volumeName && volumeName.length > 0 && !volumeName.includes('\n')) {
+                            diskName = volumeName as DiskName
+                        } else {
+                            throw new Error(`Invalid volume name`)
+                        }
+                        meta = {
+                            diskId: diskId ? diskId : uuid() as DiskID,
+                            isHardwareId: false,
+                            diskName: diskName,
+                            created: Date.now() as Timestamp,
+                            lastDocked: Date.now() as Timestamp
+                        }
+                        const disk: Disk = createOrUpdateDisk(storeHandle, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
+                        await processDisk(storeHandle, disk)
+                    } catch (e) {
+                        log(`Error reading volume name for device ${device}: ${e}`)
+                    }
                 }
             } catch (e) {
                 log(`Error processing device ${device}`)
@@ -141,7 +166,7 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
                     log(e)
                 }
             }
-            log(`Device ${device} has been successfully cleaned up`)    
+            log(`Device ${device} has been successfully cleaned up`)
         }
     }
 
@@ -183,7 +208,7 @@ const undockDisk = async (storeHandle: DocHandle<Store>, disk: Disk) => {
                 // Set the disk's device to null    
                 dsk.device = null
             }
-        })  
+        })
         // Stop all instances of the disk and move them to the 'Undocked' state
         const instancesOnDisk = Object.values(store.instanceDB).filter(instance => instance.storedOn === disk.id);
         for (const instance of instancesOnDisk) {
@@ -195,7 +220,7 @@ const undockDisk = async (storeHandle: DocHandle<Store>, disk: Disk) => {
                 if (inst) inst.status = 'Undocked' as Status
             })
             log(`Instance ${instance.id} has been moved to the 'Undocked' state`)
-        }                    
+        }
     } catch (e) {
         log(`Error unmounting device ${device}`)
         log(e)

@@ -125,7 +125,7 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     if (!disableMDNS && configMDNS) {
         await sleep(1000)
         log(chalk.bgMagenta('STARTING MULTICAST DNS MONITOR'))
-        enableMulticastDNSEngineMonitor(store, repo, storeDocId)
+        enableMulticastDNSEngineMonitor(storeHandle, repo)
     }
 
 
