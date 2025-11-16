@@ -47,7 +47,7 @@ const engineAddress = argv.e || argv.engine || "127.0.0.1:1234"
 
 const serverUrl = `ws://${engineAddress}`
 const clientPeerId = `client-on-${localEngineId}` as PeerId // Unique identifier for the client
-const STORE_URL_PATH = "./store/store-url.txt"
+const STORE_URL_PATH = "./store-identity/store-url.txt"
 const storeDocUrlStr = fs.readFileSync(STORE_URL_PATH, 'utf-8');
 const storeDocId = storeDocUrlStr.replace('automerge:', '') as DocumentId;
 console.log(`Using document ID: ${storeDocId}`)
