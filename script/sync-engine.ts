@@ -53,7 +53,12 @@ const syncEngine = async () => {
     console.log(chalk.green(`\n--- Stopping engine on ${machine} ---`));
     const user = config.defaults.user;
     const $$ = ssh(`${user}@${machine}`);
-    await $$`sudo pm2 stop engine` || true;
+    try {
+      await $$`command -v pm2`;
+      await $$`sudo pm2 stop engine` || true;
+    } catch (e) {
+      console.log(chalk.yellow(`pm2 not found on ${machine}, skipping stop. This is expected on a fresh install.`));
+    }
   }
   // Now sync all engines
   for (const targetName of targets) {
@@ -97,7 +102,12 @@ const syncEngine = async () => {
       }
       // Flush the logs
       console.log(chalk.blue(`Flushing the engine logs on machine ${machine}`));
-      await $$`sudo pm2 flush engine`;
+      try {
+        await $$`command -v pm2`;
+        await $$`sudo pm2 flush engine`;
+      } catch (e) {
+        console.log(chalk.yellow(`pm2 not found on ${machine}, skipping log flush.`));
+      }
 
       console.log(chalk.green(`--- Successfully synced ${machine} ---`));
 
@@ -113,9 +123,15 @@ const syncEngine = async () => {
     console.log(chalk.green(`\n--- Starting engine on ${machine} ---`));
     const user = config.defaults.user;
     const $$ = ssh(`${user}@${machine}`);
-    await $$`sudo pm2 start engine`;
+    try {
+      await $$`command -v pm2`;
+      await $$`sudo pm2 start engine`;
+    } catch (e) {
+      console.log(chalk.yellow(`pm2 not found on ${machine}, skipping start. The build script will handle this.`));
+    }
   }
 }
+
 
 
 await syncEngine()

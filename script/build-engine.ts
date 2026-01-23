@@ -27,8 +27,25 @@ const main = async () => {
     }
     if (argv.h || argv.help) {
         console.log(`Builds and provisions a new Raspberry Pi Engine.`)
-        console.log(`Usage: ./script/build-engine [options]`)
-        // You can add more detailed help text here if needed
+        console.log(`Usage: ./build-engine [options]`)
+        console.log(`Options:`)
+        console.log(`  -h, --help              display help for command`)
+        console.log(`  -v, --version           output the version number`)
+        console.log(`  -u, --user <string>     the SSH user to connect as (default: ${defaults.user})`)
+        console.log(`  -m, --machine <string>  the machine hostname or IP address (default: local bootstrap mode)`) // Corrected to reference the local bootstrap mode as default
+        console.log(`  --hostname <string>     the hostname to set for the new engine (default: randomly generated)`)
+        console.log(`  -l, --language <string> the locale language to set (default: ${defaults.language})`)
+        console.log(`  -k, --keyboard <string> the keyboard layout to set (default: ${defaults.keyboard})`)
+        console.log(`  -t, --timezone <string> the timezone to set (default: ${defaults.timezone})`)
+        console.log(`  --upgrade               whether to perform a system upgrade (default: ${defaults.upgrade})`)
+        console.log(`  --argon                 whether to install Argon One support (default: ${defaults.argon})`)
+        console.log(`  --zerotier              whether to install ZeroTier (default: ${defaults.zerotier})`)
+        console.log(`  --raspap                whether to install RaspAP (default: ${defaults.raspap})`)
+        console.log(`  --gadget                whether to enable USB gadget mode (default: ${defaults.gadget})`)
+        console.log(`  --temperature           whether to enable temperature monitoring (default: ${defaults.temperature})`)
+        console.log(`  --prod                  whether to build in production mode (default: false)`)
+        console.log(`  --personalize           only set the hostname and add meta information without building the engine`)
+        console.log(``)
         process.exit(0);
     }
 

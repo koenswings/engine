@@ -40,4 +40,8 @@ echo "******************************" >> /home/pi/boot.out
 sudo growpart /dev/sda 2 >> /home/pi/boot.out 2>&1 || true
 sudo resize2fs /dev/sda2 >> /home/pi/boot.out 2>&1 || true
 
+# Restart Avahi to pick up any hostname changes
+echo "Restarting Avahi daemon" >> /home/pi/boot.out
+sudo systemctl restart avahi-daemon >> /home/pi/boot.out 2>&1
+
 echo "DONE" >> /home/pi/boot.out

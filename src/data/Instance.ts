@@ -3,7 +3,7 @@ import { $, YAML, chalk, fs, os, sleep } from "zx";
 $.verbose = false;
 import { addOrUpdateEnvVariable, deepPrint, log, randomPort, readEnvVariable, uuid } from "../utils/utils.js";
 import { DockerEvents, DockerMetrics, DockerLogs, InstanceID, AppID, PortNumber, ServiceImage, Timestamp, Version, DeviceName, InstanceName, AppName, Hostname, DiskID } from "./CommonTypes.js";
-import { Store, getDisk, getEngine, getLocalEngine, getInstancesOfEngine,  } from "./Store.js";
+import { Store, getDisk, getEngine, getLocalEngine, getInstancesOfEngine, } from "./Store.js";
 import { Disk } from "./Disk.js";
 import { localEngineId } from "./Engine.js";
 import { network } from "./Network.js";
@@ -227,8 +227,7 @@ export const extractAppName = (instanceId: InstanceID): InstanceName => {
 }
 
 export const createOrUpdateInstance = async (storeHandle: DocHandle<Store>, instanceId: InstanceID, disk: Disk): Promise<Instance | undefined> => {
-  const store: Store = storeHandle.doc()
-  const storedInstance: Instance | undefined = store.instanceDB[instanceId]
+  let instance: Instance
   try {
     const composeFile = await $`cat /disks/${disk.device}/instances/${instanceId}/compose.yaml`
     const compose = YAML.parse(composeFile.stdout)
@@ -236,38 +235,37 @@ export const createOrUpdateInstance = async (storeHandle: DocHandle<Store>, inst
     const servicesImages = services.map(service => compose.services[service].image)
     // const instanceId = createInstanceId(instanceName, disk.id)  
     const instanceName = compose['x-app'].instanceName as InstanceName
-    if (!storedInstance) {
-      // Create a new instance object
-      log(`Creating new instance object ${instanceId} on disk ${disk.id}`)
-      const instance:Instance = {
-        id: instanceId,
-        instanceOf: createAppId(compose['x-app'].name, compose['x-app'].version) as AppID,
-        name: instanceName as InstanceName,
-        storedOn: disk.id,
-        status: 'Docked' as Status, 
-        port: 0 as PortNumber, // Will be set later
-        serviceImages: servicesImages as ServiceImage[],
-        created: new Date().getTime() as Timestamp,
-        lastBackedUp: 0 as Timestamp,
-        lastStarted: 0 as Timestamp,
-      }
-      storeHandle.change(doc => {
+    storeHandle.change(doc => {
+      const storedInstance: Instance | undefined = doc.instanceDB[instanceId]
+      if (!storedInstance) {
+        // Create a new instance object
+        log(`Creating new instance object ${instanceId} on disk ${disk.id}`)
+        instance = {
+          id: instanceId,
+          instanceOf: createAppId(compose['x-app'].name, compose['x-app'].version) as AppID,
+          name: instanceName as InstanceName,
+          storedOn: disk.id,
+          status: 'Docked' as Status,
+          port: 0 as PortNumber, // Will be set later
+          serviceImages: servicesImages as ServiceImage[],
+          created: new Date().getTime() as Timestamp,
+          lastBackedUp: 0 as Timestamp,
+          lastStarted: 0 as Timestamp,
+        }
         doc.instanceDB[instanceId] = instance
-      })
-      return instance
-    } else {
-      // Granularly update the existing instance object
-      log(`Updating existing instance object ${instanceId} on disk ${disk.id}`)
-      storeHandle.change(doc => {
-        const instance = doc.instanceDB[instanceId] as Instance
+      } else {
+        // Granularly update the existing instance object
+        log(`Updating existing instance object ${instanceId} on disk ${disk.id}`)
+        instance = storedInstance
         instance.instanceOf = createAppId(compose['x-app'].name, compose['x-app'].version) as AppID
         instance.name = instanceName as InstanceName
         instance.status = 'Docked' as Status;
         instance.storedOn = disk.id
         instance.serviceImages = servicesImages as ServiceImage[]
-      })
-      return store.instanceDB[instanceId]
-    }
+
+      }
+    })
+    return instance!
   } catch (e) {
     log(chalk.red(`Error initializing instance ${instanceId} on disk ${disk.id}`))
     console.error(e)
@@ -275,7 +273,7 @@ export const createOrUpdateInstance = async (storeHandle: DocHandle<Store>, inst
   }
 }
 
-export const createPortNumber = async (store:Store): Promise<PortNumber> => {
+export const createPortNumber = async (store: Store): Promise<PortNumber> => {
   let port = randomPort()
   let portInUse = true
   let portInUseResult
@@ -374,18 +372,39 @@ export const startInstance = async (storeHandle: DocHandle<Store>, instance: Ins
       const portInUse = await checkPortNumber(port)
       if (portInUse) {
         log(`Port ${port} is already in use. Generating a new port number.`)
-        port = await createPortNumber(store)
-        // Write the new port number to the .env file
-        // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`
-        await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())
+        // If the app is kolibri, it means that it has a fixed port and so either another kolibri instance is already running, ]
+        // or it is still running after being stopped because the disk was disconnected. 
+        // If the instance was still running after being stopped, lets wait for 10 secs and try again. If it is still running, we throw an error.
+        if (instance.instanceOf.startsWith('kolibri' as AppID)) {
+          log(`Instance ${instance.id} is a kolibri instance. Waiting 10 seconds to see if the port becomes free.`)
+          await sleep(10000)
+          const portStillInUse = await checkPortNumber(port)
+          if (portStillInUse) {
+            throw new Error(`Port ${port} is still in use after waiting. Cannot start kolibri instance ${instance.id}.`)
+          } else {
+            log(`Port ${port} is now free.`)
+          }
+        } else {
+          port = await createPortNumber(store)
+          // Write the new port number to the .env file
+          // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`
+          await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())
+        }
       } else {
         log(`Port ${port} is not in use`)
       }
       // KSW UNTESTED <<<
 
     } else {
-      log(`No port number has previously been generated. Generating a new port number.`)
-      port = await createPortNumber(store)
+      log(`No port number has previously been generated.`)
+      // If the app is kolibri, assign it port 8080
+      if (instance.instanceOf.startsWith('kolibri' as AppID)) {
+        port = 8080 as PortNumber
+        log(`Instance ${instance.id} is a kolibri instance. Assigning it port ${port}.`)
+      } else {
+        log(`Generating a new port number for instance ${instance.id}.`)
+        port = await createPortNumber(store)
+      }
       // Write a .env file in which you define the port variable
       // await $`echo "port=${port}" > /disks/${disk.device}/instances/${instance.id}/.env`  
       await addOrUpdateEnvVariable(`/disks/${disk.device}/instances/${instance.id}/.env`, 'port', port.toString())
@@ -713,12 +732,15 @@ export const runInstance = async (storeHandle: DocHandle<Store>, instance: Insta
         try {
           // For unclear reasons, the occ command sometimes does not work, preventing the start of the container
           // So we catch the error so that the container can still start
-          log(`Configuring nextcloud office to use the Collabora server at ${ip}:9980`)
-          log('Sleeping for 10 seconds to allow the app to start')
-          await sleep(10000)
-          log('Running the occ command')
+          log(`Configuring nextcloud office`)
+          log('Sleeping for 20 seconds to allow the app to start')
+          await sleep(20000)
+          log(`Running the occ command to use the Collabora server at ${ip}:9980`)
           await $`sudo docker exec ${instance.id}-nextcloud-app-1 runuser --user www-data -- php occ config:app:set --value=http://${ip}:9980 richdocuments wopi_url`
-          log(`occ command executed`)
+          log('Running the occ commands to set the trusted domains')
+          await $`sudo docker exec ${instance.id}-nextcloud-app-1 runuser --user www-data -- php occ config:system:set trusted_domains 0 --value=*.local:*`
+          await $`sudo docker exec ${instance.id}-nextcloud-app-1 runuser --user www-data -- php occ config:system:set trusted_domains 2 --value=192.168.0.*:*`
+          log(`occ commands executed`)
         } catch (e) {
           log(chalk.red(`Error configuring nextcloud office to use the Collabora server at ${ip}:9980`))
           console.error(e)

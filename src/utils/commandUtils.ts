@@ -58,7 +58,7 @@ export const handleCommand = async (commands: CommandDefinition[], storeHandle: 
 export const sendCommand = (storeHandle: DocHandle<Store>, engineId: EngineID, command: Command): void => {
     console.log(`Sending command '${command}' to engine ${engineId}`);
 
-    const store = storeHandle.docSync();
+    const store = storeHandle.doc();
     if (!store?.engineDB[engineId]) {
         console.error(`Cannot send command: Engine ${engineId} not found in store.`);
         return;

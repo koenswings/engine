@@ -99,10 +99,12 @@ export const generateHTML = async (storeHandle:DocHandle<Store>):Promise<void> =
                     // const ip = await findIp(`${hostname}.local` as IPAddress)
                     // HACK - Assuming engines are only used over eth0 - We should restrict the interaces and then enumerate the addresses on all restricted interfaces
                     const ip = await findIp(hostname+'.local' as IPAddress)
-                    if (ip) {
+                    if (ip && (instance.status === 'Running') && port && port > 0) {
                         return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId} (${instance.status})</a> or use <a href="http://${ip}:${port}">this</a></li>`
-                    } else {
+                    } else if ((instance.status === 'Running') && port && port > 0) {
                         return `<li><a href="http://${hostname}.local:${port}">${instance.name} on disk ${diskId} (${instance.status})</a></li>`
+                    } else {
+                        return `<li>${instance.name} on disk ${diskId} has status (${instance.status})</li>`
                     }
                 }))).join('\n')}
             </ul>

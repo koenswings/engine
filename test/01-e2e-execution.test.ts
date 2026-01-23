@@ -73,12 +73,16 @@ describe('E2E Test Runner', () => {
         if (path.startsWith('find(')) {
             const match = path.match(/find\((\w+), { (\w+): '([\w-]+)' }\)\.?(.+)?/);
             if (!match) throw new Error(`Invalid find path: ${path}`);
-            const [, arrayName, key, value, restOfPath] = match;
+            const [, collectionName, key, value, restOfPath] = match;
 
-            const array = _.get(store, arrayName);
-            if (!Array.isArray(array)) throw new Error(`Path part '${arrayName}' is not an array in the store.`);
+            let collection = _.get(store, collectionName);
+            if (typeof collection === 'object' && collection !== null && !Array.isArray(collection)) {
+                collection = Object.values(collection);
+            }
 
-            const item = array.find(i => i[key] === value);
+            if (!Array.isArray(collection)) throw new Error(`Path part '${collectionName}' is not an array or object in the store.`);
+
+            const item = collection.find((i: any) => i[key] === value);
             if (!item) return undefined;
 
             return restOfPath ? _.get(item, restOfPath) : item;
@@ -173,6 +177,22 @@ describe('E2E Test Runner', () => {
             console.log(chalk.yellow('====================================================================='));
             await question('Press Enter to confirm the engines have been reset...');
         }
+
+        // Establish connection if starting from a later stage
+        if (startAtStage >= 3) {
+            console.log(chalk.blue(`\nStarting at stage ${startAtStage}, ensuring connection to engine(s)...`));
+            const connectCommand = (startAtStage >= 7) ? 'connect engine-1 engine-2' : 'connect engine-1';
+            await handleCommand(commands, null, 'engine', connectCommand);
+            console.log("  - Waiting for initial sync...");
+            if (testContext.storeHandle) {
+                try {
+                    await pEvent(testContext.storeHandle, 'change', { timeout: 20000 });
+                    console.log(chalk.green("  - Initial sync complete."));
+                } catch (e) {
+                    console.log(chalk.yellow("  - Timed out waiting for initial sync, continuing..."));
+                }
+            }
+        }
     });
 
     after(() => {
@@ -197,14 +217,6 @@ describe('E2E Test Runner', () => {
                 if (testStep.manualInstruction) {
                     console.log(chalk.cyan(`\nMANUAL ACTION REQUIRED: ${testStep.manualInstruction}`));
                     await question('Press Enter to continue once the action is complete...');
-                    console.log("Waiting for system to react...");
-                    if (testContext.storeHandle) {
-                        try {
-                            await pEvent(testContext.storeHandle, 'change', { timeout: 20000 });
-                        } catch (e) {
-                            console.log(chalk.yellow("Timed out waiting for change after manual action, continuing..."));
-                        }
-                    }
                 }
 
                 if (testStep.action) {

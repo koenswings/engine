@@ -1,5 +1,5 @@
 import util from 'util';
-import { $, chalk, fs, question } from 'zx';
+import { $, chalk, fs, os, question } from 'zx';
 import { IPAddress, PortNumber } from '../data/CommonTypes.js';
 import net from 'net';
 
@@ -247,6 +247,22 @@ export const sameNet = (IP1:any, IP2:any, mask:any) => {
 }
 
 export const findIp = async (address:IPAddress):Promise<IPAddress | undefined> => {
+  // Use a shell command to resolve the ip address
+  // REmove the trailing \n from the ip address
+  try {
+    const interfaceData = os.networkInterfaces()
+    const ip = interfaceData["eth0"]?.find((iface) => iface.family === "IPv4")?.address
+    if (ip && isIPAddress(ip)) {
+      return ip
+    } else {
+      return undefined
+    }
+  } catch (e) {
+    return undefined
+  }
+}
+
+export const findIp2 = async (address:IPAddress):Promise<IPAddress | undefined> => {
   // Use a shell command to resolve the ip address
   // REmove the trailing \n from the ip address
   try {

@@ -93,7 +93,7 @@ export const readMetaUpdateId = async (deviceSpec?: DeviceName): Promise<DiskMet
       }
 
       // If the diskId does not match the one in the META file, update it
-      if (meta.diskId !== diskId) {
+      if (String(meta.diskId) !== String(diskId)) {
         meta.diskId = diskId
         if (meta.isHardwareId) {
           log(`Found a new hardware id that is different from the one in the META file. Updating disk id to ${diskId}`)

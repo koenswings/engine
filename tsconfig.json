@@ -16,5 +16,5 @@
     "src",
     "script",
     "test"  
-] 
+, "script/client.ts"] 
 }

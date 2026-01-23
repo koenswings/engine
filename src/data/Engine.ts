@@ -58,29 +58,24 @@ export const initialiseLocalEngine = async (): Promise<Engine> => {
 }
 
 export const createOrUpdateEngine = async (storeHandle: DocHandle<Store>, engineId: EngineID): Promise<Engine | undefined> => {
-  const store: Store = storeHandle.doc()
-  const storedEngine: Engine | undefined = store.engineDB[engineId]
+  const newEngine: Engine = await initialiseLocalEngine()
+  let engine: Engine
   try {
-    if (!storedEngine) {
-      log(`Creating new engine object for local engine ${engineId}`)
-      const engine: Engine = await initialiseLocalEngine()
-      storeHandle.change(doc => {
-        log(`Creating new engine object in store for local engine ${engineId}`)
-        doc.engineDB[engineId] = engine
-      })
-      return engine
-    } else {
-      log(`Granularly updating existing engine object ${engineId}`)
-      storeHandle.change(doc => {
-        const engine = doc.engineDB[engineId]
-        if (engine) {
-          engine.hostname = os.hostname() as Hostname
-          engine.lastBooted = (new Date()).getTime() as Timestamp
-          engine.lastRun = (new Date()).getTime() as Timestamp
-        }
-      })
-      return storedEngine
-    }
+    storeHandle.change(doc => {
+      const storedEngine: Engine | undefined = doc.engineDB[engineId]
+      if (!storedEngine) {
+        log(`Creating new engine object for local engine ${engineId}`)
+        engine = newEngine
+        doc.engineDB[engineId] = engine    
+      } else {
+        log(`Granularly updating existing engine object ${engineId}`)
+        engine = doc.engineDB[engineId]
+        engine.hostname = os.hostname() as Hostname
+        engine.lastBooted = (new Date()).getTime() as Timestamp
+        engine.lastRun = (new Date()).getTime() as Timestamp
+      }
+    })
+  return engine!
   } catch (e) {
     log(chalk.red(`Error initializing engine ${engineId}`))
     console.error(e)
@@ -127,7 +122,8 @@ export const syncEngine = async (user: string, machine: string) => {
       const githubToken = await question('Enter the GitHub token: ');
       fs.writeFileSync('./script/build_image_assets/gh_token.txt', githubToken);
     }
-    await $`./script/sync-engine --user ${user} --machine ${machine}`;
+    const targetName = machine.endsWith('.local') ? machine.slice(0, -6) : machine;
+    await $`./sync-engine --user ${user} ${targetName}`;
   } catch (e) {
     console.log(chalk.red('Failed to sync the engine to the remote machine'));
     console.error(e);
@@ -141,12 +137,16 @@ export const buildEngine = async (args: any) => {
     upgrade, argon, zerotier, raspap, gadget, temperature, version, productionMode
   } = args;
 
+  // Clear known_hosts entry for the target machine to prevent SSH errors
+  if (machine) {
+    await clearKnownHost(machine);
+  }
+
   await updateSystem(exec);
   if (upgrade) await upgradeSystem(exec);
 
-  await installBaseNpm(exec);
-  await configurePnpm(exec);
   await setHostname(exec, hostname);
+  await installAvahi(exec);
   await localiseSystem(exec, enginePath, language, keyboard, timezone);
   await installCrontabs(exec, enginePath);
 
@@ -158,6 +158,8 @@ export const buildEngine = async (args: any) => {
   await installVarious2(exec);
   await installGh(exec);
 
+  await installDocker(exec, enginePath, user);
+  await buildDockerInfrastructure(exec);
   await buildAppsInfrastructure(exec);
 
   if (raspap) await installRaspAP(exec, enginePath);
@@ -165,7 +167,9 @@ export const buildEngine = async (args: any) => {
 
   await addMeta(exec, hostname, version);
 
-  await installEngineNode(exec);
+  //await installEngineNode(exec);
+  await installBaseNpm(exec);
+  await configurePnpm(exec);
   await installPm2(exec, enginePath);
   await installEnginePM2(exec, enginePath);
   await buildEnginePM2(exec, enginePath);
@@ -253,7 +257,16 @@ export const localiseSystem = async (exec: any, enginePath: string, language: st
   try {
     await copyAsset(exec, enginePath, 'locale.gen', '/etc')
     await exec`sudo locale-gen`;
-    await exec`sudo update-locale LANG=${language}`;
+    
+    // Set all locale environment variables
+    const localeConfig = [
+        `LANG=${language}`,
+        `LANGUAGE=${language}`,
+        `LC_ALL=${language}`,
+        `LC_CTYPE=${language}`
+    ].join('\\n');
+    await exec`echo -e '${localeConfig}' | sudo tee /etc/default/locale`;
+    
     await exec`sudo raspi-config nonint do_configure_keyboard ${keyboard}`
     await exec`sudo timedatectl set-timezone ${timezone}`
   } catch (e) {
@@ -302,8 +315,21 @@ export const installTemperature = async (exec: any) => {
 export const setHostname = async (exec: any, hostname: string) => {
   console.log(chalk.blue(`Setting hostname to ${hostname}`));
   try {
+    // 1. First, ensure /etc/hosts has the correct entry for the new hostname
+    // This helps sudo resolve the hostname before hostnamectl sets it.
+    // Robustly replace the line starting with 127.0.1.1, or add it if missing.
+    await exec`sudo sed -i 's/^127\\.0\\.1\\.1.*/127.0.1.1\\t${hostname}/' /etc/hosts`;
+
+    // Robustly update the 127.0.0.1 line to ensure 'localhost' and the new hostname are present.
+    // This handles cases where only 'localhost' is present, or an old hostname exists.
+    await exec`sudo sed -i 's/^127\\.0\\.0\\.1\s*.*/127.0.0.1\\tlocalhost ${hostname}/' /etc/hosts`;
+
+    // 2. Set the new hostname using hostnamectl
     await exec`sudo hostnamectl set-hostname ${hostname}`;
-    await exec`sudo sed -i "s/raspberrypi/${hostname}/g" /etc/hosts`
+
+    // 3. Ensure /etc/hostname is updated directly for persistence across reboots
+    await exec`echo "${hostname}" | sudo tee /etc/hostname > /dev/null`;
+
   } catch (e) {
     console.log(chalk.red('Error setting hostname'));
     console.error(e);
@@ -311,6 +337,20 @@ export const setHostname = async (exec: any, hostname: string) => {
   }
   console.log(chalk.green('Hostname set'));
   console.log(hostname); // Print hostname for capture
+}
+
+export const installAvahi = async (exec: any) => {
+  console.log(chalk.blue('Installing Avahi for .local mDNS discovery...'));
+  try {
+    await exec`sudo apt install avahi-daemon libnss-mdns -y`;
+    await exec`sudo systemctl enable avahi-daemon`;
+    await exec`sudo systemctl start avahi-daemon`;
+  } catch (e) {
+    console.log(chalk.red('Error installing Avahi'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Avahi installed and enabled'));
 }
 
 export const installArgonFanScript = async (exec: any, enginePath: string) => {
@@ -486,25 +526,33 @@ export const configurePnpm = async (exec: any) => {
 export const readRemoteDiskId = async (exec: any): Promise<DiskID | undefined> => {
   log(`Reading disk id remotely`)
   try {
-    const rootDevice = (await exec`findmnt / -no SOURCE`).stdout.split('/')[2]
-    const sn = (await exec`hdparm -I /dev/${rootDevice} | grep 'Serial\ Number'`).stdout
-    const id = sn.trim().split(':')
+    const rootDevice = (await exec`findmnt / -no SOURCE`).stdout.split('/')[2].trim();
+    // First, find the full path to hdparm
+    const hdparmPath = (await exec`which hdparm`).stdout.trim();
+    if (!hdparmPath) {
+      log('hdparm command not found on remote machine.');
+      return undefined;
+    }
+    const sn = (await exec`${hdparmPath} -I /dev/${rootDevice} | grep 'Serial\\ Number'`).stdout;
+    const id = sn.trim().split(':');
     if (id.length === 2) {
-      log(`Remote disk id is ${id[1].trim()}`)
-      return id[1].trim() as DiskID
+      const diskId = id[1].trim();
+      log(`Remote disk id is ${diskId}`);
+      return diskId as DiskID;
     } else {
-      log(`Cannot read disk id for device ${rootDevice}`)
-      return undefined
+      log(`Cannot read disk id for device ${rootDevice}`);
+      return undefined;
     }
   } catch (e) {
-    log(`Error reading disk id of the root device: ${e}`)
-    return undefined
+    log(`Error reading disk id of the root device: ${e}`);
+    return undefined;
   }
 }
 
 export const addMeta = async (exec: any, hostname: string, version: string) => {
   let id = await readRemoteDiskId(exec)
   if (id === undefined) {
+    console.log(chalk.yellow(`Disk id is ${id}`));
     console.log(chalk.red('Remote disk has no disk id.  Generating one.'))
     id = uuid() as DiskID
   }
@@ -620,12 +668,6 @@ export const buildAppsInfrastructure = async (exec: any) => {
 }
 
 
-
-// ##################################################################################################
-// Obsolete functions
-// To be kept for reference only
-// ##################################################################################################
-
 const installDocker = async (exec, enginePath, user) => {
 
   // Run the install-docker.sh script
@@ -671,7 +713,7 @@ const installDocker = async (exec, enginePath, user) => {
   // Copy the daemon.json asset to /etc/docker
   console.log(chalk.blue('Configuring Docker'))
   try {
-    await copyAsset(enginePath, exec, 'daemon.json', '/etc/docker', false, "0644")
+    await copyAsset(exec, enginePath, 'daemon.json', '/etc/docker', false, "0644")
   } catch (e) {
     console.log(chalk.red('Error configuring Docker'));
     console.error(e);
@@ -735,6 +777,13 @@ const buildDockerInfrastructure = async (exec: any) => {
   }
   console.log(chalk.green('Frontend and backend networks created'));
 }
+
+
+// ##################################################################################################
+// Obsolete functions
+// To be kept for reference only
+// ##################################################################################################
+
 
 const startDockerEngine = async (exec: any, enginePath: string, productionMode: boolean) => {
   // Build the engine image

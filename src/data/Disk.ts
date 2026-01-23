@@ -85,6 +85,34 @@ export interface Disk {
 
 
 export const createOrUpdateDisk = (storeHandle: DocHandle<Store>, engineId: EngineID, device: DeviceName, diskId: DiskID, diskName: DiskName, created: Timestamp): Disk => {
+    let disk: Disk
+    storeHandle.change(doc => {
+        let storedDisk = doc.diskDB[diskId];
+        if (!storedDisk) {
+            log(`Creating disk ${diskId} on engine ${engineId}`);
+            disk = {
+                id: diskId,
+                name: diskName,
+                device: device,
+                dockedTo: engineId,
+                created: created,
+                lastDocked: new Date().getTime() as Timestamp
+            };
+            doc.diskDB[diskId] = disk;
+        } else {
+            log(`Granularly updating disk ${diskId} on engine ${engineId}`);
+            disk = storedDisk;
+            disk.dockedTo = engineId;
+            disk.name = diskName;
+            disk.device = device;
+            disk.created = created;
+            disk.lastDocked = new Date().getTime() as Timestamp;
+        }
+    });
+    return disk!; // Non-null assertion
+}   
+
+export const OLDcreateOrUpdateDisk = (storeHandle: DocHandle<Store>, engineId: EngineID, device: DeviceName, diskId: DiskID, diskName: DiskName, created: Timestamp): Disk => {
     const store: Store = storeHandle.doc()
     let storedDisk: Disk | undefined = store.diskDB[diskId]
     if (!storedDisk) {
@@ -116,6 +144,7 @@ export const createOrUpdateDisk = (storeHandle: DocHandle<Store>, engineId: Engi
         return store.diskDB[diskId]
     }
 }   
+
 
 export const processDisk = async (storeHandle: DocHandle<Store>, disk: Disk): Promise<void> => {
     log(`Processing disk ${disk.id} on engine ${disk.dockedTo}`)
@@ -218,9 +247,12 @@ export const processAppDisk = async (storeHandle: DocHandle<Store>, disk: Disk):
     log(`Stored apps: ${storedApps.map(app => app.id)}`)
 
     // Remove apps that are no longer on disk
-    storedApps.forEach((app) => {
-        if (!actualApps.includes(app)) {
-            removeApp(store, disk, app.id)
+    storedApps.forEach((storedApp) => {
+        // if (!actualApps.includes(storedApp)) {
+        //     removeApp(store, disk, storedApp.id)
+        // }
+        if (!actualApps.some(actualApp => actualApp.id === storedApp.id)) {
+            removeApp(store, disk, storedApp.id)
         }
     })
 
@@ -246,9 +278,12 @@ export const processAppDisk = async (storeHandle: DocHandle<Store>, disk: Disk):
     log(`Stored instances: ${storedInstances.map(instance => instance.id)}`)
 
     // Remove instances that are no longer on disk
-    storedInstances.forEach((instance) => {
-        if (!actualInstances.includes(instance)) {
-            removeInstance(storeHandle, disk, instance.id)
+    storedInstances.forEach((storedInstance) => {
+        // if (!actualInstances.includes(storedInstance)) {
+        //     removeInstance(storeHandle, disk, storedInstance.id)
+        // }
+        if (!actualInstances.some(actualInstance => actualInstance.id === storedInstance.id)) {
+            removeInstance(storeHandle, disk, storedInstance.id)
         }
     })
 }

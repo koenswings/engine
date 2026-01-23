@@ -138,6 +138,7 @@ const lsDisks = (storeHandle: DocHandle<Store> | null): void => {
     if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Disks:');
     const disks = getDisks(storeHandle.doc());
+    console.log(`Total disks: ${disks.length}`);
     console.log(deepPrint(disks, 2));
 }
 
@@ -145,6 +146,7 @@ const lsApps = (storeHandle: DocHandle<Store> | null): void => {
     if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Apps:');
     const apps = getApps(storeHandle.doc());
+    console.log(`Total apps: ${apps.length}`);
     console.log(deepPrint(apps, 2));
 }
 
@@ -152,6 +154,7 @@ const lsInstances = (storeHandle: DocHandle<Store> | null): void => {
     if (!storeHandle) { console.error(chalk.red("Store is not available. Please connect first.")); return; }
     console.log('Instances:');
     const instances = getInstances(storeHandle.doc());
+    console.log(`Total instances: ${instances.length}`);
     console.log(deepPrint(instances, 2));
 }
 

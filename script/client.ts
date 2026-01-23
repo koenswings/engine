@@ -7,6 +7,7 @@ import { commands } from '../src/data/Commands.js';
 
 import pack from '../package.json' with { type: "json" }
 //import { readDefaults, Defaults } from '../src/utils/readDefaults.js'
+import { lookup } from 'dns/promises';
 import { config } from '../src/data/Config.js'
 
 import { DocumentId, PeerId } from '@automerge/automerge-repo';
@@ -42,17 +43,20 @@ if (argv.v || argv.version) {
 // Connection to an engine
 // ************************
 
-const defaults  = config.defaults
-const engineAddress = argv.e || argv.engine || "127.0.0.1:1234"
+const engineName = argv.e || argv.engine || "127.0.0.1";
 
-const serverUrl = `ws://${engineAddress}`
-const clientPeerId = `client-on-${localEngineId}` as PeerId // Unique identifier for the client
-const STORE_URL_PATH = "./store-identity/store-url.txt"
+// The `connect` command in `Commands.ts` prepares a hostname by appending `.local`
+// and passes it to `createClientStore`. We replicate that exact logic here.
+// `createClientStore` is responsible for the DNS lookup and connection.
+const hostname = engineName.endsWith('.local') ? engineName : `${engineName}.local`;
+
+const clientPeerId = `client-on-${localEngineId}` as PeerId; // Unique identifier for the client
+const STORE_URL_PATH = "./store-identity/store-url.txt";
 const storeDocUrlStr = fs.readFileSync(STORE_URL_PATH, 'utf-8');
 const storeDocId = storeDocUrlStr.replace('automerge:', '') as DocumentId;
-console.log(`Using document ID: ${storeDocId}`)
-// const storeUrlPath = "./"+config.settings.storeIdentityFolder+"/store-url.txt"
-const { handle: storeHandle } = await createClientStore([serverUrl], clientPeerId, storeDocId);
+console.log(`Using document ID: ${storeDocId}`);
+
+const { handle: storeHandle } = await createClientStore([hostname], clientPeerId, storeDocId);
 
 
 const rl = readline.createInterface({
