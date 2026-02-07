@@ -13,7 +13,7 @@ import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
 import { createServerStore, initialiseServerStore } from './data/Store.js'
 import { enableStoreMonitor } from './monitors/storeMonitor.js'
 import { InstanceID } from './data/CommonTypes.js'
-import { setStatus, Status } from './data/Instance.js'
+import { Status } from './data/Instance.js'
 import { exec } from 'child_process'
 import { Store } from './data/Store.js'
 
