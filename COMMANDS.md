@@ -64,6 +64,11 @@ These commands perform actions on the system. Some are restricted to an `engine`
 - **Usage:** `stopInstance <instanceName> <diskName>`
 - **Scope:** `engine`
 
+### `reboot`
+- **Description:** Reboots the engine device.
+- **Usage:** `reboot`
+- **Scope:** `engine`
+
 ---
 
 ## Provisioning Commands
@@ -73,3 +78,17 @@ These commands perform actions on the system. Some are restricted to an `engine`
 - **Usage:** `buildEngine "--machine <hostname> --user <user> ..."`
 - **Scope:** `engine`
 - **Note:** The arguments must be passed as a single, quoted string.
+
+---
+
+## Connection Commands
+
+### `connect`
+- **Description:** Connects the CLI to one or more remote engines.
+- **Usage:** `connect <engine-hostname> [engine-hostname...]`
+- **Scope:** `any`
+
+### `disconnect`
+- **Description:** Disconnects the CLI from the current engine(s).
+- **Usage:** `disconnect`
+- **Scope:** `any`

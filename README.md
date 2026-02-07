@@ -39,6 +39,8 @@ The system is designed to scale horizontally. Performance can be optimized by si
 
 The **Engine** software in this repository is the core backend component of a larger solution designed to create self-contained, offline web environments for rural schools in Africa.
 
+For a detailed technical breakdown of the system's design, including state management, data flow, and implementation decisions, please refer to the Architecture Guide.
+
 The overall solution provides a complete "internet-in-a-box" and consists of:
 
 - **Appdocker Devices:** Dedicated hardware running the **Engine** software. They act as servers, making web applications available on the local network.
@@ -161,3 +163,4 @@ Therefore, running the Engine on a non-Debian distribution (like Fedora, Arch Li
 - **Run in Dev Mode:** `pnpm dev`
 - **Build:** `pnpm build`
 - **Run Tests:** `pnpm test`
+- **Bundle Context:** `pnpm bundle-context` (Bundles source code for LLM context)

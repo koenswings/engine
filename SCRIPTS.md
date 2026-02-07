@@ -60,3 +60,11 @@ This document provides a reference for the main provisioning and utility scripts
 -   **Purpose:** This script is the entry point for the interactive Command-Line Interface (CLI).
 -   **Usage:** `./script/client --engine <engine-address>`
 -   **Details:** For a full list of commands available within the CLI, see the [Command Reference](COMMANDS.md).
+
+---
+
+### `bundle-context.ts`
+
+-   **Purpose:** Bundles the project source code into a single Markdown file (`notebooklm-source-bundle.md`). This is useful for providing context to LLMs like NotebookLM or Gemini.
+-   **Usage:** `pnpm bundle-context`
+-   **Details:** Ignores `node_modules` and `dist`.

@@ -30,7 +30,8 @@
     "test": "pnpm test:full",
     "test:full": "pnpm build && mocha 'dist/test/0*.test.js' --exit",
     "test:auto": "TEST_MODE=automated pnpm build && mocha 'dist/test/01-e2e-execution.test.js' --exit",
-    "test:config": "pnpm build && mocha 'dist/test/00-config.test.js' --exit"
+    "test:config": "pnpm build && mocha 'dist/test/00-config.test.js' --exit",
+    "bundle-context": "tsx script/bundle-context.ts"
   },
   "keywords": [],
   "author": "Koen Swings",

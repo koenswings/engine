@@ -284,7 +284,7 @@ export const createPortNumber = async (store: Store): Promise<PortNumber> => {
   while (portInUse) {
     log(`Checking if port ${port} is in use`)
     try {
-      portInUseResult = await $`netstat -tuln | grep ${port}`
+      portInUseResult = await $`netstat -tuln | grep -w ${port}`
       log(`Port ${port} is in use`)
       port = randomPort()
     } catch (e) {
@@ -307,7 +307,7 @@ export const createPortNumber = async (store: Store): Promise<PortNumber> => {
 export const checkPortNumber = async (port: PortNumber): Promise<boolean> => {
   log(`Checking if port ${port} is in use`)
   try {
-    const portInUseResult = await $`netstat -tuln | grep ${port}`
+    const portInUseResult = await $`netstat -tuln | grep -w ${port}`
     log(`Port ${port} is in use`)
     return true
   } catch (e) {
@@ -787,7 +787,10 @@ export const stopInstance = async (storeHandle: DocHandle<Store>, instance: Inst
     log(`Filter for all running containers whose names start with the instance id`)
     const docker = new Docker({ socketPath: '/var/run/docker.sock' });
     const containers = await docker.container.list()
-    const instanceContainers = containers.filter(container => container.data['Names'][0].includes(instance.id))
+    const instanceContainers = containers.filter(container => {
+      const name = container.data['Names'][0]
+      return name.startsWith(`/${instance.id}-`) || name.startsWith(`/${instance.id}_`)
+    })
     // Log the containers
     log(`Found the following containers:`)
     instanceContainers.forEach(container => {
@@ -819,8 +822,3 @@ export const stopInstance = async (storeHandle: DocHandle<Store>, instance: Inst
     })
   }
 }
-
-
-
-
-
