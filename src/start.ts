@@ -7,12 +7,16 @@ import { config } from './data/Config.js'
 import { createOrUpdateEngine, localEngineId } from './data/Engine.js'
 import { PortNumber } from './data/CommonTypes.js'
 import { enableIndexServer } from './monitors/instancesMonitor.js'
-import { throttle } from '@automerge/automerge-repo/helpers/throttle.js'
-import { DocumentId, Repo } from '@automerge/automerge-repo'
+import { DocumentId, Repo, DocHandle } from '@automerge/automerge-repo'
 import { startAutomergeServer } from './repo.js'
 import { enableMulticastDNSEngineMonitor } from './monitors/mdnsMonitor.js'
 import { createServerStore, initialiseServerStore } from './data/Store.js'
 import { enableStoreMonitor } from './monitors/storeMonitor.js'
+import { InstanceID } from './data/CommonTypes.js'
+import { setStatus, Status } from './data/Instance.js'
+import { exec } from 'child_process'
+import { Store } from './data/Store.js'
+
 
 
 
@@ -93,6 +97,9 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     await storeHandle.whenReady()
     const store = storeHandle.doc()
 
+    // Check for undocked apps after restart
+    await checkAndSetUndockedApps(storeHandle)
+
     // Start the app index server
     log(chalk.bgMagenta('STARTING THE INDEX SERVER'))
     await enableIndexServer(storeHandle)
@@ -138,8 +145,32 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
     generateHeartBeat(storeHandle)
     enableTimeMonitor(50000, () => generateHeartBeat(storeHandle))
 
+
 }
 
+
+export const checkAndSetUndockedApps = async (storeHandle: DocHandle<Store>): Promise<void> => {
+    const { instanceDB } = storeHandle.doc();
+    for (const instanceId in instanceDB) {
+        const instance = instanceDB[instanceId];
+        if (instance.status !== "Undocked") {
+            exec(`docker ps -q -f name=${instance.name}`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`exec error: ${error}`);
+                    return;
+                }
+                if (stdout.trim() === "") {
+                    // No container running, set to undocked
+                    log(`Setting status of instance ${instanceId} to Undocked`)
+                    storeHandle.change(doc => {
+                          const inst = doc.instanceDB[instanceId]
+                          inst.status = 'Undocked' as Status 
+                        })
+                }
+            });
+        }
+    }
+};
 
 async function shutdownProcedure(repo:Repo):Promise<void> {
     console.log('*** Engine is now closing ***');
