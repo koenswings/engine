@@ -29,7 +29,7 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
     const validDevice = function (device: string): boolean {
         // Check if the device begins with "sd", is then followed by a letter and ends with the number 2
         // We need the m flag - see https://regexr.com/7rvpq 
-        return device && (device.match(/^sd[a-z]2$/m) || device.match(/^sd[a-z]$/m)) ? true : false
+        return device && (device.match(/^sd[a-z][1-2]$/m) || device.match(/^sd[a-z]$/m)) ? true : false
     }
 
     const addDevice = async function (path: string) {

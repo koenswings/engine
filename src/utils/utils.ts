@@ -45,7 +45,7 @@ export const addOrUpdateEnvVariable = async (path: string, variable: string, val
     const values = envContent.match(`${variable}=(.*)`)
     if (values && values.length >= 1) {
       // Update the value of the variable
-      await $`sed -i 's/${variable}=.*/${variable}=${value}/' ${path}`
+      await $`sed -i 's|${variable}=.*|${variable}=${value}|' ${path}`
     } else {
       // Add the variable to the .env file
       await $`echo "${variable}=${value}" >> ${path}`

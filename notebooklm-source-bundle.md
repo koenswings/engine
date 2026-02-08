@@ -1,5 +1,5 @@
 # Project Source Code Context
-Generated on 2026-02-07T11:39:26.642Z
+Generated on 2026-02-08T10:36:17.472Z
 
 ## File: package.json
 ```typescript
@@ -302,7 +302,6 @@ import { createServerStore, initialiseServerStore } from './data/Store.js'
 import { enableStoreMonitor } from './monitors/storeMonitor.js'
 import { InstanceID } from './data/CommonTypes.js'
 import { Status } from './data/Instance.js'
-import { exec } from 'child_process'
 import { Store } from './data/Store.js'
 
 
@@ -439,15 +438,12 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
 export const checkAndSetUndockedApps = async (storeHandle: DocHandle<Store>): Promise<void> => {
     const { instanceDB } = storeHandle.doc();
-    for (const instanceId in instanceDB) {
+    const promises = Object.keys(instanceDB).map(async (instanceId) => {
         const instance = instanceDB[instanceId];
         if (instance.status !== "Undocked") {
-            exec(`docker ps -q -f name=${instance.name}`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`exec error: ${error}`);
-                    return;
-                }
-                if (stdout.trim() === "") {
+            try {
+                const result = await $`docker ps -q -f name=${instance.name}`;
+                if (result.stdout.trim() === "") {
                     // No container running, set to undocked
                     log(`Setting status of instance ${instanceId} to Undocked`)
                     storeHandle.change(doc => {
@@ -455,9 +451,12 @@ export const checkAndSetUndockedApps = async (storeHandle: DocHandle<Store>): Pr
                           inst.status = 'Undocked' as Status 
                         })
                 }
-            });
+            } catch (error) {
+                console.error(`Error checking docker status for ${instance.name}: ${error}`);
+            }
         }
-    }
+    });
+    await Promise.all(promises);
 };
 
 async function shutdownProcedure(repo:Repo):Promise<void> {
@@ -2701,7 +2700,7 @@ export const createPortNumber = async (store: Store): Promise<PortNumber> => {
   while (portInUse) {
     log(`Checking if port ${port} is in use`)
     try {
-      portInUseResult = await $`netstat -tuln | grep ${port}`
+      portInUseResult = await $`netstat -tuln | grep -w ${port}`
       log(`Port ${port} is in use`)
       port = randomPort()
     } catch (e) {
@@ -2724,7 +2723,7 @@ export const createPortNumber = async (store: Store): Promise<PortNumber> => {
 export const checkPortNumber = async (port: PortNumber): Promise<boolean> => {
   log(`Checking if port ${port} is in use`)
   try {
-    const portInUseResult = await $`netstat -tuln | grep ${port}`
+    const portInUseResult = await $`netstat -tuln | grep -w ${port}`
     log(`Port ${port} is in use`)
     return true
   } catch (e) {
@@ -3204,7 +3203,10 @@ export const stopInstance = async (storeHandle: DocHandle<Store>, instance: Inst
     log(`Filter for all running containers whose names start with the instance id`)
     const docker = new Docker({ socketPath: '/var/run/docker.sock' });
     const containers = await docker.container.list()
-    const instanceContainers = containers.filter(container => container.data['Names'][0].includes(instance.id))
+    const instanceContainers = containers.filter(container => {
+      const name = container.data['Names'][0]
+      return name.startsWith(`/${instance.id}-`) || name.startsWith(`/${instance.id}_`)
+    })
     // Log the containers
     log(`Found the following containers:`)
     instanceContainers.forEach(container => {
@@ -3236,11 +3238,6 @@ export const stopInstance = async (storeHandle: DocHandle<Store>, instance: Inst
     })
   }
 }
-
-
-
-
-
 
 ```
 
@@ -5010,14 +5007,17 @@ const undockDisk = async (storeHandle: DocHandle<Store>, disk: Disk) => {
         return
     }
     try {
-        const mountOutput = await $`mount -t ext4`
-        if (!mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
-            log(`Device ${device} already unmounted`)
-        } else {
-            log(`Unmounting device ${device}`)
+        log(`Attempting to unmount device ${device}`)
+        try {
             await $`sudo umount /disks/${device}`
-            await $`sudo rmdir /disks/${device}`
             log(`Device ${device} has been successfully unmounted`)
+        } catch (e: any) {
+            // If the error indicates it wasn't mounted, we can proceed. 
+            // Otherwise, we must abort to avoid deleting data on a mounted disk.
+            if (!e.stderr.includes('not mounted')) {
+                throw new Error(`Failed to unmount ${device}: ${e.message}`)
+            }
+            log(`Device ${device} was not mounted`)
         }
         await $`sudo rm -fr /disks/${device}`
         log(`Mount point /disks/${device} has been removed`)
