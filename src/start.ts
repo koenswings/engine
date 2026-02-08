@@ -14,7 +14,6 @@ import { createServerStore, initialiseServerStore } from './data/Store.js'
 import { enableStoreMonitor } from './monitors/storeMonitor.js'
 import { InstanceID } from './data/CommonTypes.js'
 import { Status } from './data/Instance.js'
-import { exec } from 'child_process'
 import { Store } from './data/Store.js'
 
 
@@ -151,15 +150,12 @@ export const startEngine = async (disableMDNS?:boolean):Promise<void> => {
 
 export const checkAndSetUndockedApps = async (storeHandle: DocHandle<Store>): Promise<void> => {
     const { instanceDB } = storeHandle.doc();
-    for (const instanceId in instanceDB) {
+    const promises = Object.keys(instanceDB).map(async (instanceId) => {
         const instance = instanceDB[instanceId];
         if (instance.status !== "Undocked") {
-            exec(`docker ps -q -f name=${instance.name}`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error(`exec error: ${error}`);
-                    return;
-                }
-                if (stdout.trim() === "") {
+            try {
+                const result = await $`docker ps -q -f name=${instance.name}`;
+                if (result.stdout.trim() === "") {
                     // No container running, set to undocked
                     log(`Setting status of instance ${instanceId} to Undocked`)
                     storeHandle.change(doc => {
@@ -167,9 +163,12 @@ export const checkAndSetUndockedApps = async (storeHandle: DocHandle<Store>): Pr
                           inst.status = 'Undocked' as Status 
                         })
                 }
-            });
+            } catch (error) {
+                console.error(`Error checking docker status for ${instance.name}: ${error}`);
+            }
         }
-    }
+    });
+    await Promise.all(promises);
 };
 
 async function shutdownProcedure(repo:Repo):Promise<void> {

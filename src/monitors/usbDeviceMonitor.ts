@@ -189,14 +189,17 @@ const undockDisk = async (storeHandle: DocHandle<Store>, disk: Disk) => {
         return
     }
     try {
-        const mountOutput = await $`mount -t ext4`
-        if (!mountOutput.stdout.includes(`/dev/${device} on /disks/${device} type ext4`)) {
-            log(`Device ${device} already unmounted`)
-        } else {
-            log(`Unmounting device ${device}`)
+        log(`Attempting to unmount device ${device}`)
+        try {
             await $`sudo umount /disks/${device}`
-            await $`sudo rmdir /disks/${device}`
             log(`Device ${device} has been successfully unmounted`)
+        } catch (e: any) {
+            // If the error indicates it wasn't mounted, we can proceed. 
+            // Otherwise, we must abort to avoid deleting data on a mounted disk.
+            if (!e.stderr.includes('not mounted')) {
+                throw new Error(`Failed to unmount ${device}: ${e.message}`)
+            }
+            log(`Device ${device} was not mounted`)
         }
         await $`sudo rm -fr /disks/${device}`
         log(`Mount point /disks/${device} has been removed`)

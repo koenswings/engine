@@ -628,18 +628,14 @@ export const startEnginePM2 = async (exec: any, enginePath: string, permanentEng
 
 export const installVarious = async (exec: any) => {
   console.log(chalk.blue('Installing tcpdump, vim and hdparm...'));
-  console.log(chalk.blue('Installing tcpdump, vim, net-tools and hdparm...'));
   try {
     await exec`sudo apt install tcpdump vim hdparm -y`;
-    await exec`sudo apt install tcpdump vim net-tools hdparm -y`;
   } catch (e) {
     console.log(chalk.red('Error installing tcpdump, vim and hdparm'));
-    console.log(chalk.red('Error installing tcpdump, vim, net-tools and hdparm'));
     console.error(e);
     process.exit(1);
   }
   console.log(chalk.green('tcpdump, vim and hdparm installed'));
-  console.log(chalk.green('tcpdump, vim, net-tools and hdparm installed'));
 }
 
 export const installVarious2 = async (exec: any) => {
