@@ -316,5 +316,8 @@ export const uuidLight = ():string => {
 
 // A function to strip the trailing partition number from a device name
 export const stripPartition = (device: string):string => {
-  return device.replace(/[0-9]/g, '')
+  if (device.startsWith('nvme') || device.startsWith('mmcblk')) {
+    return device.replace(/p[0-9]+$/, '')
+  }
+  return device.replace(/[0-9]+$/, '')
 }

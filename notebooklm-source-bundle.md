@@ -1,5 +1,5 @@
 # Project Source Code Context
-Generated on 2026-02-08T10:36:17.472Z
+Generated on 2026-02-08T10:43:17.753Z
 
 ## File: package.json
 ```typescript
@@ -4847,7 +4847,7 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
     const validDevice = function (device: string): boolean {
         // Check if the device begins with "sd", is then followed by a letter and ends with the number 2
         // We need the m flag - see https://regexr.com/7rvpq 
-        return device && (device.match(/^sd[a-z]2$/m) || device.match(/^sd[a-z]$/m)) ? true : false
+        return device && (device.match(/^sd[a-z][1-2]$/m) || device.match(/^sd[a-z]$/m)) ? true : false
     }
 
     const addDevice = async function (path: string) {
@@ -6083,7 +6083,7 @@ export const addOrUpdateEnvVariable = async (path: string, variable: string, val
     const values = envContent.match(`${variable}=(.*)`)
     if (values && values.length >= 1) {
       // Update the value of the variable
-      await $`sed -i 's/${variable}=.*/${variable}=${value}/' ${path}`
+      await $`sed -i 's|${variable}=.*|${variable}=${value}|' ${path}`
     } else {
       // Add the variable to the .env file
       await $`echo "${variable}=${value}" >> ${path}`
