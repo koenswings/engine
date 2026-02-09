@@ -64,28 +64,26 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
                     log('Could not find a META file. Creating one now.')
                     const diskId = await readHardwareId(device) as DiskID
                     // The disk name should be the name of the volume if available, otherwise 'Unnamed Disk'
-                    let diskName: DiskName
+                    let diskName: DiskName = 'Unnamed Disk' as DiskName
                     try {
                         const volumeNameOutput = await $`lsblk -no LABEL /dev/${device}`
                         const volumeName = volumeNameOutput.stdout.trim()
                         // Check if it is a valid volume name (not empty) - it should also not have any newlines
                         if (volumeName && volumeName.length > 0 && !volumeName.includes('\n')) {
                             diskName = volumeName as DiskName
-                        } else {
-                            throw new Error(`Invalid volume name`)
                         }
-                        meta = {
-                            diskId: diskId ? diskId : uuid() as DiskID,
-                            isHardwareId: false,
-                            diskName: diskName,
-                            created: Date.now() as Timestamp,
-                            lastDocked: Date.now() as Timestamp
-                        }
-                        const disk: Disk = createOrUpdateDisk(storeHandle, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
-                        await processDisk(storeHandle, disk)
                     } catch (e) {
                         log(`Error reading volume name for device ${device}: ${e}`)
                     }
+                    meta = {
+                        diskId: diskId ? diskId : uuid() as DiskID,
+                        isHardwareId: !!diskId,
+                        diskName: diskName,
+                        created: Date.now() as Timestamp,
+                        lastDocked: Date.now() as Timestamp
+                    }
+                    const disk: Disk = createOrUpdateDisk(storeHandle, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
+                    await processDisk(storeHandle, disk)
                 }
             } catch (e) {
                 log(`Error processing device ${device}`)

@@ -154,7 +154,7 @@ export const checkAndSetUndockedApps = async (storeHandle: DocHandle<Store>): Pr
         const instance = instanceDB[instanceId];
         if (instance.status !== "Undocked") {
             try {
-                const result = await $`docker ps -q -f name=${instance.name}`;
+                const result = await $`docker ps -q -f name=${instance.id}`;
                 if (result.stdout.trim() === "") {
                     // No container running, set to undocked
                     log(`Setting status of instance ${instanceId} to Undocked`)
