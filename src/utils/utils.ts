@@ -22,7 +22,7 @@ export const randomPort = ():PortNumber => {
 export const readEnvVariable = async (path: string, variable: string): Promise<string | null> => {
   try {
     const envContent = (await $`cat ${path}`).stdout
-    const values = envContent.match(`${variable}=(.*)`)
+    const values = envContent.match(new RegExp(`^${variable}=(.*)`, 'm'))
     log(`Values: ${deepPrint(values)}`)
     if (values && values.length >= 1) {
       const value = values[1]
@@ -42,10 +42,10 @@ export const readEnvVariable = async (path: string, variable: string): Promise<s
 export const addOrUpdateEnvVariable = async (path: string, variable: string, value: string): Promise<void> => {
   try {
     const envContent = (await $`cat ${path}`).stdout
-    const values = envContent.match(`${variable}=(.*)`)
+    const values = envContent.match(new RegExp(`^${variable}=(.*)`, 'm'))
     if (values && values.length >= 1) {
       // Update the value of the variable
-      await $`sed -i 's|${variable}=.*|${variable}=${value}|' ${path}`
+      await $`sed -i 's|^${variable}=.*|${variable}=${value}|' ${path}`
     } else {
       // Add the variable to the .env file
       await $`echo "${variable}=${value}" >> ${path}`
