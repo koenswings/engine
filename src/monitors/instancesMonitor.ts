@@ -1,7 +1,7 @@
 import { fs } from 'zx'
 import http from 'http'
 
-import { log, deepPrint, getKeys, findIp } from '../utils/utils.js'
+import { log, deepPrint, getKeys, findIp, error } from '../utils/utils.js'
 import { Store, getInstance } from '../data/Store.js'
 import { InstanceID, InterfaceName, IPAddress, PortNumber } from '../data/CommonTypes.js'
 import { getEngineOfInstance } from '../data/Store.js'
@@ -112,7 +112,11 @@ export const generateHTML = async (storeHandle:DocHandle<Store>):Promise<void> =
     </html>`
     log(`Generated HTML: ${html}`)
     // Write the HTML to a file called <appnetName>.html
-    fs.writeFileSync(`appnet.html`, html)
+    try {
+        fs.writeFileSync(`appnet.html`, html)
+    } catch (e) {
+        error(`Error writing appnet.html: ${e}`)
+    }
 }   
 
 export const enableIndexServer = async (storeHandle:DocHandle<Store>):Promise<void> => {
@@ -135,7 +139,9 @@ export const enableIndexServer = async (storeHandle:DocHandle<Store>):Promise<vo
             res.end()
         })
     })
+    server.on('error', (err) => {
+        error(`Index server error on port ${portNumber}: ${err}`)
+    })
     server.listen(portNumber)
     log(`Started HTTP server on port ${portNumber}`)
 }
-

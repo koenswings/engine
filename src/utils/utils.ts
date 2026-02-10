@@ -76,6 +76,11 @@ export const log = (msg:string, level?:number):void => {
   }
 }
 
+export const error = (msg:string):void => {
+  console.log(chalk.red(msg))
+  console.error(chalk.red(msg))
+}
+
 export const setVerbosity = (level:number):void => {
   verbosityLevel = level
 }

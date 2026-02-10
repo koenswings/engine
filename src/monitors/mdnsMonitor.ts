@@ -1,5 +1,5 @@
 import mDnsSd from 'node-dns-sd'
-import { deepPrint, log } from '../utils/utils.js';
+import { deepPrint, log, error } from '../utils/utils.js';
 import { chalk } from 'zx';
 import { Store, getLocalEngine } from '../data/Store.js';
 import { manageDiscoveredPeers } from '../data/Network.js'
@@ -35,6 +35,8 @@ export const startAdvertising = (store: Store): void => {
 
     service.advertise().then(() => {
         log(`The following service is published on all interfaces: ${service.name}._engine._tcp.local`);
+    }).catch((err) => {
+        error(`Error advertising mDNS service: ${err}`)
     })
 }
 

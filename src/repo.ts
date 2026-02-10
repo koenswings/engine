@@ -3,7 +3,7 @@ import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
 import { WebSocketServer } from "ws";
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket";
 import { PortNumber } from "./data/CommonTypes.js";
-import { deepPrint, log } from './utils/utils.js'
+import { deepPrint, log, error } from './utils/utils.js'
 
 
 export const startAutomergeServer = async (dataDir:string, port:PortNumber):Promise<Repo> => {
@@ -14,6 +14,9 @@ export const startAutomergeServer = async (dataDir:string, port:PortNumber):Prom
 
     // 2. Create a WebSocket server.
     const ws = new WebSocketServer({ port: port });
+    ws.on('error', (err) => {
+        error(`WebSocket server error on port ${port}: ${err.message}`)
+    })
     const network = new WebSocketServerAdapter(ws);
 
     // 3. Create the Automerge repo.
@@ -63,6 +66,3 @@ export const startAutomergeServer = async (dataDir:string, port:PortNumber):Prom
     return repo;
 
 }
-
-
-
