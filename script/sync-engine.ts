@@ -96,8 +96,6 @@ const syncEngine = async () => {
       await $$`chmod +x ${enginePath}/client`;
       await $$`chmod +x ${enginePath}/reset-engine`;
       await $$`chmod +x ${enginePath}/sync-engine`;
-      // Copy pm2 config to root
-      await $$`cp ${enginePath}/script/build_image_assets/pm2.config.cjs ${enginePath}/`;
 
 
       // Now pnpm build and pm2 start engine 

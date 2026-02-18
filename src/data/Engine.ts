@@ -606,7 +606,7 @@ export const startEnginePM2 = async (exec: any, enginePath: string, permanentEng
       await exec`pm2 show engine`
     } catch (e) {
       console.log(chalk.blue(`Starting a ${productionMode ? "production" : "dev"} mode engine with pm2...`))
-      await exec`sudo cp ${enginePath}/script/build_image_assets/pm2.config.cjs ${permanentEnginePath}/`
+      await exec`sudo cp ${enginePath}/pm2.config.cjs ${permanentEnginePath}/`
       await exec`sudo chown pi:pi ${permanentEnginePath}/pm2.config.cjs`
 
       if (productionMode) {
