@@ -66,6 +66,11 @@ const syncEngine = async () => {
     console.log(chalk.green(`\n--- Syncing to ${machine} ---`));
     const $$ = ssh(`${user}@${machine}`);
     try {
+      // Ensure the engine directory exists and has the correct permissions
+      console.log(chalk.blue(`Ensuring engine directory exists on ${machine}...`));
+      await $$`sudo mkdir -p ${enginePath}`;
+      await $$`sudo chown -R ${user}:${user} ${enginePath}`;
+
       //await $`sshpass -p ${password} rsync -av build_image_assets/ ${user}@${machine}:~/tmp/build_image_assets`;;
       // Warn the user he should stop the engine manually if it is running
       // console.log(chalk.yellow(`Make sure that the engine is not running on the remote machine ${machine} before proceeding!`));
