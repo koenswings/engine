@@ -55,7 +55,7 @@ const syncEngine = async () => {
     const $$ = ssh(`${user}@${machine}`);
     try {
       await $$`command -v pm2`;
-      await $$`sudo pm2 stop engine` || true;
+      await $$`sudo pm2 delete engine` || true;
     } catch (e) {
       console.log(chalk.yellow(`pm2 not found on ${machine}, skipping stop. This is expected on a fresh install.`));
     }
@@ -89,6 +89,8 @@ const syncEngine = async () => {
       await $$`chmod +x ${enginePath}/client`;
       await $$`chmod +x ${enginePath}/reset-engine`;
       await $$`chmod +x ${enginePath}/sync-engine`;
+      // Copy pm2 config to root
+      await $$`cp ${enginePath}/script/build_image_assets/pm2.config.cjs ${enginePath}/`;
 
 
       // Now pnpm build and pm2 start engine 
@@ -125,7 +127,8 @@ const syncEngine = async () => {
     const $$ = ssh(`${user}@${machine}`);
     try {
       await $$`command -v pm2`;
-      await $$`sudo pm2 start engine`;
+      await $$`cd ${enginePath} && sudo pm2 start pm2.config.cjs`;
+      await $$`sudo pm2 save`;
     } catch (e) {
       console.log(chalk.yellow(`pm2 not found on ${machine}, skipping start. The build script will handle this.`));
     }

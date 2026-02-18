@@ -70,7 +70,8 @@ const cleanupDev = async (exec: any, target: string, storePath: string, doMetaRe
 
 const startRemoteEngine = async (exec: any, target: string) => {
     console.log(chalk.blue(`  - Restarting engine on ${target}...`));
-    await exec`sudo pm2 start engine`;
+    const enginePath = config.defaults.enginePath;
+    await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs`;
 }
 
 const stopRemoteEngine = async (exec: any, target: string) => {
