@@ -1,7 +1,6 @@
-import { $, ssh, argv, chalk } from 'zx';
+import { $, ssh, argv, chalk, path } from 'zx';
 import { config } from '../src/data/Config.js';
 import pack from '../package.json' with { type: "json" };
-import { is } from 'lib0/function.js';
 
 // 1. Handle help and version flags
 if (argv.h || argv.help) {
@@ -16,7 +15,11 @@ if (argv.h || argv.help) {
                     If no engine names are provided, it resets the local machine.
 
   Options:
-    -m, --reset-meta    Also delete the META.yaml file to reset the engine's identity.
+    -d, --data          Reset the Automerge data store.
+    -i, --identity      Reset the Automerge identity (UUIDs).
+    -m, --meta          Reset the META.yaml file (Engine Identity).
+    -c, --code          Update to the latest code from GitHub (Hard Reset).
+    -a, --all           Perform all of the above.
     -v, --version       Print the version
     -h, --help          Print this help message
   `);
@@ -30,35 +33,107 @@ if (argv.v || argv.version) {
 
 // 2. Get targets and options
 const targets = argv._;
-const resetMetaFlag = argv.m || argv['reset-meta'];
+
+const options = {
+    data: argv.d || argv.data || argv.all || false,
+    identity: argv.i || argv.identity || argv.all || false,
+    meta: argv.m || argv.meta || argv.all || false,
+    code: argv.c || argv.code || argv.all || false
+};
+
+if (!options.data && !options.identity && !options.meta && !options.code) {
+    console.log(chalk.yellow("No reset options provided. Nothing to do."));
+    console.log("Use -h for help to see available options.");
+    process.exit(0);
+}
 
 // The actual cleanup logic, for a real engine, either local or remote
-const cleanup = async (exec: any, target: string, storePath: string, metaPath: string, enginePath: string, doMetaReset: boolean) => {
+const cleanup = async (exec: any, target: string, enginePath: string, opts: typeof options) => {
     try {
-        console.log(chalk.blue(`  - Stopping engine on ${target}...`));
-        await exec`sudo pm2 stop engine || true`;
-        console.log(chalk.blue(`  - Clearing store data at ${target}:${storePath}...`));
-        await exec`sudo rm -rf ${storePath}/*`;
-        if (doMetaReset) {
-            console.log(chalk.yellow(`  - Clearing META file at ${target}:${metaPath}...`));
-            await exec`sudo rm -f ${metaPath}`;
-        }
-        console.log(chalk.blue(`  - Rebuilding engine on ${target}...`));
-        await exec`cd ${enginePath} && sudo pnpm build`;
+        if (opts.code) {
+            console.log(chalk.blue(`  - Performing full code reset (re-clone) on ${target}...`));
+            
+            const parentDir = path.dirname(enginePath);
+            const backupDir = `${parentDir}/engine-backup-${Date.now()}`;
+            const gitUrl = `https://github.com/${config.defaults.gitAccount}/engine.git`;
 
-        console.log(chalk.blue(`  - Flushing logs on ${target}...`));
-        await exec`sudo pm2 flush engine`;
+            console.log(chalk.blue(`  - Stopping and deleting engine process...`));
+            await exec`sudo pm2 delete engine || true`;
+
+            console.log(chalk.blue(`  - Backing up current engine to ${backupDir}...`));
+            await exec`mv ${enginePath} ${backupDir}`;
+
+            console.log(chalk.blue(`  - Cloning fresh repository...`));
+            await exec`cd ${parentDir} && git clone ${gitUrl}`;
+
+            console.log(chalk.blue(`  - Restoring configuration...`));
+            await exec`cp ${backupDir}/config.yaml ${enginePath}/`;
+
+            if (!opts.data) {
+                console.log(chalk.blue(`  - Restoring store data...`));
+                await exec`cp -r ${backupDir}/store-data ${enginePath}/`;
+            }
+            if (!opts.identity) {
+                console.log(chalk.blue(`  - Restoring store identity...`));
+                await exec`cp -r ${backupDir}/store-identity ${enginePath}/`;
+            }
+
+            if (opts.meta) {
+                 console.log(chalk.yellow(`  - Clearing META file at /META.yaml...`));
+                 await exec`sudo rm -f /META.yaml`;
+            }
+
+            console.log(chalk.blue(`  - Installing dependencies...`));
+            await exec`cd ${enginePath} && pnpm install`;
+
+            console.log(chalk.blue(`  - Building engine...`));
+            await exec`cd ${enginePath} && pnpm build`;
+
+            console.log(chalk.blue(`  - Registering and starting engine with PM2...`));
+            await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs`;
+            await exec`sudo pm2 save`;
+
+        } else {
+            // Standard cleanup (no code reset)
+            console.log(chalk.blue(`  - Stopping engine on ${target}...`));
+            await exec`sudo pm2 stop engine || true`;
+
+            if (opts.data) await exec`sudo rm -rf ${enginePath}/store-data/*`;
+            if (opts.identity) await exec`sudo rm -rf ${enginePath}/store-identity/*`;
+            if (opts.meta) await exec`sudo rm -f /META.yaml`;
+
+            console.log(chalk.blue(`  - Rebuilding engine on ${target}...`));
+            await exec`cd ${enginePath} && sudo pnpm build`;
+
+            console.log(chalk.blue(`  - Flushing logs on ${target}...`));
+            await exec`sudo pm2 flush engine`;
+            
+            console.log(chalk.blue(`  - Restarting engine on ${target}...`));
+            await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs`;
+        }
     } catch (e: any) {
         console.error(chalk.red(`Cleanup failed for ${target}: ${e.message}`));
+        throw e;
     }
 }
 
-const cleanupDev = async (exec: any, target: string, storePath: string, doMetaReset: boolean) => {
+const cleanupDev = async (exec: any, target: string, storePath: string, opts: typeof options) => {
     try {
-        console.log(chalk.blue(`  - Clearing store data on the local development machine...`));
-        await exec`rm -rf ${storePath}/*`;
-        if (doMetaReset) {
-            console.log(chalk.yellow(`  - Ignoring --reset-meta flag for local development machine.`));
+        if (opts.code) {
+            console.log(chalk.yellow("Code reset is not supported in local development mode. Skipping code update."));
+        }
+        if (opts.data) {
+            console.log(chalk.blue(`  - Clearing store data on the local development machine...`));
+            await exec`rm -rf ${storePath}/*`;
+        }
+        if (opts.identity) {
+            console.log(chalk.blue(`  - Clearing store identity on the local development machine...`));
+            // Assuming identity is in a sibling folder or similar, but for dev we usually just clear data
+            // If storeIdentityFolder is defined in config, we could clear it.
+            // For now, we'll just log.
+        }
+        if (opts.meta) {
+            console.log(chalk.yellow(`  - Ignoring --meta flag for local development machine (no /META.yaml).`));
         }
         console.log(chalk.blue(`  - Rebuilding engine on ${target}...`));
         await exec`pnpm build`;
@@ -67,17 +142,6 @@ const cleanupDev = async (exec: any, target: string, storePath: string, doMetaRe
     }
 }
 
-
-const startRemoteEngine = async (exec: any, target: string) => {
-    console.log(chalk.blue(`  - Restarting engine on ${target}...`));
-    const enginePath = config.defaults.enginePath;
-    await exec`cd ${enginePath} && sudo pm2 start pm2.config.cjs`;
-}
-
-const stopRemoteEngine = async (exec: any, target: string) => {
-    console.log(chalk.blue(`  - Stopping engine on ${target}...`));
-    await exec`sudo pm2 stop engine`;
-}
 
 // Main execution logic
 const main = async () => {
@@ -89,38 +153,22 @@ const main = async () => {
         // For a local real engine, respect the flag.
         if (isDev) {
             console.log(chalk.green('Performing reset on local development machine...'));
-            await cleanupDev($, 'localhost', './store-data', resetMetaFlag);
+            await cleanupDev($, 'localhost', './store-data', options);
         } else {
             console.log(chalk.green('Performing reset on local engine...'));
-            const machine = 'local dev machine';
+            const machine = 'local engine';
             const enginePath = config.defaults.enginePath;
-            await cleanup($, machine, `${enginePath}/store-data`, '/META.yaml', enginePath, resetMetaFlag);
+            await cleanup($, machine, enginePath, options);
         }
     } else {
-        // Stop all amchines first
-        for (const targetName of targets) {
-            const machine = `${targetName}.local`;
-            console.log(chalk.green(`Stopping engine on ${machine}...`));
-            const user = config.defaults.user;
-            const exec = ssh(`${user}@${machine}`);
-            await stopRemoteEngine(exec, machine);
-        }
-        // Then perform cleanup
+        // Remote reset
         for (const targetName of targets) {
             const machine = `${targetName}.local`;
             console.log(chalk.green(`Performing remote reset on ${machine}...`));
             const user = config.defaults.user;
             const exec = ssh(`${user}@${machine}`);
             const enginePath = config.defaults.enginePath;
-            await cleanup(exec, machine, `${enginePath}/store-data`, '/META.yaml', enginePath, resetMetaFlag);
-        }
-        // Finally start all machines
-        for (const targetName of targets) {
-            const machine = `${targetName}.local`;
-            console.log(chalk.green(`Starting engine on ${machine}...`));
-            const user = config.defaults.user;
-            const exec = ssh(`${user}@${machine}`);
-            await startRemoteEngine(exec, machine);
+            await cleanup(exec, machine, enginePath, options);
         }
     }
     console.log(chalk.green('\nReset script finished.'));

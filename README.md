@@ -109,7 +109,7 @@ For more advanced, interactive tasks, an Engine Admin can use the Command-Line I
 
 For complex orchestration and administrative tasks, the system provides a suite of powerful provisioning scripts. These are typically used for initial setup of Engine devices, or for advanced tasks like creating new App Disks and building reusable service components.
 
--   **Key Scripts:** `install.sh`, `build-image.ts`, `build-app-instance.ts`, `build-service.ts`.
+-   **Key Scripts:** `install.sh`, `build-engine.ts`, `build-app-instance.ts`, `build-service.ts`, `reset-engine.ts`.
 -   **Further Reading:** For a detailed description of each script and its options, see the Provisioning Scripts Reference.
 
 ## Development

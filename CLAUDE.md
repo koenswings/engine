@@ -20,3 +20,4 @@ Key goals: reliability, observability, type-safety
 - `pnpm test`: Run tests.
 - `./script/client --engine <host>`: Connect the CLI to a running engine.
 - `./script/sync-engine --machine <host>`: Sync local code to a remote engine.
+- `./script/reset-engine`: Reset engine state. Options: `--data` (store), `--identity` (UUIDs), `--meta` (META.yaml), `--code` (re-clone repo), `--all` (full reset).
