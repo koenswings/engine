@@ -62,6 +62,11 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
             console.log(chalk.blue(`  - Stopping and deleting engine process...`));
             await exec`sudo pm2 delete engine || true`;
 
+            // If running locally, change CWD to parent directory to avoid ENOENT when the current directory is moved
+            if (target === 'local engine') {
+                process.chdir(parentDir);
+            }
+
             console.log(chalk.blue(`  - Backing up current engine to ${backupDir}...`));
             await exec`mv ${enginePath} ${backupDir}`;
 
