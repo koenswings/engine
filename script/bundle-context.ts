@@ -1,6 +1,6 @@
 import { glob, fs, chalk } from 'zx'
 
-const outputFile = 'notebooklm-source-bundle.md'
+const outputFile = 'docs/source-bundle.md'
 
 console.log(chalk.blue(`Bundling source code into ${outputFile}...`))
 
@@ -23,4 +23,4 @@ for (const file of files) {
 
 await fs.writeFile(outputFile, content)
 
-console.log(chalk.green(`\nSuccess! Upload '${outputFile}' to NotebookLM.`))
+console.log(chalk.green(`\nSuccess! Source code bundled into '${outputFile}'.`))

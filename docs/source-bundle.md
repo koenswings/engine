@@ -1,5 +1,5 @@
 # Project Source Code Context
-Generated on 2026-02-08T10:43:17.753Z
+Generated on 2026-02-18T11:47:32.753Z
 
 ## File: package.json
 ```typescript
@@ -218,7 +218,7 @@ import { NodeFSStorageAdapter } from "@automerge/automerge-repo-storage-nodefs";
 import { WebSocketServer } from "ws";
 import { WebSocketServerAdapter } from "@automerge/automerge-repo-network-websocket";
 import { PortNumber } from "./data/CommonTypes.js";
-import { deepPrint, log } from './utils/utils.js'
+import { deepPrint, log, error } from './utils/utils.js'
 
 
 export const startAutomergeServer = async (dataDir:string, port:PortNumber):Promise<Repo> => {
@@ -229,6 +229,9 @@ export const startAutomergeServer = async (dataDir:string, port:PortNumber):Prom
 
     // 2. Create a WebSocket server.
     const ws = new WebSocketServer({ port: port });
+    ws.on('error', (err) => {
+        error(`WebSocket server error on port ${port}: ${err.message}`)
+    })
     const network = new WebSocketServerAdapter(ws);
 
     // 3. Create the Automerge repo.
@@ -278,9 +281,6 @@ export const startAutomergeServer = async (dataDir:string, port:PortNumber):Prom
     return repo;
 
 }
-
-
-
 
 ```
 
@@ -442,7 +442,7 @@ export const checkAndSetUndockedApps = async (storeHandle: DocHandle<Store>): Pr
         const instance = instanceDB[instanceId];
         if (instance.status !== "Undocked") {
             try {
-                const result = await $`docker ps -q -f name=${instance.name}`;
+                const result = await $`docker ps -q -f name=${instance.id}`;
                 if (result.stdout.trim() === "") {
                     // No container running, set to undocked
                     log(`Setting status of instance ${instanceId} to Undocked`)
@@ -825,7 +825,7 @@ const buildEngineWrapper = async (storeHandle: DocHandle<Store> | null, argsStri
         temperature: parsedArgs.temperature !== undefined ? parsedArgs.temperature : defaults.temperature,
         version: pack.version,
         productionMode: parsedArgs.prod || false,
-        enginePath: "/home/pi/engine",
+        enginePath: config.defaults.enginePath,
     };
     try {
         await syncEngine(user, machine);
@@ -1089,6 +1089,7 @@ export interface Defaults {
     gadget: boolean;
     nodocker: boolean;
     gitAccount: string;
+    enginePath: string;
 }
 
 export interface InstanceConfig {
@@ -1162,6 +1163,7 @@ function validateSettings(obj: any, path: string): string[] {
 function validateDefaults(obj: any, path: string): string[] {
     const errors: string[] = [];
     if (typeof obj.user !== 'string') errors.push(`'${path}user' must be a string.`);
+    if (typeof obj.enginePath !== 'string') errors.push(`'${path}enginePath' must be a string.`);
     // Add other default checks here as needed for completeness
     return errors;
 }
@@ -1764,14 +1766,14 @@ export const buildEngine = async (args: any) => {
   await buildEnginePM2(exec, enginePath);
 
   if (isLocalMode) {
-    const permanentEnginePath = "/home/pi/engine";
+    const permanentEnginePath = config.defaults.enginePath;
     console.log(chalk.blue(`Copying engine to permanent location: ${permanentEnginePath}`));
     await exec`sudo mkdir -p ${permanentEnginePath}`;
     await exec`sudo rsync -a --delete ${enginePath}/ ${permanentEnginePath}/`;
-    await exec`sudo chown -R pi:pi /home/pi/engine`;
+    await exec`sudo chown -R pi:pi ${permanentEnginePath}`;
   }
 
-  await startEnginePM2(exec, enginePath, "/home/pi/engine", productionMode);
+  await startEnginePM2(exec, enginePath, config.defaults.enginePath, productionMode);
 
   if (gadget) await usbGadget(exec, enginePath);
 
@@ -1870,6 +1872,7 @@ export const installCrontabs = async (exec: any, enginePath: string) => {
   console.log(chalk.blue('Installing crontabs...'));
   try {
     await copyAsset(exec, enginePath, 'boot.sh', '/usr/local/bin', true)
+    await exec`sudo sed -i "s|/home/pi/projects/engine|${config.defaults.enginePath}|g" /usr/local/bin/boot.sh`
     await exec`sudo crontab ${enginePath}/script/build_image_assets/crondefs`
   } catch (e) {
     console.log(chalk.red('Error installing crontabs'));
@@ -4227,7 +4230,7 @@ export const getInstance = (store: Store, instanceId: InstanceID): Instance | un
 import { fs } from 'zx'
 import http from 'http'
 
-import { log, deepPrint, getKeys, findIp } from '../utils/utils.js'
+import { log, deepPrint, getKeys, findIp, error } from '../utils/utils.js'
 import { Store, getInstance } from '../data/Store.js'
 import { InstanceID, InterfaceName, IPAddress, PortNumber } from '../data/CommonTypes.js'
 import { getEngineOfInstance } from '../data/Store.js'
@@ -4338,7 +4341,11 @@ export const generateHTML = async (storeHandle:DocHandle<Store>):Promise<void> =
     </html>`
     log(`Generated HTML: ${html}`)
     // Write the HTML to a file called <appnetName>.html
-    fs.writeFileSync(`appnet.html`, html)
+    try {
+        fs.writeFileSync(`appnet.html`, html)
+    } catch (e) {
+        error(`Error writing appnet.html: ${e}`)
+    }
 }   
 
 export const enableIndexServer = async (storeHandle:DocHandle<Store>):Promise<void> => {
@@ -4361,10 +4368,12 @@ export const enableIndexServer = async (storeHandle:DocHandle<Store>):Promise<vo
             res.end()
         })
     })
+    server.on('error', (err) => {
+        error(`Index server error on port ${portNumber}: ${err}`)
+    })
     server.listen(portNumber)
     log(`Started HTTP server on port ${portNumber}`)
 }
-
 
 ```
 
@@ -4530,7 +4539,7 @@ export const enableIndexServer = async (storeHandle:DocHandle<Store>):Promise<vo
 ## File: src/monitors/mdnsMonitor.ts
 ```typescript
 import mDnsSd from 'node-dns-sd'
-import { deepPrint, log } from '../utils/utils.js';
+import { deepPrint, log, error } from '../utils/utils.js';
 import { chalk } from 'zx';
 import { Store, getLocalEngine } from '../data/Store.js';
 import { manageDiscoveredPeers } from '../data/Network.js'
@@ -4566,6 +4575,8 @@ export const startAdvertising = (store: Store): void => {
 
     service.advertise().then(() => {
         log(`The following service is published on all interfaces: ${service.name}._engine._tcp.local`);
+    }).catch((err) => {
+        error(`Error advertising mDNS service: ${err}`)
     })
 }
 
@@ -4882,28 +4893,26 @@ export const enableUsbDeviceMonitor = async (storeHandle: DocHandle<Store>) => {
                     log('Could not find a META file. Creating one now.')
                     const diskId = await readHardwareId(device) as DiskID
                     // The disk name should be the name of the volume if available, otherwise 'Unnamed Disk'
-                    let diskName: DiskName
+                    let diskName: DiskName = 'Unnamed Disk' as DiskName
                     try {
                         const volumeNameOutput = await $`lsblk -no LABEL /dev/${device}`
                         const volumeName = volumeNameOutput.stdout.trim()
                         // Check if it is a valid volume name (not empty) - it should also not have any newlines
                         if (volumeName && volumeName.length > 0 && !volumeName.includes('\n')) {
                             diskName = volumeName as DiskName
-                        } else {
-                            throw new Error(`Invalid volume name`)
                         }
-                        meta = {
-                            diskId: diskId ? diskId : uuid() as DiskID,
-                            isHardwareId: false,
-                            diskName: diskName,
-                            created: Date.now() as Timestamp,
-                            lastDocked: Date.now() as Timestamp
-                        }
-                        const disk: Disk = createOrUpdateDisk(storeHandle, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
-                        await processDisk(storeHandle, disk)
                     } catch (e) {
                         log(`Error reading volume name for device ${device}: ${e}`)
                     }
+                    meta = {
+                        diskId: diskId ? diskId : uuid() as DiskID,
+                        isHardwareId: !!diskId,
+                        diskName: diskName,
+                        created: Date.now() as Timestamp,
+                        lastDocked: Date.now() as Timestamp
+                    }
+                    const disk: Disk = createOrUpdateDisk(storeHandle, localEngine.id, device, meta.diskId, meta.diskName, meta.created)
+                    await processDisk(storeHandle, disk)
                 }
             } catch (e) {
                 log(`Error processing device ${device}`)
@@ -6060,7 +6069,7 @@ export const randomPort = ():PortNumber => {
 export const readEnvVariable = async (path: string, variable: string): Promise<string | null> => {
   try {
     const envContent = (await $`cat ${path}`).stdout
-    const values = envContent.match(`${variable}=(.*)`)
+    const values = envContent.match(new RegExp(`^${variable}=(.*)`, 'm'))
     log(`Values: ${deepPrint(values)}`)
     if (values && values.length >= 1) {
       const value = values[1]
@@ -6080,10 +6089,10 @@ export const readEnvVariable = async (path: string, variable: string): Promise<s
 export const addOrUpdateEnvVariable = async (path: string, variable: string, value: string): Promise<void> => {
   try {
     const envContent = (await $`cat ${path}`).stdout
-    const values = envContent.match(`${variable}=(.*)`)
+    const values = envContent.match(new RegExp(`^${variable}=(.*)`, 'm'))
     if (values && values.length >= 1) {
       // Update the value of the variable
-      await $`sed -i 's|${variable}=.*|${variable}=${value}|' ${path}`
+      await $`sed -i 's|^${variable}=.*|${variable}=${value}|' ${path}`
     } else {
       // Add the variable to the .env file
       await $`echo "${variable}=${value}" >> ${path}`
@@ -6112,6 +6121,11 @@ export const log = (msg:string, level?:number):void => {
   if (verbosityLevel >= level) {
     console.log(chalk.gray(msg))
   }
+}
+
+export const error = (msg:string):void => {
+  console.log(chalk.red(msg))
+  console.error(chalk.red(msg))
 }
 
 export const setVerbosity = (level:number):void => {
@@ -6354,7 +6368,10 @@ export const uuidLight = ():string => {
 
 // A function to strip the trailing partition number from a device name
 export const stripPartition = (device: string):string => {
-  return device.replace(/[0-9]/g, '')
+  if (device.startsWith('nvme') || device.startsWith('mmcblk')) {
+    return device.replace(/p[0-9]+$/, '')
+  }
+  return device.replace(/[0-9]+$/, '')
 }
 
 ```

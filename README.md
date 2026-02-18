@@ -39,7 +39,7 @@ The system is designed to scale horizontally. Performance can be optimized by si
 
 The **Engine** software in this repository is the core backend component of a larger solution designed to create self-contained, offline web environments for rural schools in Africa.
 
-For a detailed technical breakdown of the system's design, including state management, data flow, and implementation decisions, please refer to the Architecture Guide.
+For a detailed technical breakdown of the system's design, including state management, data flow, and implementation decisions, please refer to the [Architecture Guide](docs/ARCHITECTURE.md).
 
 The overall solution provides a complete "internet-in-a-box" and consists of:
 
@@ -103,14 +103,14 @@ For more advanced, interactive tasks, an Engine Admin can use the Command-Line I
     # Connect to a running engine to enter the interactive CLI
     ./script/client --engine <engine-ip-or-hostname>
     ```
--   **Further Reading:** For a full list of available commands, see the [Command Reference](COMMANDS.md).
+-   **Further Reading:** For a full list of available commands, see the Command Reference.
 
 ### 3. Provisioning Scripts (for Admins)
 
 For complex orchestration and administrative tasks, the system provides a suite of powerful provisioning scripts. These are typically used for initial setup of Engine devices, or for advanced tasks like creating new App Disks and building reusable service components.
 
 -   **Key Scripts:** `install.sh`, `build-image.ts`, `build-app-instance.ts`, `build-service.ts`.
--   **Further Reading:** For a detailed description of each script and its options, see the [Provisioning Scripts Reference](SCRIPTS.md).
+-   **Further Reading:** For a detailed description of each script and its options, see the Provisioning Scripts Reference.
 
 ## Development
 
