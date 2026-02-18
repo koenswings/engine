@@ -34,11 +34,13 @@ if (argv.v || argv.version) {
 // 2. Get targets and options
 const targets = argv._;
 
+const all = argv.a || argv.all || false;
+
 const options = {
-    data: argv.d || argv.data || argv.all || false,
-    identity: argv.i || argv.identity || argv.all || false,
-    meta: argv.m || argv.meta || argv.all || false,
-    code: argv.c || argv.code || argv.all || false
+    data: argv.d || argv.data || all || false,
+    identity: argv.i || argv.identity || all || false,
+    meta: argv.m || argv.meta || all || false,
+    code: argv.c || argv.code || all || false
 };
 
 if (!options.data && !options.identity && !options.meta && !options.code) {
