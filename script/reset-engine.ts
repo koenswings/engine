@@ -75,6 +75,10 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
             console.log(chalk.blue(`  - Cloning fresh repository...`));
             await exec`cd ${parentDir} && git clone ${gitUrl}`;
 
+            const user = config.defaults.user;
+            console.log(chalk.blue(`  - Setting ownership to ${user}:${user}...`));
+            await exec`sudo chown -R ${user}:${user} ${enginePath}`;
+
             console.log(chalk.blue(`  - Restoring configuration...`));
             await exec`cp ${backupDir}/config.yaml ${enginePath}/`;
 
