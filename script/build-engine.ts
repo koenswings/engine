@@ -62,7 +62,7 @@ const main = async () => {
     } else {
         console.log(chalk.green(`Running in Remote Mode for ${machine}...`));
         exec = ssh(`${user}@${machine}`);
-        enginePath = "/home/pi/engine";
+        enginePath = config.defaults.enginePath;
     }
 
     // Assemble arguments for the core buildEngine function

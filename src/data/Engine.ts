@@ -175,14 +175,14 @@ export const buildEngine = async (args: any) => {
   await buildEnginePM2(exec, enginePath);
 
   if (isLocalMode) {
-    const permanentEnginePath = "/home/pi/engine";
+    const permanentEnginePath = config.defaults.enginePath;
     console.log(chalk.blue(`Copying engine to permanent location: ${permanentEnginePath}`));
     await exec`sudo mkdir -p ${permanentEnginePath}`;
     await exec`sudo rsync -a --delete ${enginePath}/ ${permanentEnginePath}/`;
-    await exec`sudo chown -R pi:pi /home/pi/engine`;
+    await exec`sudo chown -R pi:pi ${permanentEnginePath}`;
   }
 
-  await startEnginePM2(exec, enginePath, "/home/pi/engine", productionMode);
+  await startEnginePM2(exec, enginePath, config.defaults.enginePath, productionMode);
 
   if (gadget) await usbGadget(exec, enginePath);
 
@@ -281,6 +281,7 @@ export const installCrontabs = async (exec: any, enginePath: string) => {
   console.log(chalk.blue('Installing crontabs...'));
   try {
     await copyAsset(exec, enginePath, 'boot.sh', '/usr/local/bin', true)
+    await exec`sudo sed -i "s|/home/pi/projects/engine|${config.defaults.enginePath}|g" /usr/local/bin/boot.sh`
     await exec`sudo crontab ${enginePath}/script/build_image_assets/crondefs`
   } catch (e) {
     console.log(chalk.red('Error installing crontabs'));

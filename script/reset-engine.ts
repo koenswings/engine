@@ -92,7 +92,8 @@ const main = async () => {
         } else {
             console.log(chalk.green('Performing reset on local engine...'));
             const machine = 'local dev machine';
-            await cleanup($, machine, '/home/pi/engine/store-data', '/META.yaml', '/home/pi/engine', resetMetaFlag);
+            const enginePath = config.defaults.enginePath;
+            await cleanup($, machine, `${enginePath}/store-data`, '/META.yaml', enginePath, resetMetaFlag);
         }
     } else {
         // Stop all amchines first
@@ -109,7 +110,8 @@ const main = async () => {
             console.log(chalk.green(`Performing remote reset on ${machine}...`));
             const user = config.defaults.user;
             const exec = ssh(`${user}@${machine}`);
-            await cleanup(exec, machine, '/home/pi/engine/store-data', '/META.yaml', '/home/pi/engine', resetMetaFlag);
+            const enginePath = config.defaults.enginePath;
+            await cleanup(exec, machine, `${enginePath}/store-data`, '/META.yaml', enginePath, resetMetaFlag);
         }
         // Finally start all machines
         for (const targetName of targets) {

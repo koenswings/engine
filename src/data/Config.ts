@@ -33,6 +33,7 @@ export interface Defaults {
     gadget: boolean;
     nodocker: boolean;
     gitAccount: string;
+    enginePath: string;
 }
 
 export interface InstanceConfig {
@@ -106,6 +107,7 @@ function validateSettings(obj: any, path: string): string[] {
 function validateDefaults(obj: any, path: string): string[] {
     const errors: string[] = [];
     if (typeof obj.user !== 'string') errors.push(`'${path}user' must be a string.`);
+    if (typeof obj.enginePath !== 'string') errors.push(`'${path}enginePath' must be a string.`);
     // Add other default checks here as needed for completeness
     return errors;
 }

@@ -41,7 +41,7 @@ if (targets.length === 0) {
 // Now override the default configuration using the command line
 const user = argv.u || argv.user || defaults.user
 const clearStore = argv.c || argv['clear-store'];
-const enginePath = "/home/pi/engine"
+const enginePath = config.defaults.enginePath
 const storeDataFolder = config.settings.storeDataFolder
 
 

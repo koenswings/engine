@@ -109,7 +109,7 @@ const buildEngineWrapper = async (storeHandle: DocHandle<Store> | null, argsStri
         temperature: parsedArgs.temperature !== undefined ? parsedArgs.temperature : defaults.temperature,
         version: pack.version,
         productionMode: parsedArgs.prod || false,
-        enginePath: "/home/pi/engine",
+        enginePath: config.defaults.enginePath,
     };
     try {
         await syncEngine(user, machine);

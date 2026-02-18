@@ -22,6 +22,7 @@ defaults:
   gadget: true
   nodocker: true   # Whether the engine itself will be dockerized
   gitAccount: koenswings
+  enginePath: /home/pi/projects/engine
 testSetup:
   resetBeforeTest: true
   engines:
