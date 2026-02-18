@@ -82,6 +82,8 @@ const syncEngine = async () => {
       // Install the dependencies on the remote machine 
       //console.log(chalk.blue(`Installing dependencies on remote machine`));
       //await $$`cd ${enginePath} && pnpm install`
+      console.log(chalk.blue(`Installing dependencies on remote machine`));
+      await $$`cd ${enginePath} && pnpm install`
       // Set isDev to false in config.yaml on the remote machine
       console.log(chalk.blue(`Setting isDev to false in config.yaml on remote machine`));
       await $$`sed -i 's/isDev: true/isDev: false/' ${enginePath}/config.yaml`
