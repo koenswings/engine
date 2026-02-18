@@ -76,7 +76,7 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
             await exec`sudo chown -R ${user}:${user} ${backupDir}`;
 
             console.log(chalk.blue(`  - Cloning fresh repository...`));
-            await exec`cd ${parentDir} && git clone ${gitUrl}`;
+            await exec`cd ${parentDir} && sudo git clone ${gitUrl}`;
 
             console.log(chalk.blue(`  - Setting ownership to ${user}:${user}...`));
             await exec`sudo chown -R ${user}:${user} ${enginePath}`;
