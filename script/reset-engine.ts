@@ -1,4 +1,4 @@
-import { $, ssh, argv, chalk, path } from 'zx';
+import { $, ssh, argv, chalk, path, cd } from 'zx';
 import { config } from '../src/data/Config.js';
 import pack from '../package.json' with { type: "json" };
 
@@ -55,7 +55,8 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
         if (opts.code) {
             console.log(chalk.blue(`  - Performing full code reset (re-clone) on ${target}...`));
             
-            const parentDir = path.dirname(enginePath);
+            const enginePathClean = enginePath.replace(/\/$/, '');
+            const parentDir = path.dirname(enginePathClean);
             const backupDir = `${parentDir}/engine-backup-${Date.now()}`;
             const gitUrl = `https://github.com/${config.defaults.gitAccount}/engine.git`;
 
@@ -64,7 +65,8 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
 
             // If running locally, change CWD to parent directory to avoid ENOENT when the current directory is moved
             if (target === 'local engine') {
-                process.chdir(parentDir);
+                console.log(chalk.blue(`  - Changing CWD to ${parentDir} to allow self-move...`));
+                cd(parentDir);
             }
 
             console.log(chalk.blue(`  - Backing up current engine to ${backupDir}...`));
