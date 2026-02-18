@@ -69,13 +69,15 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
                 cd(parentDir);
             }
 
+            const user = config.defaults.user;
+
             console.log(chalk.blue(`  - Backing up current engine to ${backupDir}...`));
-            await exec`mv ${enginePath} ${backupDir}`;
+            await exec`sudo mv ${enginePath} ${backupDir}`;
+            await exec`sudo chown -R ${user}:${user} ${backupDir}`;
 
             console.log(chalk.blue(`  - Cloning fresh repository...`));
             await exec`cd ${parentDir} && git clone ${gitUrl}`;
 
-            const user = config.defaults.user;
             console.log(chalk.blue(`  - Setting ownership to ${user}:${user}...`));
             await exec`sudo chown -R ${user}:${user} ${enginePath}`;
 
