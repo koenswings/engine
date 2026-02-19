@@ -3,6 +3,8 @@
 ## Overview
 Engine is an offline-first web application environment designed for Raspberry Pi devices ("Appdockers"). It manages web apps via physical "App Disks" and uses CRDTs (Automerge) for distributed state synchronization between peers.
 
+Multiple Engines on the same network automatically discover each other via mDNS and sync their Automerge documents into a single shared state. This means every Engine holds a complete, merged view of the whole network — which engines are online, which disks are inserted where, and which app instances are running. Console UIs connect to any one Engine and immediately receive this full network picture. Users interact with the Console UI to send commands (start/stop apps, eject disks); those commands are written into the shared Automerge document and propagate to the target Engine, which executes them and writes the result back — no separate RPC layer required.
+
 Key goals: reliability, observability, type-safety
 
 ## Documentation
