@@ -1,6 +1,6 @@
 settings:
   mdns: true
-  isDev: true
+  isDev: false
   port: 4321
   storeDataFolder: store-data
   storeIdentityFolder: store-identity
