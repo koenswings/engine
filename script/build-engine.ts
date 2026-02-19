@@ -6,7 +6,8 @@ import { dirname } from 'path';
 import pack from '../package.json' with { type: "json" };
 import { generateHostName } from '../src/utils/nameGenerator.js';
 import { config } from '../src/data/Config.js';
-import { buildEngine, setHostname, addMeta, syncEngine } from '../src/data/Engine.js';
+import { buildEngine, setHostname, syncEngine } from '../src/data/Engine.js';
+import { addMeta } from '../src/data/Meta.js';
 
 const defaults = config.defaults;
 

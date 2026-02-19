@@ -2,7 +2,7 @@ import { $, chalk, os, question, YAML, fs, path, sleep } from 'zx';
 
 $.verbose = false;
 import { deepPrint, log, uuid } from '../utils/utils.js';
-import { readMetaUpdateId, DiskMeta } from './Meta.js';
+import { readMetaUpdateId, DiskMeta, addMeta, readRemoteDiskId } from './Meta.js';
 import { Version, Command, Hostname, Timestamp, DiskID, EngineID } from './CommonTypes.js';
 import { Store, getAppsOfEngine, getDisksOfEngine, getInstancesOfEngine } from './Store.js';
 import { DocHandle } from '@automerge/automerge-repo';
@@ -524,54 +524,6 @@ export const configurePnpm = async (exec: any) => {
   console.log(chalk.green('pnpm set up'));
 }
 
-export const readRemoteDiskId = async (exec: any): Promise<DiskID | undefined> => {
-  log(`Reading disk id remotely`)
-  try {
-    const rootDevice = (await exec`findmnt / -no SOURCE`).stdout.split('/')[2].trim();
-    // First, find the full path to hdparm
-    const hdparmPath = (await exec`which hdparm`).stdout.trim();
-    if (!hdparmPath) {
-      log('hdparm command not found on remote machine.');
-      return undefined;
-    }
-    const sn = (await exec`${hdparmPath} -I /dev/${rootDevice} | grep 'Serial\\ Number'`).stdout;
-    const id = sn.trim().split(':');
-    if (id.length === 2) {
-      const diskId = id[1].trim();
-      log(`Remote disk id is ${diskId}`);
-      return diskId as DiskID;
-    } else {
-      log(`Cannot read disk id for device ${rootDevice}`);
-      return undefined;
-    }
-  } catch (e) {
-    log(`Error reading disk id of the root device: ${e}`);
-    return undefined;
-  }
-}
-
-export const addMeta = async (exec: any, hostname: string, version: string) => {
-  let id = await readRemoteDiskId(exec)
-  if (id === undefined) {
-    console.log(chalk.yellow(`Disk id is ${id}`));
-    console.log(chalk.red('Remote disk has no disk id.  Generating one.'))
-    id = uuid() as DiskID
-  }
-  console.log(chalk.blue('Adding metadata...'));
-  try {
-    await exec`sudo rm -f /META.yaml`;
-    await exec`echo 'diskId: ${id}' | sudo tee -a /META.yaml`;
-    await exec`echo 'diskName: ${id}' | sudo tee -a /META.yaml`;
-    await exec`echo 'hostname: ${hostname}' | sudo tee -a /META.yaml`;
-    await exec`echo 'created: ${new Date().getTime()}' | sudo tee -a /META.yaml`;
-    await exec`echo 'version: ${version}' | sudo tee -a /META.yaml`;
-    await exec`echo 'lastDocked: ${new Date().getTime()}' | sudo tee -a /META.yaml`;
-  } catch (e) {
-    console.log(chalk.red('Error adding metadata'));
-    console.error(e);
-    process.exit(1);
-  }
-}
 
 export const installPm2 = async (exec: any, enginePath: string) => {
   console.log(chalk.blue('Installing pm2...'));

@@ -1,6 +1,7 @@
 import { $, ssh, argv, chalk, path, cd } from 'zx';
 import { config } from '../src/data/Config.js';
 import pack from '../package.json' with { type: "json" };
+import { addMeta } from '../src/data/Meta.js';
 
 // 1. Handle help and version flags
 if (argv.h || argv.help) {
@@ -94,8 +95,9 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
             }
 
             if (opts.meta) {
-                 console.log(chalk.yellow(`  - Clearing META file at /META.yaml...`));
-                 await exec`sudo rm -f /META.yaml`;
+                 console.log(chalk.yellow(`  - Regenerating META file at /META.yaml...`));
+                 const hostname = (await exec`hostname`).stdout.trim();
+                 await addMeta(exec, hostname, pack.version);
             }
 
             console.log(chalk.blue(`  - Installing dependencies...`));
@@ -115,7 +117,11 @@ const cleanup = async (exec: any, target: string, enginePath: string, opts: type
 
             if (opts.data) await exec`sudo rm -rf ${enginePath}/store-data/*`;
             if (opts.identity) await exec`sudo rm -rf ${enginePath}/store-identity/*`;
-            if (opts.meta) await exec`sudo rm -f /META.yaml`;
+            if (opts.meta) {
+                 console.log(chalk.yellow(`  - Regenerating META file at /META.yaml...`));
+                 const hostname = (await exec`hostname`).stdout.trim();
+                 await addMeta(exec, hostname, pack.version);
+            }
 
             console.log(chalk.blue(`  - Rebuilding engine on ${target}...`));
             await exec`cd ${enginePath} && sudo pnpm build`;
