@@ -114,11 +114,39 @@ For complex orchestration and administrative tasks, the system provides a suite 
 
 ## Development
 
-This project uses a two-part environment for development: a containerized **Development System** for writing code, and a physical **Runtime System** (a Raspberry Pi) for testing.
+There are two ways to set up a development environment for the Engine.
 
-### Environment Setup
+### Option 1: Remote Development on Real Hardware (Recommended)
 
-The **Development System** provides a containerized environment for code editing, compilation, and testing of non-system-dependent features. It is a limited environment that excludes capabilities requiring deep OS integration, such as detecting new disks (`udev`) or discovering other engines on the network (mDNS). It has been primarily tested on macOS hosts.
+This method involves connecting VS Code directly to a running Engine (Raspberry Pi) via SSH. This allows you to develop and test on the actual hardware, giving you full access to system features like `udev` (disk detection) and mDNS which are difficult to emulate in containers.
+
+**Prerequisites:**
+- A provisioned Engine device (see Installation).
+- Visual Studio Code.
+- The Remote - SSH extension for VS Code.
+
+**Setup:**
+1.  Ensure your Engine is running and accessible via SSH (e.g., `ssh pi@raspberrypi.local`).
+2.  In VS Code, open the Command Palette (`F1` or `Ctrl+Shift+P`) and run `Remote-SSH: Connect to Host...`.
+3.  Enter `pi@<engine-hostname>.local`.
+4.  Once connected, open the `/home/pi/projects/engine` folder.
+
+**Workflow:**
+- You can edit code directly on the device.
+- Use the integrated terminal to run commands like `pnpm build` or `./script/reset-engine`.
+- To push changes back to GitHub, first configure your Git identity in the integrated terminal:
+    ```bash
+    git config --global user.name "Your Name"
+    git config --global user.email "your.email@example.com"
+    ```
+- For authentication, VS Code can forward your local GitHub credentials. Simply sign in to GitHub within VS Code on your local machine (Accounts icon -> Sign in with GitHub), and you will be able to push changes from the remote window without further configuration.
+
+
+### Option 2: Containerized Development Environment (Deprecated)
+
+**Note:** This method is deprecated. While useful for logic that doesn't depend on hardware, it lacks access to USB events and network discovery.
+
+This setup uses Docker Dev Environments to create a containerized workspace for code editing, compilation, and testing of non-system-dependent features. It is a limited environment that excludes capabilities requiring deep OS integration, such as detecting new disks (`udev`) or discovering other engines on the network (mDNS). It has been primarily tested on macOS hosts.
 
 For evaluating the full functionality, including hardware and network interactions, the **Runtime System** (a physical Raspberry Pi) is required.
 
