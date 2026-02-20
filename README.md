@@ -142,6 +142,50 @@ This method involves connecting VS Code directly to a running Engine (Raspberry 
 - For authentication, VS Code can forward your local GitHub credentials. Simply sign in to GitHub within VS Code on your local machine (Accounts icon -> Sign in with GitHub), and you will be able to push changes from the remote window without further configuration.
 
 
+### Claude Code (AI-Assisted Development)
+
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) is Anthropic's AI coding assistant CLI. It runs as an interactive session directly in your terminal and is the recommended way to get AI assistance while working on this project.
+
+**Installation:**
+
+On the Engine (Raspberry Pi), install Claude Code globally via npm:
+```bash
+npm install -g @anthropic/claude-code
+```
+
+Then authenticate by running `claude` and following the login prompt.
+
+**Why tmux is required:**
+
+Claude Code runs as a long-lived interactive session. When working over SSH, any network interruption — a dropped connection, your laptop going to sleep — will kill every process running in that shell, including your Claude Code session and all its accumulated context. Running Claude Code inside a `tmux` session means the session persists on the device and survives disconnections. You can SSH back in and pick up exactly where you left off.
+
+**Starting a session:**
+```bash
+tmux new -s claude    # create a named tmux session
+claude                # start Claude Code inside it
+```
+
+**Reconnecting after a disconnection:**
+```bash
+ssh pi@<engine-hostname>.local
+tmux attach -t claude
+```
+
+**VS Code integration:**
+
+The `.vscode/settings.json` in this repository configures VS Code's integrated terminal to automatically attach to (or create) the `claude` tmux session. Every new terminal opened via Remote-SSH will reconnect to your existing session — no manual reattachment needed.
+
+To configure this manually, or to change the session name, open `.vscode/settings.json` and set:
+```json
+"terminal.integrated.defaultProfile.linux": "tmux",
+"terminal.integrated.profiles.linux": {
+    "tmux": {
+        "path": "bash",
+        "args": ["-c", "tmux attach -t claude 2>/dev/null || tmux new -s claude"]
+    }
+}
+```
+
 ### Option 2: Containerized Development Environment (Deprecated)
 
 **Note:** This method is deprecated. While useful for logic that doesn't depend on hardware, it lacks access to USB events and network discovery.
