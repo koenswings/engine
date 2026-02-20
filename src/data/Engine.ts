@@ -582,7 +582,7 @@ export const startEnginePM2 = async (exec: any, enginePath: string, permanentEng
 export const installVarious = async (exec: any) => {
   console.log(chalk.blue('Installing tcpdump, vim and hdparm...'));
   try {
-    await exec`sudo apt install tcpdump vim hdparm -y`;
+    await exec`sudo apt install tcpdump vim tmux hdparm -y`;
   } catch (e) {
     console.log(chalk.red('Error installing tcpdump, vim and hdparm'));
     console.error(e);
