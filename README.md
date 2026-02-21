@@ -186,6 +186,43 @@ To configure this manually, or to change the session name, open `.vscode/setting
 }
 ```
 
+### OpenClaw (Web-Based AI Interface)
+
+[OpenClaw](https://github.com/openclaw/openclaw) is a self-hosted AI assistant platform that provides a persistent, browser-based interface to Claude. It runs alongside the Engine as a Docker container and is the recommended interface for project management, documentation work, and multi-agent coordination (see `docs/openclaw-brainstorm.md`).
+
+OpenClaw is accessible from any device on the Tailscale network at `https://openclaw-pi.tail2d60.ts.net`. Its configuration lives in `/home/pi/openclaw/compose.yaml`.
+
+**Docker socket requirement:**
+
+OpenClaw's embedded Claude Code agent needs to spawn Docker containers for sandboxed tool execution. The OpenClaw container must have the Docker socket and CLI binary mounted in. Without these, sending a message in the chat will hang indefinitely. Ensure `compose.yaml` includes the following under the `openclaw` service volumes:
+
+```yaml
+- /var/run/docker.sock:/var/run/docker.sock
+- /usr/bin/docker:/usr/bin/docker:ro
+```
+
+**Starting / restarting OpenClaw:**
+```bash
+cd /home/pi/openclaw
+sudo docker compose up -d --force-recreate openclaw
+```
+
+**Checking logs:**
+```bash
+sudo docker exec openclaw-gateway cat /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log
+```
+
+**VS Code extensions:**
+
+Two extensions improve the documentation workflow when connected via Remote-SSH:
+
+| Extension | ID | Install on | Purpose |
+|-----------|-----|------------|---------|
+| Markdown PDF | `yzane.markdown-pdf` | Remote (SSH) | Generates intermediate HTML for `./md-to-pdf` |
+| vscode-pdf | `tomoki1207.pdf` | Local | View generated PDFs inline in VS Code |
+
+The Markdown PDF extension's built-in PDF export fails on ARM64 (Puppeteer cannot launch). Use `./md-to-pdf` instead (see Common Commands).
+
 ### Option 2: Containerized Development Environment (Deprecated)
 
 **Note:** This method is deprecated. While useful for logic that doesn't depend on hardware, it lacks access to USB events and network discovery.
@@ -236,3 +273,4 @@ Therefore, running the Engine on a non-Debian distribution (like Fedora, Arch Li
 - **Build:** `pnpm build`
 - **Run Tests:** `pnpm test`
 - **Bundle Context:** `pnpm bundle-context` (Bundles source code for LLM context)
+- **Generate PDF from Markdown:** `./md-to-pdf <input.md> [output.pdf]` (Converts a Markdown doc to PDF using VS Code preview styles; output defaults to same directory as input)
