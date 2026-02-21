@@ -151,6 +151,85 @@ For complex engine or console changes, a third gate applies:
 
 ---
 
+## CEO Tools & Daily Workflow
+
+### Tool Stack
+
+| Tool | Purpose | When you use it |
+|------|---------|-----------------|
+| **OpenClaw Web UI** | Direct agents, approve plans, run standups | Daily — primary interface |
+| **GitHub** | Review and merge PRs (code and documents) | Whenever agents raise PRs |
+| **Terminal (SSH / Tailscale SSH)** | Pi administration, Docker, logs | Occasional — infrastructure changes only |
+
+### Using the OpenClaw Web UI
+
+Access at `https://openclaw-pi.tail2d60.ts.net` from any device on the Tailscale network.
+
+The UI presents each agent as a separate chat tab. Your workflow in each tab:
+
+| Step | What you do | What happens |
+|------|-------------|--------------|
+| **Direct** | Open an agent's tab, type a task | e.g. "Pick the next backlog item and propose your approach" |
+| **Review plan** | Agent proposes exactly what it will do before acting | This is `DEFAULT_PERMISSION_MODE=plan` — the agent always stops here |
+| **Approve / redirect** | Type "go ahead" or modify the plan | Agent executes only after your explicit approval |
+| **Observe** | Watch tool calls, file edits, git operations stream in real time | You can interrupt at any point |
+
+The "A return + waiting emoticon" in the chat is the agent presenting its plan and waiting for your go/no-go. It is not a bug — it is the CEO approval loop working as intended.
+
+**Which agent tab to use for what:**
+
+| Agent tab | Use it to... |
+|-----------|-------------|
+| `engine-dev` | Assign Engine coding tasks, review technical proposals |
+| `console-dev` | Assign Console UI tasks |
+| `site-dev` | Assign website content and build tasks |
+| `quality-manager` | Request a cross-project review or PR analysis |
+| `fundraising` | "What grants should we be applying for right now?" |
+| `communications` | "Draft a donor update for this month" |
+| `teacher` | "Write a Kolibri getting-started guide for teachers" |
+
+### A Typical CEO Day
+
+```
+Morning
+  └─ OpenClaw: standup agent → "run morning standup" → approve plan → read result
+  └─ GitHub: review any PRs raised overnight → merge or comment
+
+During the day
+  └─ OpenClaw: fundraising → "what grants close this quarter?" → approve → review output
+  └─ OpenClaw: engine-dev → "pick the next backlog item" → approve → it opens a PR
+  └─ GitHub: quality-manager has commented on a PR → read, decide, merge
+
+As needed
+  └─ OpenClaw: communications → "draft a donor update from this month's commits" → approve
+  └─ GitHub: review the comms draft PR, edit inline, merge when satisfied
+```
+
+**Key mental model:** OpenClaw is where you direct work and approve plans. GitHub is where you review and accept finished work.
+
+---
+
+## Complementary Open Source Tools
+
+OpenClaw's web UI is the primary dashboard — there are no third-party dashboards built specifically for it. These tools add useful capability around it:
+
+### Portainer — Docker management UI
+The most immediately useful addition. Gives a web UI to see all running containers, their health, logs, and resource usage — without needing SSH.
+
+- Runs as a Docker container alongside OpenClaw
+- Useful for monitoring the OpenClaw container itself and checking logs
+
+### Plane — project management (open source Jira/Linear alternative)
+If `hq/BACKLOG.md` as a markdown file starts to feel limiting, Plane provides a proper board and backlog UI with issues, cycles, and modules. Self-hostable on the Pi.
+
+### n8n — workflow automation
+Useful for automating the standup trigger, scheduled agent prompts, or GitHub notifications. Rather than running `./standup morning` manually, n8n can trigger it on a schedule.
+
+### Grafana — monitoring dashboards
+Visibility into Pi health (CPU, memory, temperature, disk usage) — relevant for an always-on device deployed in a rural school. Pairs with Prometheus for metrics collection.
+
+---
+
 ## Daily Standups — Practical Mechanics
 
 A standup is an agent session seeded with a specific context prompt. The simplest implementation is a script you run manually (or via a systemd timer) that:
