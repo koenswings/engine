@@ -273,4 +273,15 @@ Therefore, running the Engine on a non-Debian distribution (like Fedora, Arch Li
 - **Build:** `pnpm build`
 - **Run Tests:** `pnpm test`
 - **Bundle Context:** `pnpm bundle-context` (Bundles source code for LLM context)
-- **Generate PDF from Markdown:** `./md-to-pdf <input.md> [output.pdf]` (Converts a Markdown doc to PDF using VS Code preview styles; output defaults to same directory as input)
+- **Generate PDF from Markdown:** `./md-to-pdf <input.md> [output.pdf]` (Converts a single Markdown doc to PDF using VS Code preview styles; output defaults to same directory as input)
+- **Generate all PDFs:** `./md-to-pdf --all` (Converts every `.md` file in the project; PDFs are placed alongside their source files and are git-ignored)
+
+**PDF generation and Claude:**
+
+PDFs are generated artifacts and are excluded from git (`.gitignore` covers `*.pdf`). They live alongside their source `.md` files for easy browsing in VS Code.
+
+When working with Claude Code or OpenClaw, you can ask Claude to regenerate PDFs at any time:
+- *"Regenerate the PDF for this file"* — after editing a single document
+- *"Regenerate all PDFs"* — to refresh the whole set
+
+Claude will also regenerate the PDF for any `.md` file it updates during a session, without being asked.
