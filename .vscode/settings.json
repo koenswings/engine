@@ -4,7 +4,7 @@
     "terminal.integrated.profiles.linux": {
         "tmux": {
             "path": "bash",
-            "args": ["-c", "tmux attach -t claude 2>/dev/null || tmux new -s claude"]
+            "args": ["-c", "tmux attach -t claude 2>/dev/null || tmux new -s claude; tmux set -g mouse on"]
         }
     }
 }
