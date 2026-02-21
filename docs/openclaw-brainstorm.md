@@ -249,7 +249,7 @@ Whether to automate this via a cron/systemd timer or keep it manual is an open q
 2. **Rename `console-ui` → `console-dev`?** ✅ Yes. Website agent is `site-dev`.
 3. **Standup: automated or manual?** ✅ Manual trigger for now — `./standup morning`.
 4. **HQ repo: public or private?** ✅ Public. All repos under the GitHub org will be public.
-5. **GitHub Organisation name?** → **`idea-edu-africa`** (recommended, available). See availability table:
+5. **GitHub Organisation name?** → **`idea-edu-africa`** (not yet created). Repos currently live under the personal account `koenswings` and will be transferred to the org when it is created. See availability table:
 
    | Name | Available? |
    |------|-----------|
@@ -294,19 +294,35 @@ Growing the backlog is a collaborative, PR-driven process. Full details in `hq/P
 
 ---
 
+## Project Repositories
+
+| Repo | Current URL | Notes |
+|------|------------|-------|
+| `engine` | https://github.com/koenswings/engine | Engine software |
+| `openclaw` | https://github.com/koenswings/openclaw | OpenClaw platform config |
+| `idea-proposal` | https://github.com/koenswings/idea-proposal | This planning doc and proposals |
+
+All repos currently under personal account `koenswings`. Will transfer to `idea-edu-africa` org when it is created.
+
+Repos still to create (after org setup): `console-ui`, `website`, `hq`.
+
+---
+
 ## What Needs to Happen (in order)
 
 1. ✅ Decide answers to the open questions above
-2. Review and approve the full proposal in `/home/pi/idea-proposal/` (AGENTS.md files, sandbox files, openclaw.json)
-3. Create GitHub Organisation (`idea-edu-africa`) and repos (`engine`, `console-ui`, `website`, `hq`)
-4. Create project directories on the Pi: `console-ui/`, `website/`, `hq/` with subdirs
-5. Copy approved `AGENTS.md` files from proposal into each workspace
-6. Apply updated `openclaw.json` (rename existing agents + add new ones)
-7. Copy sandbox files (IDENTITY, SOUL, USER, TOOLS, HEARTBEAT, BOOTSTRAP) into each agent's OpenClaw sandbox
-8. Restart OpenClaw: `sudo docker restart openclaw-gateway`
-9. Set up branch protection on `main` in each GitHub repo (CEO-only merge)
-10. Pair your browser with each new agent in the OpenClaw UI
-11. Run the BOOTSTRAP session for each new agent to confirm identity and orientation
+2. ✅ Set up project repos: `engine`, `openclaw`, `idea-proposal` on GitHub
+3. ✅ Set up VS Code / Claude Code / tmux per-project session pattern across all three projects
+4. Review and approve the full proposal in `/home/pi/projects/idea-proposal/` (AGENTS.md files, sandbox files, openclaw.json)
+5. Create GitHub Organisation (`idea-edu-africa`) and transfer existing repos; create new repos (`console-ui`, `website`, `hq`)
+6. Create project directories on the Pi: `console-ui/`, `website/`, `hq/` with subdirs
+7. Copy approved `AGENTS.md` files from proposal into each workspace
+8. Apply updated `openclaw.json` (rename existing agents + add new ones)
+9. Copy sandbox files (IDENTITY, SOUL, USER, TOOLS, HEARTBEAT, BOOTSTRAP) into each agent's OpenClaw sandbox
+10. Restart OpenClaw: `sudo docker restart openclaw-gateway`
+11. Set up branch protection on `main` in each GitHub repo (CEO-only merge)
+12. Pair your browser with each new agent in the OpenClaw UI
+13. Run the BOOTSTRAP session for each new agent to confirm identity and orientation
 
 ---
 
@@ -314,8 +330,10 @@ Growing the backlog is a collaborative, PR-driven process. Full details in `hq/P
 
 ### HQ / Setup
 - [x] Decide GitHub org name → `idea-edu-africa`
-- [ ] Review and approve proposal in `/home/pi/idea-proposal/`
-- [ ] Create GitHub organisation (`idea-edu-africa`) and repos: engine, console-ui, website, hq
+- [x] Set up `engine`, `openclaw`, `idea-proposal` repos on GitHub (currently under `koenswings`)
+- [x] Set up VS Code / Claude Code / tmux per-project session pattern
+- [ ] Review and approve proposal in `/home/pi/projects/idea-proposal/`
+- [ ] Create GitHub organisation (`idea-edu-africa`) and transfer repos; create `console-ui`, `website`, `hq`
 - [ ] Create project directories on Pi: `console-ui/`, `website/`, `hq/` with subdirs
 - [ ] Configure OpenClaw agents (rename engine→engine-dev, console-ui→console-dev; add 5 new agents)
 - [ ] Copy sandbox files (IDENTITY, SOUL, USER, TOOLS, HEARTBEAT, BOOTSTRAP) to each agent
