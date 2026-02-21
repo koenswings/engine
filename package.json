@@ -39,10 +39,12 @@
   "devDependencies": {
     "@ts-morph/common": "^0.24.0",
     "@types/chai": "^4.3.20",
+    "@types/markdown-it": "^14.1.2",
     "@types/mocha": "^10.0.10",
     "@types/netmask": "^2.0.5",
     "@types/node": "^20.19.10",
     "chai": "^5.2.1",
+    "markdown-it": "^14.1.1",
     "mocha": "^10.8.2",
     "netmask": "^2.0.2",
     "nodemon": "^3.1.10",
