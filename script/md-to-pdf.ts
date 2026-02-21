@@ -28,7 +28,7 @@ const inputPath  = path.resolve(inputArg)
 const outputPath = argv._[1]
   ? path.resolve(argv._[1])
   : inputPath.replace(/\.md$/, '.pdf')
-const tmpHtml    = inputPath.replace(/\.md$/, '_tmp.html')
+const tmpHtml    = path.resolve('tmp', path.basename(inputPath).replace(/\.md$/, '_tmp.html'))
 
 const stylesDir  = path.resolve('docs/styles')
 const markdownCss  = await fs.readFile(`${stylesDir}/markdown.css`, 'utf8')

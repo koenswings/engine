@@ -148,5 +148,4 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-docs/*_tmp.html
-docs/*.pdf
+tmp/
