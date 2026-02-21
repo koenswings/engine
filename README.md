@@ -186,42 +186,13 @@ To configure this manually, or to change the session name, open `.vscode/setting
 }
 ```
 
-### OpenClaw (Web-Based AI Interface)
+### OpenClaw (Whole-Project AI Management)
 
-[OpenClaw](https://github.com/openclaw/openclaw) is a self-hosted AI assistant platform that provides a persistent, browser-based interface to Claude. It runs alongside the Engine as a Docker container and is the recommended interface for project management, documentation work, and multi-agent coordination (see `docs/openclaw-brainstorm.md`).
+Claude Code (above) is the tool for working directly on Engine software — writing code, running tests, making commits.
 
-OpenClaw is accessible from any device on the Tailscale network at `https://openclaw-pi.tail2d60.ts.net`. Its configuration lives in `/home/pi/openclaw/compose.yaml`.
+The broader project — Engine plus all other components, and the IDEA charity itself — is managed through an **OpenClaw** setup running on this same device. OpenClaw provides a persistent, browser-based AI interface where each component (Engine, Console, website, fundraising, communications, etc.) is represented as a dedicated agent with its own workspace and role definition.
 
-**Docker socket requirement:**
-
-OpenClaw's embedded Claude Code agent needs to spawn Docker containers for sandboxed tool execution. The OpenClaw container must have the Docker socket and CLI binary mounted in. Without these, sending a message in the chat will hang indefinitely. Ensure `compose.yaml` includes the following under the `openclaw` service volumes:
-
-```yaml
-- /var/run/docker.sock:/var/run/docker.sock
-- /usr/bin/docker:/usr/bin/docker:ro
-```
-
-**Starting / restarting OpenClaw:**
-```bash
-cd /home/pi/openclaw
-sudo docker compose up -d --force-recreate openclaw
-```
-
-**Checking logs:**
-```bash
-sudo docker exec openclaw-gateway cat /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log
-```
-
-**VS Code extensions:**
-
-Two extensions improve the documentation workflow when connected via Remote-SSH:
-
-| Extension | ID | Install on | Purpose |
-|-----------|-----|------------|---------|
-| Markdown PDF | `yzane.markdown-pdf` | Remote (SSH) | Generates intermediate HTML for `./md-to-pdf` |
-| vscode-pdf | `tomoki1207.pdf` | Local | View generated PDFs inline in VS Code |
-
-The Markdown PDF extension's built-in PDF export fails on ARM64 (Puppeteer cannot launch). Use `./md-to-pdf` instead (see Common Commands).
+See `/home/pi/openclaw/README.md` for full setup and usage documentation.
 
 ### Option 2: Containerized Development Environment (Deprecated)
 
