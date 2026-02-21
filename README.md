@@ -173,7 +173,7 @@ tmux attach -t claude
 
 **VS Code integration:**
 
-The `.vscode/settings.json` in this repository configures VS Code's integrated terminal to automatically attach to (or create) the `claude` tmux session. Every new terminal opened via Remote-SSH will reconnect to your existing session — no manual reattachment needed.
+The `.vscode/settings.json` in this repository configures VS Code's integrated terminal to automatically attach to (or create) the `claude` tmux session. Every new terminal opened via Remote-SSH will reconnect to your existing session — no manual reattachment needed. Mouse support (scrolling) is also enabled automatically on each attach.
 
 To configure this manually, or to change the session name, open `.vscode/settings.json` and set:
 ```json
@@ -181,7 +181,7 @@ To configure this manually, or to change the session name, open `.vscode/setting
 "terminal.integrated.profiles.linux": {
     "tmux": {
         "path": "bash",
-        "args": ["-c", "tmux attach -t claude 2>/dev/null || tmux new -s claude"]
+        "args": ["-c", "tmux attach -t claude 2>/dev/null || tmux new -s claude; tmux set -g mouse on"]
     }
 }
 ```
