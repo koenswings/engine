@@ -69,10 +69,9 @@ ${body}
 
   await fs.writeFile(tmpHtml, html)
   console.log(chalk.blue(`Generating: ${path.relative(process.cwd(), outputPath)}`))
-  // Feed HTML via stdin so wkhtmltopdf has no file:// base URL — fragment links
-  // then become true internal PDF navigation rather than absolute file:// links.
-  const proc = $`wkhtmltopdf --enable-local-file-access --page-size A4 --margin-top 15mm --margin-bottom 15mm --margin-left 15mm --margin-right 15mm - ${outputPath}`
-  proc.stdin.end(html)
+  // Chromium headless generates true internal GoTo PDF links for href="#id" targets,
+  // unlike wkhtmltopdf which embeds absolute file:// URIs that break on other machines.
+  await $`chromium --headless --no-sandbox --disable-gpu --no-pdf-header-footer --print-to-pdf=${outputPath} file://${tmpHtml}`
   console.log(chalk.green(`  ✓ ${path.relative(process.cwd(), outputPath)}`))
 }
 

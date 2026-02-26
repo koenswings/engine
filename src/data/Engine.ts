@@ -156,6 +156,7 @@ export const buildEngine = async (args: any) => {
   await installUdev(exec, enginePath);
   await installVarious(exec);
   await installVarious2(exec);
+  await installChromium(exec);
   await installGh(exec);
 
   await installDocker(exec, enginePath, user);
@@ -602,6 +603,18 @@ export const installVarious2 = async (exec: any) => {
     process.exit(1);
   }
   console.log(chalk.green('git, dnsutils, tree, lshw and cloud-guest-utils installed'));
+}
+
+export const installChromium = async (exec: any) => {
+  console.log(chalk.blue('Installing Chromium (required for md-to-pdf headless PDF generation)...'));
+  try {
+    await exec`sudo apt install chromium -y`;
+  } catch (e) {
+    console.log(chalk.red('Error installing Chromium'));
+    console.error(e);
+    process.exit(1);
+  }
+  console.log(chalk.green('Chromium installed'));
 }
 
 
