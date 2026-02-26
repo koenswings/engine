@@ -31,9 +31,27 @@ const highlightCss = await fs.readFile(`${stylesDir}/tomorrow.css`, 'utf8')
 const pdfCss       = await fs.readFile(`${stylesDir}/markdown-pdf.css`, 'utf8')
 const md           = new MarkdownIt({ html: true, linkify: true, typographer: true })
 
+// Generate a GitHub-compatible anchor id from a heading's text content
+function toAnchor(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')  // decode entities
+    .replace(/[^\w\s-]/g, '')  // remove chars that aren't word chars, spaces, or hyphens
+    .replace(/ /g, '-')        // each space → hyphen (preserves doubles from "—" removal)
+    .replace(/^-+|-+$/g, '')   // trim leading/trailing hyphens
+}
+
+// Add id attributes to heading elements so internal PDF links work
+function addHeadingIds(html: string): string {
+  return html.replace(/<(h[1-6])>(.*?)<\/\1>/gi, (_match, tag, inner) => {
+    const text = inner.replace(/<[^>]+>/g, '')  // strip inline HTML tags
+    return `<${tag} id="${toAnchor(text)}">${inner}</${tag}>`
+  })
+}
+
 async function convert(inputPath: string, outputPath: string) {
   const tmpHtml = path.resolve('tmp', path.basename(inputPath).replace(/\.md$/, '_tmp.html'))
-  const body    = md.render(await fs.readFile(inputPath, 'utf8'))
+  const body    = addHeadingIds(md.render(await fs.readFile(inputPath, 'utf8')))
 
   const html = `<!DOCTYPE html>
 <html>
