@@ -69,7 +69,10 @@ ${body}
 
   await fs.writeFile(tmpHtml, html)
   console.log(chalk.blue(`Generating: ${path.relative(process.cwd(), outputPath)}`))
-  await $`wkhtmltopdf --enable-local-file-access --page-size A4 --margin-top 15mm --margin-bottom 15mm --margin-left 15mm --margin-right 15mm ${tmpHtml} ${outputPath}`
+  // Feed HTML via stdin so wkhtmltopdf has no file:// base URL — fragment links
+  // then become true internal PDF navigation rather than absolute file:// links.
+  const proc = $`wkhtmltopdf --enable-local-file-access --page-size A4 --margin-top 15mm --margin-bottom 15mm --margin-left 15mm --margin-right 15mm - ${outputPath}`
+  proc.stdin.end(html)
   console.log(chalk.green(`  ✓ ${path.relative(process.cwd(), outputPath)}`))
 }
 
