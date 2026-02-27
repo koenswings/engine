@@ -1,40 +1,26 @@
-# TOOLS.md - Local Notes
+# TOOLS.md — Engine Developer
 
-Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+## Environment
 
-## What Goes Here
+- **Pi hostname:** engine-pi (or check `hostname` in the container)
+- **Projects root (host):** `/home/pi/idea/`
+- **Projects root (container):** `/home/node/workspace/`
+- **Engine repo:** `/home/node/workspace/agents/agent-engine-dev`
+- **Org root:** `/home/node/workspace/` (CONTEXT.md, BACKLOG.md, proposals/, etc.)
+- **OpenClaw data:** `/root/.openclaw/` (container)
 
-Things like:
+## SSH
 
-- Camera names and locations
-- SSH hosts and aliases
-- Preferred voices for TTS
-- Speaker/room names
-- Device nicknames
-- Anything environment-specific
+- Pi is on Tailscale. Connect via: `ssh pi@<tailscale-ip>`
+- Use `./script/sync-engine --machine <host>` to push code to the Pi
 
-## Examples
+## Key Paths
 
-```markdown
-### Cameras
+- Engine source: `src/`
+- Tests: `src/**/*.test.ts`
+- Built output: `dist/`
+- Udev rules: check Engine docs for hardware-specific paths
 
-- living-room → Main area, 180° wide angle
-- front-door → Entrance, motion-triggered
+## Notes
 
-### SSH
-
-- home-server → 192.168.1.100, user: admin
-
-### TTS
-
-- Preferred voice: "Nova" (warm, slightly British)
-- Default speaker: Kitchen HomePod
-```
-
-## Why Separate?
-
-Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
-
----
-
-Add whatever helps you do your job. This is your cheat sheet.
+_(Add local setup quirks here as you discover them — device names, port numbers, hardware-specific observations.)_
